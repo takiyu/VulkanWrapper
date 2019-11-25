@@ -135,6 +135,18 @@ int main(int argc, char const* argv[]) {
                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
                      &DebugMessengerCallback});
 
+    // Create a window surface
+    vk::UniqueSurfaceKHR surface([&]() {
+        VkSurfaceKHR s;
+        VkResult err = glfwCreateWindowSurface(instance.get(), window.get(),
+                                               nullptr, &s);
+        if (err) {
+            throw std::runtime_error("Failed to create window surface");
+        }
+        return s;
+    }());
+    //     vkCreateAndroidSurfaceKHR
+
     // Enumerate the physical devices
     auto physical_devices = instance->enumeratePhysicalDevices();
     vk::PhysicalDevice& physical_device = physical_devices.front();
@@ -146,13 +158,15 @@ int main(int argc, char const* argv[]) {
     // Get the first index into queueFamiliyProperties which supports graphics
     uint32_t queue_family_idx = 0;
     for (auto&& prop : queue_family_props) {
-        if (prop.queueFlags & vk::QueueFlagBits::eGraphics) {
+        if (prop.queueFlags & vk::QueueFlagBits::eGraphics &&
+            physical_device.getSurfaceSupportKHR(queue_family_idx,
+                                                 surface.get())) {
             break;
         }
         queue_family_idx++;
     }
     if (queue_family_idx == queue_family_props.size()) {
-        throw std::runtime_error("");
+        throw std::runtime_error("No sufficient queue");
     }
 
     // Create a logical device
@@ -175,18 +189,6 @@ int main(int argc, char const* argv[]) {
 
     // Use first command buffer
     vk::UniqueCommandBuffer& command_buffer = command_buffers[0];
-
-    // Create a window surface
-    vk::UniqueSurfaceKHR surface([&]() {
-        VkSurfaceKHR s;
-        VkResult err = glfwCreateWindowSurface(instance.get(), window.get(),
-                                               nullptr, &s);
-        if (err) {
-            throw std::runtime_error("Failed to create window surface");
-        }
-        return s;
-    }());
-    //     vkCreateAndroidSurfaceKHR
 
     while (!glfwWindowShouldClose(window.get())) {
         glfwPollEvents();
