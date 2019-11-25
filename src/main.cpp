@@ -1,3 +1,5 @@
+#include <bits/stdint-uintn.h>
+
 #include <iostream>
 #include <stdexcept>
 
@@ -9,68 +11,75 @@
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
-VkBool32 debugUtilsMessengerCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-        VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
-        void* /*pUserData*/) {
-    std::cerr << vk::to_string(
-                         static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(
-                                 messageSeverity))
-              << ": "
-              << vk::to_string(static_cast<vk::DebugUtilsMessageTypeFlagsEXT>(
-                         messageTypes))
-              << ":\n";
-    std::cerr << "\t"
-              << "messageIDName   = <" << pCallbackData->pMessageIdName
-              << ">\n";
-    std::cerr << "\t"
-              << "messageIdNumber = " << pCallbackData->messageIdNumber << "\n";
-    std::cerr << "\t"
-              << "message         = <" << pCallbackData->pMessage << ">\n";
-    if (0 < pCallbackData->queueLabelCount) {
-        std::cerr << "\t"
-                  << "Queue Labels:\n";
-        for (uint8_t i = 0; i < pCallbackData->queueLabelCount; i++) {
-            std::cerr << "\t\t"
-                      << "lableName = <"
-                      << pCallbackData->pQueueLabels[i].pLabelName << ">\n";
+static VkBool32 DebugMessengerCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT msg_severity,
+        VkDebugUtilsMessageTypeFlagsEXT msg_types,
+        VkDebugUtilsMessengerCallbackDataEXT const* callback, void*) {
+    // Create corresponding strings
+    const std::string& severity_str =
+            vk::to_string(static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(
+                    msg_severity));
+    const std::string& type_str = vk::to_string(
+            static_cast<vk::DebugUtilsMessageTypeFlagsEXT>(msg_types));
+
+    // Print messages
+    std::cerr << "-----------------------------------------------" << std::endl;
+    std::cerr << severity_str << ": " << type_str << ":" << std::endl;
+    std::cerr << "  Message ID Name (number) = <" << callback->pMessageIdName
+              << "> (" << callback->messageIdNumber << ")" << std::endl;
+    std::cerr << "  Message = \"" << callback->pMessage << "\"" << std::endl;
+    if (0 < callback->queueLabelCount) {
+        std::cerr << "  Queue Labels:" << std::endl;
+        for (uint8_t i = 0; i < callback->queueLabelCount; i++) {
+            const auto& name = callback->pQueueLabels[i].pLabelName;
+            std::cerr << "    " << i << ": " << name << std::endl;
         }
     }
-    if (0 < pCallbackData->cmdBufLabelCount) {
-        std::cerr << "\t"
-                  << "CommandBuffer Labels:\n";
-        for (uint8_t i = 0; i < pCallbackData->cmdBufLabelCount; i++) {
-            std::cerr << "\t\t"
-                      << "labelName = <"
-                      << pCallbackData->pCmdBufLabels[i].pLabelName << ">\n";
+    if (0 < callback->cmdBufLabelCount) {
+        std::cerr << "  CommandBuffer Labels:" << std::endl;
+        for (uint8_t i = 0; i < callback->cmdBufLabelCount; i++) {
+            const auto& name = callback->pCmdBufLabels[i].pLabelName;
+            std::cerr << "    " << i << ": " << name << std::endl;
         }
     }
-    if (0 < pCallbackData->objectCount) {
-        std::cerr << "\t"
-                  << "Objects:\n";
-        for (uint8_t i = 0; i < pCallbackData->objectCount; i++) {
-            std::cerr << "\t\t"
-                      << "Object " << i << "\n";
-            std::cerr << "\t\t\t"
-                      << "objectType   = "
-                      << vk::to_string(static_cast<vk::ObjectType>(
-                                 pCallbackData->pObjects[i].objectType))
-                      << "\n";
-            std::cerr << "\t\t\t"
-                      << "objectHandle = "
-                      << pCallbackData->pObjects[i].objectHandle << "\n";
-            if (pCallbackData->pObjects[i].pObjectName) {
-                std::cerr << "\t\t\t"
-                          << "objectName   = <"
-                          << pCallbackData->pObjects[i].pObjectName << ">\n";
+    if (0 < callback->objectCount) {
+        std::cerr << "  Objects:" << std::endl;
+        for (uint8_t i = 0; i < callback->objectCount; i++) {
+            const auto& type = vk::to_string(static_cast<vk::ObjectType>(
+                    callback->pObjects[i].objectType));
+            const auto& handle = callback->pObjects[i].objectHandle;
+            std::cerr << "    " << static_cast<int>(i) << ":" << std::endl;
+            std::cerr << "      objectType   = " << type << std::endl;
+            std::cerr << "      objectHandle = " << handle << std::endl;
+            if (callback->pObjects[i].pObjectName) {
+                const auto& on = callback->pObjects[i].pObjectName;
+                std::cerr << "      objectName   = <" << on << ">" << std::endl;
             }
         }
     }
+    std::cerr << "-----------------------------------------------" << std::endl;
     return VK_TRUE;
 }
 
+template <typename Allocator>
+static void PrintQueueFamilyProps(
+        const std::vector<vk::QueueFamilyProperties, Allocator>& props) {
+    std::cout << "QueueFamilyProperties" << std::endl;
+    for (uint32_t i = 0; i < props.size(); i++) {
+        const auto& flags_str = vk::to_string(props[i].queueFlags);
+        std::cout << "  " << i << ": " << flags_str << std::endl;
+    }
+}
+
+struct GlfwWinDeleter {
+    void operator()(GLFWwindow* ptr) {
+        glfwDestroyWindow(ptr);
+    }
+};
+
 int main(int argc, char const* argv[]) {
+    (void)argc, (void)argv;
+
     const char* app_name = "app name";
     const int app_version = 1;
     const char* engine_name = "engine name";
@@ -80,9 +89,16 @@ int main(int argc, char const* argv[]) {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    GLFWwindow* window = glfwCreateWindow(100, 100, app_name, nullptr, nullptr);
+    std::unique_ptr<GLFWwindow, GlfwWinDeleter> window(
+            glfwCreateWindow(100, 100, app_name, nullptr, nullptr));
     if (!glfwVulkanSupported()) {
         throw std::runtime_error("No Vulkan support");
+    }
+    // Print extension names required by GLFW
+    uint32_t cnt = 0;
+    const char** exts = glfwGetRequiredInstanceExtensions(&cnt);
+    for (size_t i = 0; i < cnt; i++) {
+        std::cout << exts[i] << std::endl;
     }
 
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
@@ -105,15 +121,16 @@ int main(int argc, char const* argv[]) {
     // Initialize dispatcher with Instance to get all the other function ptrs.
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
 
-    instance->createDebugUtilsMessengerEXTUnique(
-            vk::DebugUtilsMessengerCreateInfoEXT(
-                    {},
-                    {vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                     vk::DebugUtilsMessageSeverityFlagBitsEXT::eError},
-                    {vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                     vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
-                     vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
-                    &debugUtilsMessengerCallback));
+    // Create debug messenger
+    vk::UniqueDebugUtilsMessengerEXT debug_messenger =
+            instance->createDebugUtilsMessengerEXTUnique(
+                    {{},
+                     {vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                      vk::DebugUtilsMessageSeverityFlagBitsEXT::eError},
+                     {vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                      vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+                      vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
+                     &DebugMessengerCallback});
 
     // Enumerate the physical devices
     auto physical_devices = instance->enumeratePhysicalDevices();
@@ -121,15 +138,19 @@ int main(int argc, char const* argv[]) {
 
     // Get queue family properties
     auto queue_family_props = physical_device.getQueueFamilyProperties();
+    PrintQueueFamilyProps(queue_family_props);
 
-    // get the first index into queueFamiliyProperties which supports graphics
-    const uint32_t queue_family_idx = static_cast<uint32_t>(std::distance(
-            queue_family_props.begin(),
-            std::find_if(queue_family_props.begin(), queue_family_props.end(),
-                         [](vk::QueueFamilyProperties const& qfp) {
-                             return qfp.queueFlags &
-                                    vk::QueueFlagBits::eGraphics;
-                         })));
+    // Get the first index into queueFamiliyProperties which supports graphics
+    uint32_t queue_family_idx = 0;
+    for (auto&& prop : queue_family_props) {
+        if (prop.queueFlags & vk::QueueFlagBits::eGraphics) {
+            break;
+        }
+        queue_family_idx++;
+    }
+    if (queue_family_idx == queue_family_props.size()) {
+        throw std::runtime_error("");
+    }
 
     // Create a logical device
     float queue_priority = 0.f;
@@ -143,17 +164,31 @@ int main(int argc, char const* argv[]) {
             {vk::CommandPoolCreateFlags(), queue_family_idx});
 
     // Allocate a command buffer from the command pool
-    auto a = device->allocateCommandBuffersUnique(
-                                    {command_pool.get(),
-                                     vk::CommandBufferLevel::ePrimary, 1});
-    std::cout << a.size() << std::endl;
-//     vk::UniqueCommandBuffer command_buffer =
-//             std::move(device->allocateCommandBuffersUnique(
-//                                     {command_pool.get(),
-//                                      vk::CommandBufferLevel::ePrimary, 1})
-//                               .front());
+    const uint32_t N_COMMAND_BUFFERS = 1;
+    auto command_buffers = device->allocateCommandBuffersUnique(
+            {command_pool.get(), vk::CommandBufferLevel::ePrimary,
+             N_COMMAND_BUFFERS});
+    assert(command_buffers.size() == N_COMMAND_BUFFERS);
 
-    //     instance->createXlibSurfaceKHRUnique;
+    // Use first command buffer
+    vk::UniqueCommandBuffer& command_buffer = command_buffers[0];
+
+    // Create a window surface
+    vk::UniqueSurfaceKHR surface([&]() {
+        VkSurfaceKHR s;
+        VkResult err = glfwCreateWindowSurface(instance.get(), window.get(),
+                                               nullptr, &s);
+        std::cout << err << std::endl;
+        if (err) {
+            throw std::runtime_error("Failed to create window surface");
+        }
+        return s;
+    }());
+    //         instance->createWin32SurfaceKHRUnique({vk::Win32SurfaceCreateFlagsKHR(),
+    //         GetModuleHandle(nullptr), window});
+    //             instance->createXlibSurfaceKHRUnique;
+
+    //     vkCreateAndroidSurfaceKHR
 
     //     vk::UniqueSurfaceKHR surface =
     //     instance->createWin32SurfaceKHRUnique(vk::Win32SurfaceCreateInfoKHR(vk::Win32SurfaceCreateFlagsKHR(),
