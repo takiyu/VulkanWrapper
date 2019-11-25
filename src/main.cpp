@@ -1,5 +1,7 @@
 #include <bits/stdint-uintn.h>
+#include <vulkan/vulkan_core.h>
 
+#include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 
@@ -87,6 +89,7 @@ int main(int argc, char const* argv[]) {
 
     // Create GLFW window
     glfwInit();
+    atexit([]() { glfwTerminate(); });
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     std::unique_ptr<GLFWwindow, GlfwWinDeleter> window(
@@ -95,11 +98,8 @@ int main(int argc, char const* argv[]) {
         throw std::runtime_error("No Vulkan support");
     }
     // Print extension names required by GLFW
-    uint32_t cnt = 0;
-    const char** exts = glfwGetRequiredInstanceExtensions(&cnt);
-    for (size_t i = 0; i < cnt; i++) {
-        std::cout << exts[i] << std::endl;
-    }
+    uint32_t n_glfw_exts = 0;
+    const char** glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_exts);
 
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
@@ -111,6 +111,9 @@ int main(int argc, char const* argv[]) {
     // Create a Vulkan instance
     std::vector<char const*> enabled_layer = {"VK_LAYER_KHRONOS_validation"};
     std::vector<char const*> enabled_exts = {VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+    for (uint32_t i = 0; i < n_glfw_exts; i++) {
+        enabled_exts.push_back(glfw_exts[i]);
+    }
     vk::ApplicationInfo app_info = {app_name, app_version, engine_name,
                                     engine_version, VK_API_VERSION_1_1};
     vk::UniqueInstance instance = vk::createInstanceUnique(
@@ -178,28 +181,19 @@ int main(int argc, char const* argv[]) {
         VkSurfaceKHR s;
         VkResult err = glfwCreateWindowSurface(instance.get(), window.get(),
                                                nullptr, &s);
-        std::cout << err << std::endl;
         if (err) {
             throw std::runtime_error("Failed to create window surface");
         }
         return s;
     }());
-    //         instance->createWin32SurfaceKHRUnique({vk::Win32SurfaceCreateFlagsKHR(),
-    //         GetModuleHandle(nullptr), window});
-    //             instance->createXlibSurfaceKHRUnique;
-
     //     vkCreateAndroidSurfaceKHR
 
-    //     vk::UniqueSurfaceKHR surface =
-    //     instance->createWin32SurfaceKHRUnique(vk::Win32SurfaceCreateInfoKHR(vk::Win32SurfaceCreateFlagsKHR(),
-    //     GetModuleHandle(nullptr), window));
+    while (!glfwWindowShouldClose(window.get())) {
+        glfwPollEvents();
+        break;
+    }
 
-    //     while (!glfwWindowShouldClose(window)) {
-    //         glfwPollEvents();
-    //     }
-    //
-    //     glfwDestroyWindow(window);
-    //     glfwTerminate();
+    std::cout << "exit" << std::endl;
 
     return 0;
 }
