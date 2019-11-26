@@ -13,6 +13,11 @@
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
+template <typename T>
+inline T clamp(const T& x, const T& min_v, const T& max_v) {
+    return std::min(std::max(x, min_v), max_v);
+}
+
 static VkBool32 DebugMessengerCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT msg_severity,
         VkDebugUtilsMessageTypeFlagsEXT msg_types,
@@ -86,14 +91,17 @@ int main(int argc, char const* argv[]) {
     const int app_version = 1;
     const char* engine_name = "engine name";
     const int engine_version = 1;
+    uint32_t screen_w = 100;
+    uint32_t screen_h = 100;
 
     // Create GLFW window
     glfwInit();
     atexit([]() { glfwTerminate(); });
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    std::unique_ptr<GLFWwindow, GlfwWinDeleter> window(
-            glfwCreateWindow(100, 100, app_name, nullptr, nullptr));
+    std::unique_ptr<GLFWwindow, GlfwWinDeleter> window(glfwCreateWindow(
+            static_cast<int>(screen_w), static_cast<int>(screen_h), app_name,
+            nullptr, nullptr));
     if (!glfwVulkanSupported()) {
         throw std::runtime_error("No Vulkan support");
     }
@@ -136,15 +144,18 @@ int main(int argc, char const* argv[]) {
                      &DebugMessengerCallback});
 
     // Create a window surface
-    vk::UniqueSurfaceKHR surface([&]() {
-        VkSurfaceKHR s;
-        VkResult err = glfwCreateWindowSurface(instance.get(), window.get(),
-                                               nullptr, &s);
-        if (err) {
-            throw std::runtime_error("Failed to create window surface");
-        }
-        return s;
-    }());
+    using Deleter = vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>;
+    vk::UniqueSurfaceKHR surface(
+            [&]() {
+                VkSurfaceKHR s = nullptr;
+                VkResult err = glfwCreateWindowSurface(
+                        instance.get(), window.get(), nullptr, &s);
+                if (err) {
+                    throw std::runtime_error("Failed to create window surface");
+                }
+                return s;
+            }(),
+            Deleter(instance.get()));
     //     vkCreateAndroidSurfaceKHR
 
     // Enumerate the physical devices
@@ -189,6 +200,77 @@ int main(int argc, char const* argv[]) {
 
     // Use first command buffer
     vk::UniqueCommandBuffer& command_buffer = command_buffers[0];
+
+    // Get the supported surface VkFormats
+    auto surface_formats = physical_device.getSurfaceFormatsKHR(surface.get());
+    assert(!surface_formats.empty());
+    vk::Format surface_format = surface_formats[0].format;
+    if (surface_format == vk::Format::eUndefined) {
+        surface_format = vk::Format::eB8G8R8A8Unorm;
+    }
+
+    // Get the surface extent size
+    vk::SurfaceCapabilitiesKHR surface_capas =
+            physical_device.getSurfaceCapabilitiesKHR(surface.get());
+    VkExtent2D swapchain_extent = surface_capas.currentExtent;
+    if (swapchain_extent.width == std::numeric_limits<uint32_t>::max()) {
+        // If the surface size is undefined, setting screen size is requested.
+        const auto& min_ex = surface_capas.minImageExtent;
+        const auto& max_ex = surface_capas.maxImageExtent;
+        swapchain_extent.width = clamp(screen_w, min_ex.width, max_ex.width);
+        swapchain_extent.height = clamp(screen_h, min_ex.height, max_ex.height);
+    }
+
+    // Set swapchain present mode
+    vk::PresentModeKHR swapchain_present_mode = vk::PresentModeKHR::eFifo;
+
+    // Set swapchain pre-transform
+    vk::SurfaceTransformFlagBitsKHR pre_trans = surface_capas.currentTransform;
+    if (surface_capas.supportedTransforms &
+        vk::SurfaceTransformFlagBitsKHR::eIdentity) {
+        pre_trans = vk::SurfaceTransformFlagBitsKHR::eIdentity;
+    }
+
+    // Set swapchain composite alpha
+    vk::CompositeAlphaFlagBitsKHR composite_alpha;
+    const auto& suppored_flag = surface_capas.supportedCompositeAlpha;
+    if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::ePreMultiplied) {
+        composite_alpha = vk::CompositeAlphaFlagBitsKHR::ePreMultiplied;
+    } else if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::ePostMultiplied) {
+        composite_alpha = vk::CompositeAlphaFlagBitsKHR::ePostMultiplied;
+    } else if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::eInherit) {
+        composite_alpha = vk::CompositeAlphaFlagBitsKHR::eInherit;
+    } else {
+        composite_alpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    }
+
+    // Create swapchain
+    vk::UniqueSwapchainKHR swapchain = device->createSwapchainKHRUnique(
+            {vk::SwapchainCreateFlagsKHR(), surface.get(),
+             surface_capas.minImageCount, surface_format,
+             vk::ColorSpaceKHR::eSrgbNonlinear, swapchain_extent, 1,
+             vk::ImageUsageFlagBits::eColorAttachment,
+             vk::SharingMode::eExclusive, 0, nullptr, pre_trans,
+             composite_alpha, swapchain_present_mode, true, nullptr});
+
+    // Get swapchain images
+    std::vector<vk::Image> swapchain_imgs =
+            device->getSwapchainImagesKHR(swapchain.get());
+
+    // Create image views for swapchain
+    std::vector<vk::UniqueImageView> img_views;
+    img_views.reserve(swapchain_imgs.size());
+    vk::ComponentMapping comp_mapping(
+            vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
+            vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA);
+    vk::ImageSubresourceRange sub_res_range(vk::ImageAspectFlagBits::eColor,
+                                               0, 1, 0, 1);
+    for (auto image : swapchain_imgs) {
+        auto img_view = device->createImageViewUnique({
+                vk::ImageViewCreateFlags(), image, vk::ImageViewType::e2D,
+                surface_format, comp_mapping, sub_res_range});
+        img_views.push_back(std::move(img_view));
+    }
 
     while (!glfwWindowShouldClose(window.get())) {
         glfwPollEvents();
