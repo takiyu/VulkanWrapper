@@ -91,8 +91,8 @@ int main(int argc, char const* argv[]) {
     const int app_version = 1;
     const char* engine_name = "engine name";
     const int engine_version = 1;
-    uint32_t screen_w = 100;
-    uint32_t screen_h = 100;
+    uint32_t screen_w = 200;
+    uint32_t screen_h = 200;
 
     // Create GLFW window
     glfwInit();
@@ -184,8 +184,15 @@ int main(int argc, char const* argv[]) {
     float queue_priority = 0.f;
     vk::DeviceQueueCreateInfo device_queue_create_info = {
             vk::DeviceQueueCreateFlags(), queue_family_idx, 1, &queue_priority};
+    const std::vector<const char*> device_exts = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
     vk::UniqueDevice device = physical_device.createDeviceUnique(
-            {vk::DeviceCreateFlags(), 1, &device_queue_create_info});
+            {vk::DeviceCreateFlags(), 1, &device_queue_create_info, 0, nullptr,
+             static_cast<uint32_t>(device_exts.size()), device_exts.data()});
+
+    // Initialize dispatcher for device
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(device.get());
 
     // Create a command pool
     vk::UniqueCommandPool command_pool = device->createCommandPoolUnique(
