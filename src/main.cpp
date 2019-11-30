@@ -1,9 +1,10 @@
-#include <bits/stdint-uintn.h>
-#include <vulkan/vulkan_core.h>
-
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
+
+#include <glm/glm.hpp>
+#include <glm/geometric.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -185,8 +186,7 @@ int main(int argc, char const* argv[]) {
     vk::DeviceQueueCreateInfo device_queue_create_info = {
             vk::DeviceQueueCreateFlags(), queue_family_idx, 1, &queue_priority};
     const std::vector<const char*> device_exts = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     vk::UniqueDevice device = physical_device.createDeviceUnique(
             {vk::DeviceCreateFlags(), 1, &device_queue_create_info, 0, nullptr,
              static_cast<uint32_t>(device_exts.size()), device_exts.data()});
@@ -267,17 +267,104 @@ int main(int argc, char const* argv[]) {
     // Create image views for swapchain
     std::vector<vk::UniqueImageView> img_views;
     img_views.reserve(swapchain_imgs.size());
-    vk::ComponentMapping comp_mapping(
+    vk::ComponentMapping surface_comp_mapping(
             vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
             vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA);
-    vk::ImageSubresourceRange sub_res_range(vk::ImageAspectFlagBits::eColor,
-                                               0, 1, 0, 1);
+    vk::ImageSubresourceRange surface_sub_res_range(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
     for (auto image : swapchain_imgs) {
-        auto img_view = device->createImageViewUnique({
-                vk::ImageViewCreateFlags(), image, vk::ImageViewType::e2D,
-                surface_format, comp_mapping, sub_res_range});
+        auto img_view = device->createImageViewUnique(
+                {vk::ImageViewCreateFlags(), image, vk::ImageViewType::e2D,
+                 surface_format, surface_comp_mapping, surface_sub_res_range});
         img_views.push_back(std::move(img_view));
     }
+
+    // Create depth image
+    const vk::Format depth_format = vk::Format::eD16Unorm;
+    auto depth_format_props = physical_device.getFormatProperties(depth_format);
+    vk::ImageTiling tiling;
+    if (depth_format_props.linearTilingFeatures &
+        vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+        tiling = vk::ImageTiling::eLinear;
+    } else if (depth_format_props.optimalTilingFeatures &
+               vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+        tiling = vk::ImageTiling::eOptimal;
+    } else {
+        throw std::runtime_error(
+                "DepthStencilAttachment is not supported for "
+                "D16Unorm depth format.");
+    }
+    vk::UniqueImage depth_img = device->createImageUnique(
+            {vk::ImageCreateFlags(), vk::ImageType::e2D, depth_format,
+             vk::Extent3D(swapchain_extent, 1), 1, 1,
+             vk::SampleCountFlagBits::e1, tiling,
+             vk::ImageUsageFlagBits::eDepthStencilAttachment});
+
+    // Allocate depth memory
+    auto memory_props = physical_device.getMemoryProperties();
+    auto memory_requs = device->getImageMemoryRequirements(depth_img.get());
+    uint32_t type_bits = memory_requs.memoryTypeBits;
+    uint32_t type_idx = uint32_t(~0);
+    for (uint32_t i = 0; i < memory_props.memoryTypeCount; i++) {
+        if ((type_bits & 1) && (memory_props.memoryTypes[i].propertyFlags ==
+                                vk::MemoryPropertyFlagBits::eDeviceLocal)) {
+            type_idx = i;
+            break;
+        }
+        type_bits >>= 1;
+    }
+    assert(type_idx != ~0);
+    vk::UniqueDeviceMemory depth_memory =
+            device->allocateMemoryUnique({memory_requs.size, type_idx});
+
+    // Bind depth image and memory
+    device->bindImageMemory(depth_img.get(), depth_memory.get(), 0);
+
+    // Create depth view
+    vk::ComponentMapping depth_comp_mapping(
+            vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
+            vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA);
+    vk::ImageSubresourceRange depth_sub_res_range(
+            vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1);
+    vk::UniqueImageView depth_view = device->createImageViewUnique(
+            vk::ImageViewCreateInfo(vk::ImageViewCreateFlags(), depth_img.get(),
+                                    vk::ImageViewType::e2D, depth_format,
+                                    depth_comp_mapping, depth_sub_res_range));
+
+    // Create uniform buffer
+    glm::mat4x4 model_mat = glm::mat4x4(1.0f);
+    glm::mat4x4 view_mat = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f),
+                                       glm::vec3(0.0f, 0.0f, 0.0f),
+                                       glm::vec3(0.0f, -1.0f, 0.0f));
+    glm::mat4x4 proj_mat =
+            glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+    glm::mat4x4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
+                            0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
+                            0.0f, 0.0f, 0.5f, 1.0f};  // vulkan clip space has
+                                                      // inverted y and half z !
+    glm::mat4x4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
+
+    vk::UniqueBuffer uniform_buffer = device->createBufferUnique(
+            vk::BufferCreateInfo(vk::BufferCreateFlags(), sizeof(mvpc_mat),
+                                 vk::BufferUsageFlagBits::eUniformBuffer));
+
+//     vk::MemoryRequirements uniform_memory_requs =
+//             device->getBufferMemoryRequirements(uniform_buffer.get());
+//     uint32_t typeIndex = vk::su::findMemoryType(
+//             physicalDevice.getMemoryProperties(),
+//             memoryRequirements.memoryTypeBits,
+//             vk::MemoryPropertyFlagBits::eHostVisible |
+//                     vk::MemoryPropertyFlagBits::eHostCoherent);
+//     vk::UniqueDeviceMemory uniformDataMemory = device->allocateMemoryUnique(
+//             vk::MemoryAllocateInfo(memoryRequirements.size, typeIndex));
+//
+//     uint8_t* pData = static_cast<uint8_t*>(device->mapMemory(
+//             uniformDataMemory.get(), 0, memoryRequirements.size));
+//     memcpy(pData, &mvpc_mat, sizeof(mvpc_mat));
+//     device->unmapMemory(uniformDataMemory.get());
+//
+//     device->bindBufferMemory(uniform_buffer.get(), uniformDataMemory.get(),
+//                              0);
 
     while (!glfwWindowShouldClose(window.get())) {
         glfwPollEvents();

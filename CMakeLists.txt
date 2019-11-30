@@ -91,6 +91,9 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw)
 list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw/include)
 list(APPEND VKPR_LIBRARY glfw)
 
+# GLM
+list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
+
 
 # ------------------------------------------------------------------------------
 # ----------------------------- Internal Libraries -----------------------------
