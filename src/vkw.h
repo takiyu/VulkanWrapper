@@ -73,9 +73,9 @@ struct CommandBuffersPack {
     vk::UniqueCommandPool pool;
     std::vector<vk::UniqueCommandBuffer> cmd_bufs;
 };
-CommandBuffersPack CreateCommandBuffers(
-        const vk::Device& device, uint32_t queue_family_idx,
-        uint32_t n_cmd_buffers = 1);
+CommandBuffersPack CreateCommandBuffers(const vk::Device& device,
+                                        uint32_t queue_family_idx,
+                                        uint32_t n_cmd_buffers = 1);
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
@@ -97,6 +97,7 @@ struct ImagePack {
     vk::UniqueImage img;
     vk::UniqueImageView view;
     vk::UniqueDeviceMemory dev_mem;
+    vk::DeviceSize dev_mem_size;
 };
 ImagePack CreateImage(
         const vk::PhysicalDevice& physical_device, const vk::Device& device,
@@ -108,12 +109,16 @@ ImagePack CreateImage(
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
         bool is_staging = false, bool is_shared = false);
 
+void SendToDevice(const vk::Device& device, const ImagePack& img_pack,
+                  const void* data, uint64_t n_bytes);
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
 struct BufferPack {
     vk::UniqueBuffer buf;
     vk::UniqueDeviceMemory dev_mem;
+    vk::DeviceSize dev_mem_size;
 };
 BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
                         const vk::Device& device,
@@ -122,6 +127,9 @@ BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
                                 vk::BufferUsageFlagBits::eVertexBuffer,
                         const vk::MemoryPropertyFlags& memory_props =
                                 vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+void SendToDevice(const vk::Device& device, const BufferPack& buf_pack,
+                  const void* data, uint64_t n_bytes);
 
 }  // namespace vkw
 

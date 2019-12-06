@@ -69,6 +69,7 @@ int main(int argc, char const* argv[]) {
             vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
+    vkw::SendToDevice(*device, uniform_buf_pack, &mvpc_mat[0], 16 * sizeof(float));
 
     // clang-format off
 //

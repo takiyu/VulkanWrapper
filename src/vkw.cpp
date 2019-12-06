@@ -9,6 +9,8 @@
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
+namespace vkw {
+
 namespace {
 
 // -----------------------------------------------------------------------------
@@ -138,28 +140,16 @@ static auto SelectSwapchainProps(const vk::PhysicalDevice& physical_device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static auto GetMemoryRequirements(const vk::Device& device,
-                                  const vk::Buffer& buf) {
-    return device.getBufferMemoryRequirements(buf);
-}
-
-static auto GetMemoryRequirements(const vk::Device& device,
-                                  const vk::Image& img) {
-    return device.getImageMemoryRequirements(img);
-}
-
-template <typename T>
 vk::UniqueDeviceMemory AllocMemory(
-        T buf_or_img, const vk::Device& device,
-        const vk::PhysicalDevice& physical_device,
+        const vk::Device& device, const vk::PhysicalDevice& physical_device,
+        const vk::MemoryRequirements& memory_requs,
         const vk::MemoryPropertyFlags& require_flags) {
-    auto memory_props = physical_device.getMemoryProperties();
-    auto memory_requs = GetMemoryRequirements(device, buf_or_img);
+    auto actual_memory_props = physical_device.getMemoryProperties();
     uint32_t type_bits = memory_requs.memoryTypeBits;
     uint32_t type_idx = uint32_t(~0);
-    for (uint32_t i = 0; i < memory_props.memoryTypeCount; i++) {
+    for (uint32_t i = 0; i < actual_memory_props.memoryTypeCount; i++) {
         if ((type_bits & 1) &&
-            IsSufficient(memory_props.memoryTypes[i].propertyFlags,
+            IsSufficient(actual_memory_props.memoryTypes[i].propertyFlags,
                          require_flags)) {
             type_idx = i;
             break;
@@ -187,13 +177,20 @@ static vk::UniqueImageView CreateImageView(const vk::Image& img,
     return view;
 }
 
+static void SendToDevice(const vk::Device& device,
+                         const vk::DeviceMemory& dev_mem,
+                         const vk::DeviceSize& dev_mem_size, const void* data,
+                         uint64_t n_bytes) {
+    uint8_t* dev_p = static_cast<uint8_t*>(device.mapMemory(dev_mem, 0, dev_mem_size));
+    memcpy(dev_p, data, n_bytes);
+    device.unmapMemory(dev_mem);
+}
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 }  // namespace
-
-namespace vkw {
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- GLFW ------------------------------------
@@ -459,7 +456,9 @@ ImagePack CreateImage(const vk::PhysicalDevice& physical_device,
              usage, sharing});
 
     // Allocate memory
-    auto device_mem = AllocMemory(*img, device, physical_device, memory_props);
+    auto memory_requs = device.getImageMemoryRequirements(*img);
+    auto device_mem =
+            AllocMemory(device, physical_device, memory_requs, memory_props);
 
     // Bind memory
     device.bindImageMemory(img.get(), device_mem.get(), 0);
@@ -467,7 +466,14 @@ ImagePack CreateImage(const vk::PhysicalDevice& physical_device,
     // Create image view
     auto img_view = CreateImageView(*img, format, aspects, device);
 
-    return {std::move(img), std::move(img_view), std::move(device_mem)};
+    return {std::move(img), std::move(img_view), std::move(device_mem),
+            memory_requs.size};
+}
+
+void SendToDevice(const vk::Device& device, const ImagePack& img_pack,
+                  const void* data, uint64_t n_bytes) {
+    SendToDevice(device, *img_pack.dev_mem, img_pack.dev_mem_size, data,
+                 n_bytes);
 }
 
 // -----------------------------------------------------------------------------
@@ -482,12 +488,20 @@ BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
             device.createBufferUnique({vk::BufferCreateFlags(), size, usage});
 
     // Allocate memory
-    auto device_mem = AllocMemory(*buf, device, physical_device, memory_props);
+    auto memory_requs = device.getBufferMemoryRequirements(*buf);
+    auto device_mem =
+            AllocMemory(device, physical_device, memory_requs, memory_props);
 
     // Bind memory
     device.bindBufferMemory(buf.get(), device_mem.get(), 0);
 
-    return {std::move(buf), std::move(device_mem)};
+    return {std::move(buf), std::move(device_mem), memory_requs.size};
+}
+
+void SendToDevice(const vk::Device& device, const BufferPack& buf_pack,
+                  const void* data, uint64_t n_bytes) {
+    SendToDevice(device, *(buf_pack.dev_mem), buf_pack.dev_mem_size, data,
+                 n_bytes);
 }
 
 }  // namespace vkw
