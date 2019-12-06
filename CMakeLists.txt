@@ -102,5 +102,6 @@ list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
 # GUI Editor
 add_executable(main
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vkw.cpp
 )
 setup_target(main "${VKPR_INCLUDE}" "${VKPR_LIBRARY}")
