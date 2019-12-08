@@ -1,13 +1,11 @@
 #ifndef VKW_H_20191130
 #define VKW_H_20191130
 
-#include <bits/stdint-uintn.h>
+#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#ifndef VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
-#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
-#endif
 #include <vulkan/vulkan.hpp>
 
 namespace vkw {
@@ -20,9 +18,9 @@ struct GLFWWindowDeleter {
         glfwDestroyWindow(ptr);
     }
 };
-using GLFWWindowUnique = std::unique_ptr<GLFWwindow, GLFWWindowDeleter>;
+using UniqueGLFWWindow = std::unique_ptr<GLFWwindow, GLFWWindowDeleter>;
 
-GLFWWindowUnique InitGLFWWindow(const std::string& win_name, uint32_t win_w,
+UniqueGLFWWindow InitGLFWWindow(const std::string& win_name, uint32_t win_w,
                                 uint32_t win_h);
 
 // -----------------------------------------------------------------------------
@@ -36,13 +34,17 @@ vk::UniqueInstance CreateInstance(const std::string& app_name,
 // -----------------------------------------------------------------------------
 // ------------------------------ PhysicalDevice -------------------------------
 // -----------------------------------------------------------------------------
-std::vector<vk::PhysicalDevice> GetPhysicalDevices(const vk::Instance& inst);
+std::vector<vk::PhysicalDevice> GetPhysicalDevices(
+        const vk::UniqueInstance& instance);
 
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueSurfaceKHR CreateSurface(const vk::Instance& instance,
-                                   GLFWwindow* window);
+vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
+                                   const UniqueGLFWWindow& window);
+
+vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
+                            const vk::UniqueSurfaceKHR& surface);
 
 // -----------------------------------------------------------------------------
 // -------------------------------- Queue Family -------------------------------
@@ -55,7 +57,7 @@ std::vector<uint32_t> GetQueueFamilyIdxs(
 
 uint32_t GetGraphicPresentQueueFamilyIdx(
         const vk::PhysicalDevice& physical_device,
-        const vk::SurfaceKHR& surface,
+        const vk::UniqueSurfaceKHR& surface,
         const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics);
 
 // -----------------------------------------------------------------------------
@@ -73,7 +75,7 @@ struct CommandBuffersPack {
     vk::UniqueCommandPool pool;
     std::vector<vk::UniqueCommandBuffer> cmd_bufs;
 };
-CommandBuffersPack CreateCommandBuffers(const vk::Device& device,
+CommandBuffersPack CreateCommandBuffers(const vk::UniqueDevice& device,
                                         uint32_t queue_family_idx,
                                         uint32_t n_cmd_buffers = 1);
 
@@ -85,10 +87,13 @@ struct SwapchainPack {
     std::vector<vk::UniqueImageView> views;
     vk::Extent2D size;
 };
-SwapchainPack CreateSwapchain(const vk::PhysicalDevice& physical_device,
-                              const vk::Device& device,
-                              const vk::SurfaceKHR& surface, uint32_t win_w = 0,
-                              uint32_t win_h = 0);
+SwapchainPack CreateSwapchain(
+        const vk::PhysicalDevice& physical_device,
+        const vk::UniqueDevice& device, const vk::UniqueSurfaceKHR& surface,
+        uint32_t win_w = 0, uint32_t win_h = 0,
+        const vk::Format& surface_format = vk::Format::eUndefined,
+        const vk::ImageUsageFlags& usage =
+                vk::ImageUsageFlagBits::eColorAttachment);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
@@ -100,8 +105,9 @@ struct ImagePack {
     vk::DeviceSize dev_mem_size;
 };
 ImagePack CreateImage(
-        const vk::PhysicalDevice& physical_device, const vk::Device& device,
-        const vk::Format format = vk::Format::eR8G8B8A8Uint,
+        const vk::PhysicalDevice& physical_device,
+        const vk::UniqueDevice& device,
+        const vk::Format& format = vk::Format::eR8G8B8A8Uint,
         const vk::Extent2D& size = {256, 256},
         const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
         const vk::MemoryPropertyFlags& memory_props =
@@ -109,7 +115,7 @@ ImagePack CreateImage(
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
         bool is_staging = false, bool is_shared = false);
 
-void SendToDevice(const vk::Device& device, const ImagePack& img_pack,
+void SendToDevice(const vk::UniqueDevice& device, const ImagePack& img_pack,
                   const void* data, uint64_t n_bytes);
 
 // -----------------------------------------------------------------------------
@@ -121,14 +127,14 @@ struct BufferPack {
     vk::DeviceSize dev_mem_size;
 };
 BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
-                        const vk::Device& device,
+                        const vk::UniqueDevice& device,
                         const vk::DeviceSize& size = 256,
                         const vk::BufferUsageFlags& usage =
                                 vk::BufferUsageFlagBits::eVertexBuffer,
                         const vk::MemoryPropertyFlags& memory_props =
                                 vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-void SendToDevice(const vk::Device& device, const BufferPack& buf_pack,
+void SendToDevice(const vk::UniqueDevice& device, const BufferPack& buf_pack,
                   const void* data, uint64_t n_bytes);
 
 }  // namespace vkw

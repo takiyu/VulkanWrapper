@@ -83,23 +83,12 @@ static VkBool32 DebugMessengerCallback(
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
-                                   const vk::SurfaceKHR& surface) {
-    auto surface_formats = physical_device.getSurfaceFormatsKHR(surface);
-    assert(!surface_formats.empty());
-    vk::Format surface_format = surface_formats[0].format;
-    if (surface_format == vk::Format::eUndefined) {
-        surface_format = vk::Format::eB8G8R8A8Unorm;
-    }
-    return surface_format;
-}
-
 static auto SelectSwapchainProps(const vk::PhysicalDevice& physical_device,
-                                 const vk::SurfaceKHR& surface, uint32_t win_w,
-                                 uint32_t win_h) {
+                                 const vk::UniqueSurfaceKHR& surface,
+                                 uint32_t win_w, uint32_t win_h) {
     // Get all capabilities
     const vk::SurfaceCapabilitiesKHR& surface_capas =
-            physical_device.getSurfaceCapabilitiesKHR(surface);
+            physical_device.getSurfaceCapabilitiesKHR(surface.get());
 
     // Get the surface extent size
     VkExtent2D swapchain_extent = surface_capas.currentExtent;
@@ -141,7 +130,8 @@ static auto SelectSwapchainProps(const vk::PhysicalDevice& physical_device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 vk::UniqueDeviceMemory AllocMemory(
-        const vk::Device& device, const vk::PhysicalDevice& physical_device,
+        const vk::UniqueDevice& device,
+        const vk::PhysicalDevice& physical_device,
         const vk::MemoryRequirements& memory_requs,
         const vk::MemoryPropertyFlags& require_flags) {
     auto actual_memory_props = physical_device.getMemoryProperties();
@@ -160,30 +150,31 @@ vk::UniqueDeviceMemory AllocMemory(
         throw std::runtime_error("Failed to allocate requested memory");
     }
 
-    return device.allocateMemoryUnique({memory_requs.size, type_idx});
+    return device->allocateMemoryUnique({memory_requs.size, type_idx});
 }
 
 static vk::UniqueImageView CreateImageView(const vk::Image& img,
                                            const vk::Format& format,
                                            const vk::ImageAspectFlags& aspects,
-                                           const vk::Device& device) {
+                                           const vk::UniqueDevice& device) {
     const vk::ComponentMapping comp_mapping(
             vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
             vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA);
     vk::ImageSubresourceRange sub_res_range(aspects, 0, 1, 0, 1);
-    auto view = device.createImageViewUnique({vk::ImageViewCreateFlags(), img,
-                                              vk::ImageViewType::e2D, format,
-                                              comp_mapping, sub_res_range});
+    auto view = device->createImageViewUnique({vk::ImageViewCreateFlags(), img,
+                                               vk::ImageViewType::e2D, format,
+                                               comp_mapping, sub_res_range});
     return view;
 }
 
-static void SendToDevice(const vk::Device& device,
-                         const vk::DeviceMemory& dev_mem,
+static void SendToDevice(const vk::UniqueDevice& device,
+                         const vk::UniqueDeviceMemory& dev_mem,
                          const vk::DeviceSize& dev_mem_size, const void* data,
                          uint64_t n_bytes) {
-    uint8_t* dev_p = static_cast<uint8_t*>(device.mapMemory(dev_mem, 0, dev_mem_size));
+    uint8_t* dev_p = static_cast<uint8_t*>(
+            device->mapMemory(dev_mem.get(), 0, dev_mem_size));
     memcpy(dev_p, data, n_bytes);
-    device.unmapMemory(dev_mem);
+    device->unmapMemory(dev_mem.get());
 }
 
 // -----------------------------------------------------------------------------
@@ -195,7 +186,7 @@ static void SendToDevice(const vk::Device& device,
 // -----------------------------------------------------------------------------
 // ----------------------------------- GLFW ------------------------------------
 // -----------------------------------------------------------------------------
-GLFWWindowUnique InitGLFWWindow(const std::string& win_name, uint32_t win_w,
+UniqueGLFWWindow InitGLFWWindow(const std::string& win_name, uint32_t win_w,
                                 uint32_t win_h) {
     // Initialize GLFW
     glfwInit();
@@ -204,7 +195,7 @@ GLFWWindowUnique InitGLFWWindow(const std::string& win_name, uint32_t win_w,
     // Create GLFW window
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    GLFWWindowUnique window(
+    UniqueGLFWWindow window(
             glfwCreateWindow(static_cast<int>(win_w), static_cast<int>(win_h),
                              win_name.c_str(), nullptr, nullptr));
     if (!glfwVulkanSupported()) {
@@ -265,18 +256,20 @@ vk::UniqueInstance CreateInstance(const std::string& app_name,
 // -----------------------------------------------------------------------------
 // ------------------------------ PhysicalDevice -------------------------------
 // -----------------------------------------------------------------------------
-std::vector<vk::PhysicalDevice> GetPhysicalDevices(const vk::Instance& inst) {
-    return inst.enumeratePhysicalDevices();
+std::vector<vk::PhysicalDevice> GetPhysicalDevices(
+        const vk::UniqueInstance& instance) {
+    return instance->enumeratePhysicalDevices();
 }
 
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueSurfaceKHR CreateSurface(const vk::Instance& instance,
-                                   GLFWwindow* window) {
+vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
+                                   const UniqueGLFWWindow& window) {
     // Create a window surface (GLFW)
     VkSurfaceKHR s_raw = nullptr;
-    VkResult err = glfwCreateWindowSurface(instance, window, nullptr, &s_raw);
+    VkResult err =
+            glfwCreateWindowSurface(*instance, window.get(), nullptr, &s_raw);
     if (err) {
         throw std::runtime_error("Failed to create window surface");
     }
@@ -286,9 +279,20 @@ vk::UniqueSurfaceKHR CreateSurface(const vk::Instance& instance,
 
     // Smart wrapper
     using Deleter = vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>;
-    vk::UniqueSurfaceKHR surface(s_raw, Deleter(instance));
+    vk::UniqueSurfaceKHR surface(s_raw, Deleter(*instance));
 
     return surface;
+}
+
+vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
+                            const vk::UniqueSurfaceKHR& surface) {
+    auto surface_formats = physical_device.getSurfaceFormatsKHR(surface.get());
+    assert(!surface_formats.empty());
+    vk::Format surface_format = surface_formats[0].format;
+    if (surface_format == vk::Format::eUndefined) {
+        surface_format = vk::Format::eB8G8R8A8Unorm;
+    }
+    return surface_format;
 }
 
 // -----------------------------------------------------------------------------
@@ -324,14 +328,15 @@ std::vector<uint32_t> GetQueueFamilyIdxs(
 
 uint32_t GetGraphicPresentQueueFamilyIdx(
         const vk::PhysicalDevice& physical_device,
-        const vk::SurfaceKHR& surface, const vk::QueueFlags& queue_flags) {
+        const vk::UniqueSurfaceKHR& surface,
+        const vk::QueueFlags& queue_flags) {
     // Get graphics queue family indices
     auto graphic_idxs = GetQueueFamilyIdxs(physical_device, queue_flags);
 
     // Extract present queue indices
     std::vector<uint32_t> graphic_present_idxs;
     for (auto&& idx : graphic_idxs) {
-        if (physical_device.getSurfaceSupportKHR(idx, surface)) {
+        if (physical_device.getSurfaceSupportKHR(idx, surface.get())) {
             graphic_present_idxs.push_back(idx);
         }
     }
@@ -376,15 +381,15 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 // -----------------------------------------------------------------------------
 // ------------------------------- Command Buffer ------------------------------
 // -----------------------------------------------------------------------------
-CommandBuffersPack CreateCommandBuffers(const vk::Device& device,
+CommandBuffersPack CreateCommandBuffers(const vk::UniqueDevice& device,
                                         uint32_t queue_family_idx,
                                         uint32_t n_cmd_buffers) {
     // Create a command pool
-    vk::UniqueCommandPool command_pool = device.createCommandPoolUnique(
+    vk::UniqueCommandPool command_pool = device->createCommandPoolUnique(
             {vk::CommandPoolCreateFlags(), queue_family_idx});
 
     // Allocate a command buffer from the command pool
-    auto cmd_bufs = device.allocateCommandBuffersUnique(
+    auto cmd_bufs = device->allocateCommandBuffersUnique(
             {command_pool.get(), vk::CommandBufferLevel::ePrimary,
              n_cmd_buffers});
 
@@ -395,14 +400,18 @@ CommandBuffersPack CreateCommandBuffers(const vk::Device& device,
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
 SwapchainPack CreateSwapchain(const vk::PhysicalDevice& physical_device,
-                              const vk::Device& device,
-                              const vk::SurfaceKHR& surface, uint32_t win_w,
-                              uint32_t win_h) {
+                              const vk::UniqueDevice& device,
+                              const vk::UniqueSurfaceKHR& surface,
+                              uint32_t win_w, uint32_t win_h,
+                              const vk::Format& surface_format_,
+                              const vk::ImageUsageFlags& usage) {
     // Set swapchain present mode
     const vk::PresentModeKHR swapchain_present_mode = vk::PresentModeKHR::eFifo;
 
     // Get the supported surface VkFormats
-    const auto surface_format = GetSurfaceFormat(physical_device, surface);
+    auto surface_format = (surface_format_ == vk::Format::eUndefined) ?
+                                  GetSurfaceFormat(physical_device, surface) :
+                                  surface_format_;
 
     // Select properties from capabilities
     auto props = SelectSwapchainProps(physical_device, surface, win_w, win_h);
@@ -412,15 +421,15 @@ SwapchainPack CreateSwapchain(const vk::PhysicalDevice& physical_device,
     const auto& min_img_cnt = std::get<3>(props);
 
     // Create swapchain
-    vk::UniqueSwapchainKHR swapchain = device.createSwapchainKHRUnique(
-            {vk::SwapchainCreateFlagsKHR(), surface, min_img_cnt,
+    vk::UniqueSwapchainKHR swapchain = device->createSwapchainKHRUnique(
+            {vk::SwapchainCreateFlagsKHR(), surface.get(), min_img_cnt,
              surface_format, vk::ColorSpaceKHR::eSrgbNonlinear,
-             swapchain_extent, 1, vk::ImageUsageFlagBits::eColorAttachment,
-             vk::SharingMode::eExclusive, 0, nullptr, pre_trans,
-             composite_alpha, swapchain_present_mode, true, nullptr});
+             swapchain_extent, 1, usage, vk::SharingMode::eExclusive, 0,
+             nullptr, pre_trans, composite_alpha, swapchain_present_mode, true,
+             nullptr});
 
     // Create image views
-    auto swapchain_imgs = device.getSwapchainImagesKHR(swapchain.get());
+    auto swapchain_imgs = device->getSwapchainImagesKHR(swapchain.get());
     std::vector<vk::UniqueImageView> img_views;
     img_views.reserve(swapchain_imgs.size());
     for (auto img : swapchain_imgs) {
@@ -436,7 +445,7 @@ SwapchainPack CreateSwapchain(const vk::PhysicalDevice& physical_device,
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
 ImagePack CreateImage(const vk::PhysicalDevice& physical_device,
-                      const vk::Device& device, const vk::Format format,
+                      const vk::UniqueDevice& device, const vk::Format& format,
                       const vk::Extent2D& size,
                       const vk::ImageUsageFlags& usage,
                       const vk::MemoryPropertyFlags& memory_props,
@@ -450,18 +459,18 @@ ImagePack CreateImage(const vk::PhysicalDevice& physical_device,
                                           vk::SharingMode::eExclusive;
 
     // Create image
-    auto img = device.createImageUnique(
+    auto img = device->createImageUnique(
             {vk::ImageCreateFlags(), vk::ImageType::e2D, format,
              vk::Extent3D(size, 1), 1, 1, vk::SampleCountFlagBits::e1, tiling,
              usage, sharing});
 
     // Allocate memory
-    auto memory_requs = device.getImageMemoryRequirements(*img);
+    auto memory_requs = device->getImageMemoryRequirements(*img);
     auto device_mem =
             AllocMemory(device, physical_device, memory_requs, memory_props);
 
     // Bind memory
-    device.bindImageMemory(img.get(), device_mem.get(), 0);
+    device->bindImageMemory(img.get(), device_mem.get(), 0);
 
     // Create image view
     auto img_view = CreateImageView(*img, format, aspects, device);
@@ -470,9 +479,9 @@ ImagePack CreateImage(const vk::PhysicalDevice& physical_device,
             memory_requs.size};
 }
 
-void SendToDevice(const vk::Device& device, const ImagePack& img_pack,
+void SendToDevice(const vk::UniqueDevice& device, const ImagePack& img_pack,
                   const void* data, uint64_t n_bytes) {
-    SendToDevice(device, *img_pack.dev_mem, img_pack.dev_mem_size, data,
+    SendToDevice(device, img_pack.dev_mem, img_pack.dev_mem_size, data,
                  n_bytes);
 }
 
@@ -480,27 +489,28 @@ void SendToDevice(const vk::Device& device, const ImagePack& img_pack,
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
 BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
-                        const vk::Device& device, const vk::DeviceSize& size,
+                        const vk::UniqueDevice& device,
+                        const vk::DeviceSize& size,
                         const vk::BufferUsageFlags& usage,
                         const vk::MemoryPropertyFlags& memory_props) {
     // Create buffer
     auto buf =
-            device.createBufferUnique({vk::BufferCreateFlags(), size, usage});
+            device->createBufferUnique({vk::BufferCreateFlags(), size, usage});
 
     // Allocate memory
-    auto memory_requs = device.getBufferMemoryRequirements(*buf);
+    auto memory_requs = device->getBufferMemoryRequirements(*buf);
     auto device_mem =
             AllocMemory(device, physical_device, memory_requs, memory_props);
 
     // Bind memory
-    device.bindBufferMemory(buf.get(), device_mem.get(), 0);
+    device->bindBufferMemory(buf.get(), device_mem.get(), 0);
 
     return {std::move(buf), std::move(device_mem), memory_requs.size};
 }
 
-void SendToDevice(const vk::Device& device, const BufferPack& buf_pack,
+void SendToDevice(const vk::UniqueDevice& device, const BufferPack& buf_pack,
                   const void* data, uint64_t n_bytes) {
-    SendToDevice(device, *(buf_pack.dev_mem), buf_pack.dev_mem_size, data,
+    SendToDevice(device, buf_pack.dev_mem, buf_pack.dev_mem_size, data,
                  n_bytes);
 }
 
