@@ -514,4 +514,47 @@ void SendToDevice(const vk::UniqueDevice& device, const BufferPack& buf_pack,
                  n_bytes);
 }
 
+// -----------------------------------------------------------------------------
+// ------------------------------- DescriptorSet -------------------------------
+// -----------------------------------------------------------------------------
+DescriptorSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
+                                      const std::vector<DescSetInfo>& info) {
+    const uint32_t n_bindings = static_cast<uint32_t>(info.size());
+
+    // Parse into raw array of bindings, pool sizes
+    std::vector<vk::DescriptorSetLayoutBinding> bindings_raw;
+    std::vector<vk::DescriptorPoolSize> poolsizes_raw;
+    bindings_raw.reserve(n_bindings);
+    poolsizes_raw.reserve(n_bindings);
+    uint32_t desc_cnt_sum = 0;
+    for (uint32_t i = 0; i < n_bindings; i++) {
+        // Fetch from tuple
+        const vk::DescriptorType& desc_type = std::get<0>(info[i]);
+        const uint32_t& desc_cnt = std::get<1>(info[i]);
+        const vk::ShaderStageFlags& shader_stage = std::get<2>(info[i]);
+        // Sum up descriptor count
+        desc_cnt_sum += desc_cnt;
+        // Push to bindings
+        bindings_raw.emplace_back(i, desc_type, desc_cnt, shader_stage);
+        // Push to pool sizes
+        poolsizes_raw.emplace_back(desc_type, desc_cnt);
+    }
+
+    // Create DescriptorSetLayout
+    auto desc_set_layout = device->createDescriptorSetLayoutUnique(
+            {vk::DescriptorSetLayoutCreateFlags(), n_bindings,
+             bindings_raw.data()});
+    // Create DescriptorPool
+    auto desc_pool = device->createDescriptorPoolUnique(
+            {vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, desc_cnt_sum,
+             n_bindings, poolsizes_raw.data()});
+    // Create DescriptorSet
+    auto desc_sets = device->allocateDescriptorSetsUnique(
+            {*desc_pool, 1, &*desc_set_layout});
+    auto& desc_set = desc_sets[0];
+
+    return {std::move(desc_set_layout), std::move(desc_pool),
+            std::move(desc_set)};
+}
+
 }  // namespace vkw

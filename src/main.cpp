@@ -74,34 +74,29 @@ int main(int argc, char const* argv[]) {
                     vk::MemoryPropertyFlagBits::eHostCoherent);
     vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0], 16 * sizeof(float));
 
+    auto desc_set_pack = vkw::CreateDescriptorSet(device, { {vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex},
+                                                            {vk::DescriptorType::eSampler, 2, vk::ShaderStageFlagBits::eVertex} });
+//     auto desc_set_pack = vkw::CreateDescriptorSet(device, { {vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex} });
 
-    vk::DescriptorSetLayoutBinding descset_layout_binding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
-    //vk::DescriptorSetLayoutBinding descset_layout_binding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
-    vk::UniqueDescriptorSetLayout descset_layout = device->createDescriptorSetLayoutUnique({vk::DescriptorSetLayoutCreateFlags(), 1, &descset_layout_binding});
-
-    vk::DescriptorPoolSize pool_size(vk::DescriptorType::eUniformBuffer, 1);
-    vk::UniqueDescriptorPool descriptorPool = device->createDescriptorPoolUnique({vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1, 1, &pool_size});
-
-    vk::UniqueDescriptorSet descset = std::move(device->allocateDescriptorSetsUnique(vk::DescriptorSetAllocateInfo(*descriptorPool, 1, &*descset_layout)).front());
 
     vk::DescriptorBufferInfo desc_buf_info(uniform_buf_pack.buf.get(), 0, sizeof(glm::mat4x4));
-    device->updateDescriptorSets(vk::WriteDescriptorSet(descset.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &desc_buf_info), {});
-
-    vk::UniquePipelineLayout pipeline_layout = device->createPipelineLayoutUnique({vk::PipelineLayoutCreateFlags(), 1, &descset_layout.get()});
-
-
-
-    vk::AttachmentDescription attach_descs[2];
-    attach_descs[0] = vk::AttachmentDescription(vk::AttachmentDescriptionFlags(), surface_format, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear,
-      vk::AttachmentStoreOp::eStore, vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare, vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR);
-    attach_descs[1] = vk::AttachmentDescription(vk::AttachmentDescriptionFlags(), depth_format, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear,
-      vk::AttachmentStoreOp::eDontCare, vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-    vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
-    vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-    vk::SubpassDescription subpass(vk::SubpassDescriptionFlags(), vk::PipelineBindPoint::eGraphics, 0, nullptr, 1, &color_ref, nullptr, &depth_ref);
-
-    vk::UniqueRenderPass render_pass = device->createRenderPassUnique({vk::RenderPassCreateFlags(), 2, attach_descs, 1, &subpass});
+    device->updateDescriptorSets(vk::WriteDescriptorSet(desc_set_pack.desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &desc_buf_info), {});
+//
+//     vk::UniquePipelineLayout pipeline_layout = device->createPipelineLayoutUnique({vk::PipelineLayoutCreateFlags(), 1, &descset_layout.get()});
+//
+//
+//
+//     vk::AttachmentDescription attach_descs[2];
+//     attach_descs[0] = vk::AttachmentDescription(vk::AttachmentDescriptionFlags(), surface_format, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear,
+//       vk::AttachmentStoreOp::eStore, vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare, vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR);
+//     attach_descs[1] = vk::AttachmentDescription(vk::AttachmentDescriptionFlags(), depth_format, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear,
+//       vk::AttachmentStoreOp::eDontCare, vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+//
+//     vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+//     vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+//     vk::SubpassDescription subpass(vk::SubpassDescriptionFlags(), vk::PipelineBindPoint::eGraphics, 0, nullptr, 1, &color_ref, nullptr, &depth_ref);
+//
+//     vk::UniqueRenderPass render_pass = device->createRenderPassUnique({vk::RenderPassCreateFlags(), 2, attach_descs, 1, &subpass});
 
 
 

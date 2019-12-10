@@ -1,6 +1,7 @@
 #ifndef VKW_H_20191130
 #define VKW_H_20191130
 
+#include <bits/stdint-uintn.h>
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 
 #define GLFW_INCLUDE_VULKAN
@@ -136,6 +137,20 @@ BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
 
 void SendToDevice(const vk::UniqueDevice& device, const BufferPack& buf_pack,
                   const void* data, uint64_t n_bytes);
+
+// -----------------------------------------------------------------------------
+// ------------------------------- DescriptorSet -------------------------------
+// -----------------------------------------------------------------------------
+using DescCnt = uint32_t;
+using DescSetInfo =
+        std::tuple<vk::DescriptorType, DescCnt, vk::ShaderStageFlags>;
+struct DescriptorSetPack {
+    vk::UniqueDescriptorSetLayout desc_set_layout;
+    vk::UniqueDescriptorPool desc_pool;
+    vk::UniqueDescriptorSet desc_set;
+};
+DescriptorSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
+                                      const std::vector<DescSetInfo>& info);
 
 }  // namespace vkw
 
