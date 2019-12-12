@@ -177,6 +177,86 @@ static void SendToDevice(const vk::UniqueDevice& device,
     device->unmapMemory(dev_mem.get());
 }
 
+static vk::UniqueSampler CreateSampler(const vk::UniqueDevice& device,
+                                       const vk::Filter& mag_filter,
+                                       const vk::Filter& min_filter,
+                                       const vk::SamplerMipmapMode& mipmap,
+                                       const vk::SamplerAddressMode& addr_u,
+                                       const vk::SamplerAddressMode& addr_v,
+                                       const vk::SamplerAddressMode& addr_w) {
+    const float mip_lod_bias = 0.f;
+    const bool anisotropy_enable = false;
+    const float max_anisotropy = 16.f;
+    const bool compare_enable = false;
+    const vk::CompareOp compare_op = vk::CompareOp::eNever;
+    const float min_lod = 0.f;
+    const float max_lod = 0.f;
+    const vk::BorderColor border_color = vk::BorderColor::eFloatOpaqueBlack;
+
+    return device->createSamplerUnique(
+            {vk::SamplerCreateFlags(), mag_filter, min_filter, mipmap, addr_u,
+             addr_v, addr_w, mip_lod_bias, anisotropy_enable, max_anisotropy,
+             compare_enable, compare_op, min_lod, max_lod, border_color});
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<const TexturePack*>& tex_packs) {
+    // Fetch form and check with DescSetInfo
+    const DescSetInfo& desc_set_info = desc_set_pack.desc_set_info[binding_idx];
+    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
+    const uint32_t desc_cnt = std::get<1>(desc_set_info);
+    if (desc_cnt != static_cast<uint32_t>(tex_packs.size())) {
+        throw std::runtime_error("Invalid descriptor count to write images");
+    }
+    // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
+
+    // Create vector of DescriptorImageInfo in the result pack
+    write_pack.desc_img_infos.emplace_back();
+    std::vector<vk::DescriptorImageInfo>& img_info =
+            write_pack.desc_img_infos.back();
+    // Create DescriptorImageInfo
+    for (auto&& tex_pack : tex_packs) {
+        img_info.emplace_back(*tex_pack->sampler, *tex_pack->img_pack.view,
+                              vk::ImageLayout::eShaderReadOnlyOptimal);
+    }
+
+    // Create and Add WriteDescriptorSet
+    write_pack.write_desc_sets.emplace_back(*desc_set_pack.desc_set,
+                                            binding_idx, 0, desc_cnt, desc_type,
+                                            img_info.data(), nullptr, nullptr);
+}
+
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<const BufferPack*>& buf_packs) {
+    // Fetch form and check with DescSetInfo
+    const DescSetInfo& desc_set_info = desc_set_pack.desc_set_info[binding_idx];
+    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
+    const uint32_t desc_cnt = std::get<1>(desc_set_info);
+    if (desc_cnt != static_cast<uint32_t>(buf_packs.size())) {
+        throw std::runtime_error("Invalid descriptor count to write buffers");
+    }
+
+    // Create vector of DescriptorBufferInfo in the result pack
+    write_pack.desc_buf_infos.emplace_back();
+    std::vector<vk::DescriptorBufferInfo>& buf_info =
+            write_pack.desc_buf_infos.back();
+    // Create DescriptorBufferInfo
+    for (auto&& buf_pack : buf_packs) {
+        buf_info.emplace_back(*buf_pack->buf, 0, VK_WHOLE_SIZE);
+    }
+
+    // Create and Add WriteDescriptorSet
+    write_pack.write_desc_sets.emplace_back(
+            *desc_set_pack.desc_set, binding_idx, 0, desc_cnt, desc_type,
+            nullptr, buf_info.data(), nullptr);  // TODO: buffer view
+}
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -475,6 +555,7 @@ ImagePack CreateImage(const vk::PhysicalDevice& physical_device,
     // Create image view
     auto img_view = CreateImageView(*img, format, aspects, device);
 
+    // Construct image pack
     return {std::move(img), std::move(img_view), std::move(device_mem),
             memory_requs.size};
 }
@@ -483,6 +564,20 @@ void SendToDevice(const vk::UniqueDevice& device, const ImagePack& img_pack,
                   const void* data, uint64_t n_bytes) {
     SendToDevice(device, img_pack.dev_mem, img_pack.dev_mem_size, data,
                  n_bytes);
+}
+
+TexturePack CreateTexture(ImagePack&& img_pack, const vk::UniqueDevice& device,
+                          const vk::Filter& mag_filter,
+                          const vk::Filter& min_filter,
+                          const vk::SamplerMipmapMode& mipmap,
+                          const vk::SamplerAddressMode& addr_u,
+                          const vk::SamplerAddressMode& addr_v,
+                          const vk::SamplerAddressMode& addr_w) {
+    // Create sampler
+    auto sampler = CreateSampler(device, mag_filter, min_filter, mipmap, addr_u,
+                                 addr_v, addr_w);
+    // Construct texture pack
+    return {std::move(img_pack), std::move(sampler)};
 }
 
 // -----------------------------------------------------------------------------
@@ -517,9 +612,9 @@ void SendToDevice(const vk::UniqueDevice& device, const BufferPack& buf_pack,
 // -----------------------------------------------------------------------------
 // ------------------------------- DescriptorSet -------------------------------
 // -----------------------------------------------------------------------------
-DescriptorSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
-                                      const std::vector<DescSetInfo>& info) {
-    const uint32_t n_bindings = static_cast<uint32_t>(info.size());
+DescSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
+                                const std::vector<DescSetInfo>& infos) {
+    const uint32_t n_bindings = static_cast<uint32_t>(infos.size());
 
     // Parse into raw array of bindings, pool sizes
     std::vector<vk::DescriptorSetLayoutBinding> bindings_raw;
@@ -529,9 +624,9 @@ DescriptorSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
     uint32_t desc_cnt_sum = 0;
     for (uint32_t i = 0; i < n_bindings; i++) {
         // Fetch from tuple
-        const vk::DescriptorType& desc_type = std::get<0>(info[i]);
-        const uint32_t& desc_cnt = std::get<1>(info[i]);
-        const vk::ShaderStageFlags& shader_stage = std::get<2>(info[i]);
+        const vk::DescriptorType& desc_type = std::get<0>(infos[i]);
+        const uint32_t& desc_cnt = std::get<1>(infos[i]);
+        const vk::ShaderStageFlags& shader_stage = std::get<2>(infos[i]);
         // Sum up descriptor count
         desc_cnt_sum += desc_cnt;
         // Push to bindings
@@ -554,7 +649,50 @@ DescriptorSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
     auto& desc_set = desc_sets[0];
 
     return {std::move(desc_set_layout), std::move(desc_pool),
-            std::move(desc_set)};
+            std::move(desc_set), infos};
+}
+
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx, const TexturePack& tex_pack) {
+    AddWriteDescSet(write_pack, desc_set_pack, binding_idx, {&tex_pack});
+}
+
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<TexturePack>& tex_packs) {
+    // Repack
+    std::vector<const TexturePack*> tmp_packs;
+    for (auto&& buf_pack : tex_packs) {
+        tmp_packs.emplace_back(&buf_pack);
+    }
+    // Execute
+    AddWriteDescSet(write_pack, desc_set_pack, binding_idx, tmp_packs);
+}
+
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx, const BufferPack& buf_pack) {
+    AddWriteDescSet(write_pack, desc_set_pack, binding_idx, {&buf_pack});
+}
+
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<BufferPack>& buf_packs) {
+    // Repack
+    std::vector<const BufferPack*> tmp_packs;
+    for (auto&& buf_pack : buf_packs) {
+        tmp_packs.emplace_back(&buf_pack);
+    }
+    // Execute
+    AddWriteDescSet(write_pack, desc_set_pack, binding_idx, tmp_packs);
+}
+
+void UpdateDescriptorSets(const vk::UniqueDevice& device,
+                          const WriteDescSetPack& write_desc_set_pack) {
+    device->updateDescriptorSets(write_desc_set_pack.write_desc_sets, nullptr);
 }
 
 }  // namespace vkw

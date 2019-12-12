@@ -119,6 +119,19 @@ ImagePack CreateImage(
 void SendToDevice(const vk::UniqueDevice& device, const ImagePack& img_pack,
                   const void* data, uint64_t n_bytes);
 
+struct TexturePack {
+    ImagePack img_pack;
+    vk::UniqueSampler sampler;
+};
+TexturePack CreateTexture(
+        ImagePack&& img_pack, const vk::UniqueDevice& device,
+        const vk::Filter& mag_filter = vk::Filter::eLinear,
+        const vk::Filter& min_filter = vk::Filter::eLinear,
+        const vk::SamplerMipmapMode& mipmap = vk::SamplerMipmapMode::eLinear,
+        const vk::SamplerAddressMode& addr_u = vk::SamplerAddressMode::eRepeat,
+        const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
+        const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat);
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
@@ -144,13 +157,37 @@ void SendToDevice(const vk::UniqueDevice& device, const BufferPack& buf_pack,
 using DescCnt = uint32_t;
 using DescSetInfo =
         std::tuple<vk::DescriptorType, DescCnt, vk::ShaderStageFlags>;
-struct DescriptorSetPack {
+struct DescSetPack {
     vk::UniqueDescriptorSetLayout desc_set_layout;
     vk::UniqueDescriptorPool desc_pool;
     vk::UniqueDescriptorSet desc_set;
+    std::vector<DescSetInfo> desc_set_info;
 };
-DescriptorSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
-                                      const std::vector<DescSetInfo>& info);
+DescSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
+                                const std::vector<DescSetInfo>& info);
+
+struct WriteDescSetPack {
+    std::vector<vk::WriteDescriptorSet> write_desc_sets;
+    std::vector<std::vector<vk::DescriptorImageInfo>> desc_img_infos;
+    std::vector<std::vector<vk::DescriptorBufferInfo>> desc_buf_infos;
+};
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx, const TexturePack& tex_pack);
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<TexturePack>& tex_packs);
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx, const BufferPack& buf_pack);
+void AddWriteDescSet(WriteDescSetPack& write_pack,
+                     const DescSetPack& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<BufferPack>& buf_packs);
+
+void UpdateDescriptorSets(const vk::UniqueDevice& device,
+                          const WriteDescSetPack& write_desc_set_pack);
 
 }  // namespace vkw
 

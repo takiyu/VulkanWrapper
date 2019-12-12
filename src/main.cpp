@@ -74,13 +74,20 @@ int main(int argc, char const* argv[]) {
                     vk::MemoryPropertyFlagBits::eHostCoherent);
     vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0], 16 * sizeof(float));
 
-    auto desc_set_pack = vkw::CreateDescriptorSet(device, { {vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex},
-                                                            {vk::DescriptorType::eSampler, 2, vk::ShaderStageFlagBits::eVertex} });
-//     auto desc_set_pack = vkw::CreateDescriptorSet(device, { {vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex} });
-
+    auto desc_set_pack = vkw::CreateDescriptorSet(device, { {vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex} });
+//     auto tex_pack = vkw::CreateTexture(vkw::CreateImage(physical_device, device), device);
+//     auto desc_set_pack = vkw::CreateDescriptorSet(device, { {vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex},
+//                                                             {vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eVertex} });
 
     vk::DescriptorBufferInfo desc_buf_info(uniform_buf_pack.buf.get(), 0, sizeof(glm::mat4x4));
     device->updateDescriptorSets(vk::WriteDescriptorSet(desc_set_pack.desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &desc_buf_info), {});
+
+    vkw::WriteDescSetPack write_desc_set_pack;
+    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0, uniform_buf_pack);
+//     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, tex_pack);
+
+    vkw::UpdateDescriptorSets(device, write_desc_set_pack);
+
 //
 //     vk::UniquePipelineLayout pipeline_layout = device->createPipelineLayoutUnique({vk::PipelineLayoutCreateFlags(), 1, &descset_layout.get()});
 //
