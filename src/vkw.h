@@ -76,9 +76,10 @@ struct CommandBuffersPack {
     vk::UniqueCommandPool pool;
     std::vector<vk::UniqueCommandBuffer> cmd_bufs;
 };
-CommandBuffersPack CreateCommandBuffers(const vk::UniqueDevice& device,
-                                        uint32_t queue_family_idx,
-                                        uint32_t n_cmd_buffers = 1);
+using CommandBuffersPackPtr = std::shared_ptr<CommandBuffersPack>;
+CommandBuffersPackPtr CreateCommandBuffers(const vk::UniqueDevice& device,
+                                           uint32_t queue_family_idx,
+                                           uint32_t n_cmd_buffers = 1);
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
@@ -88,7 +89,8 @@ struct SwapchainPack {
     std::vector<vk::UniqueImageView> views;
     vk::Extent2D size;
 };
-SwapchainPack CreateSwapchain(
+using SwapchainPackPtr = std::shared_ptr<SwapchainPack>;
+SwapchainPackPtr CreateSwapchain(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueDevice& device, const vk::UniqueSurfaceKHR& surface,
         uint32_t win_w = 0, uint32_t win_h = 0,
@@ -105,7 +107,8 @@ struct ImagePack {
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
 };
-ImagePack CreateImage(
+using ImagePackPtr = std::shared_ptr<ImagePack>;
+ImagePackPtr CreateImage(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueDevice& device,
         const vk::Format& format = vk::Format::eR8G8B8A8Uint,
@@ -116,15 +119,16 @@ ImagePack CreateImage(
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
         bool is_staging = false, bool is_shared = false);
 
-void SendToDevice(const vk::UniqueDevice& device, const ImagePack& img_pack,
+void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
                   const void* data, uint64_t n_bytes);
 
 struct TexturePack {
-    ImagePack img_pack;
+    ImagePackPtr img_pack;
     vk::UniqueSampler sampler;
 };
-TexturePack CreateTexture(
-        ImagePack&& img_pack, const vk::UniqueDevice& device,
+using TexturePackPtr = std::shared_ptr<TexturePack>;
+TexturePackPtr CreateTexture(
+        const ImagePackPtr& img_pack, const vk::UniqueDevice& device,
         const vk::Filter& mag_filter = vk::Filter::eLinear,
         const vk::Filter& min_filter = vk::Filter::eLinear,
         const vk::SamplerMipmapMode& mipmap = vk::SamplerMipmapMode::eLinear,
@@ -140,15 +144,16 @@ struct BufferPack {
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
 };
-BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
-                        const vk::UniqueDevice& device,
-                        const vk::DeviceSize& size = 256,
-                        const vk::BufferUsageFlags& usage =
-                                vk::BufferUsageFlagBits::eVertexBuffer,
-                        const vk::MemoryPropertyFlags& memory_props =
-                                vk::MemoryPropertyFlagBits::eDeviceLocal);
+using BufferPackPtr = std::shared_ptr<BufferPack>;
+BufferPackPtr CreateBuffer(const vk::PhysicalDevice& physical_device,
+                           const vk::UniqueDevice& device,
+                           const vk::DeviceSize& size = 256,
+                           const vk::BufferUsageFlags& usage =
+                                   vk::BufferUsageFlagBits::eVertexBuffer,
+                           const vk::MemoryPropertyFlags& memory_props =
+                                   vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-void SendToDevice(const vk::UniqueDevice& device, const BufferPack& buf_pack,
+void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
                   const void* data, uint64_t n_bytes);
 
 // -----------------------------------------------------------------------------
@@ -163,31 +168,63 @@ struct DescSetPack {
     vk::UniqueDescriptorSet desc_set;
     std::vector<DescSetInfo> desc_set_info;
 };
-DescSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
-                                const std::vector<DescSetInfo>& info);
+using DescSetPackPtr = std::shared_ptr<DescSetPack>;
+DescSetPackPtr CreateDescriptorSet(const vk::UniqueDevice& device,
+                                   const std::vector<DescSetInfo>& info);
 
 struct WriteDescSetPack {
     std::vector<vk::WriteDescriptorSet> write_desc_sets;
     std::vector<std::vector<vk::DescriptorImageInfo>> desc_img_infos;
     std::vector<std::vector<vk::DescriptorBufferInfo>> desc_buf_infos;
 };
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
-                     const uint32_t binding_idx, const TexturePack& tex_pack);
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
+using WriteDescSetPackPtr = std::shared_ptr<WriteDescSetPack>;
+void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
+                     const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<TexturePack>& tex_packs);
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
-                     const uint32_t binding_idx, const BufferPack& buf_pack);
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
+                     const std::vector<TexturePackPtr>& tex_packs);
+void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
+                     const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<BufferPack>& buf_packs);
+                     const std::vector<BufferPackPtr>& buf_packs);
 
 void UpdateDescriptorSets(const vk::UniqueDevice& device,
-                          const WriteDescSetPack& write_desc_set_pack);
+                          const WriteDescSetPackPtr& write_desc_set_pack);
+
+// -----------------------------------------------------------------------------
+// -------------------------------- RenderPass ---------------------------------
+// -----------------------------------------------------------------------------
+struct RenderPassPack {
+    std::vector<vk::AttachmentDescription> attachment_descs;
+    std::vector<std::vector<vk::AttachmentReference>> attachment_refs;
+    std::vector<vk::SubpassDescription> subpass_descs;
+    vk::UniqueRenderPass render_pass;
+    // TODO: dependency
+};
+
+// void AddAttachientDesc(RenderPassPack& render_pass_pack,
+//                        );
+//                 vk::Format format_ = vk::Format::eUndefined,
+//                                                 vk::SampleCountFlagBits
+//                                                 samples_ =
+//                                                 vk::SampleCountFlagBits::e1,
+//                                                 vk::AttachmentLoadOp loadOp_
+//                                                 =
+//                                                 vk::AttachmentLoadOp::eLoad,
+//                                                 vk::AttachmentStoreOp
+//                                                 storeOp_ =
+//                                                 vk::AttachmentStoreOp::eStore,
+//                                                 vk::AttachmentLoadOp
+//                                                 stencilLoadOp_ =
+//                                                 vk::AttachmentLoadOp::eLoad,
+//                                                 vk::AttachmentStoreOp
+//                                                 stencilStoreOp_ =
+//                                                 vk::AttachmentStoreOp::eStore,
+//                                                 vk::ImageLayout
+//                                                 initialLayout_ =
+//                                                 vk::ImageLayout::eUndefined,
+//                                                 vk::ImageLayout finalLayout_
+//                                                 = vk::ImageLayout::eUndefined
+//                                                 ) VULKAN_HPP_NOEXCEPT
 
 }  // namespace vkw
 

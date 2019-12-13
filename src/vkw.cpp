@@ -202,64 +202,6 @@ static vk::UniqueSampler CreateSampler(const vk::UniqueDevice& device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
-                     const uint32_t binding_idx,
-                     const std::vector<const TexturePack*>& tex_packs) {
-    // Fetch form and check with DescSetInfo
-    const DescSetInfo& desc_set_info = desc_set_pack.desc_set_info[binding_idx];
-    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
-    const uint32_t desc_cnt = std::get<1>(desc_set_info);
-    if (desc_cnt != static_cast<uint32_t>(tex_packs.size())) {
-        throw std::runtime_error("Invalid descriptor count to write images");
-    }
-    // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
-
-    // Create vector of DescriptorImageInfo in the result pack
-    write_pack.desc_img_infos.emplace_back();
-    std::vector<vk::DescriptorImageInfo>& img_info =
-            write_pack.desc_img_infos.back();
-    // Create DescriptorImageInfo
-    for (auto&& tex_pack : tex_packs) {
-        img_info.emplace_back(*tex_pack->sampler, *tex_pack->img_pack.view,
-                              vk::ImageLayout::eShaderReadOnlyOptimal);
-    }
-
-    // Create and Add WriteDescriptorSet
-    write_pack.write_desc_sets.emplace_back(*desc_set_pack.desc_set,
-                                            binding_idx, 0, desc_cnt, desc_type,
-                                            img_info.data(), nullptr, nullptr);
-}
-
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
-                     const uint32_t binding_idx,
-                     const std::vector<const BufferPack*>& buf_packs) {
-    // Fetch form and check with DescSetInfo
-    const DescSetInfo& desc_set_info = desc_set_pack.desc_set_info[binding_idx];
-    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
-    const uint32_t desc_cnt = std::get<1>(desc_set_info);
-    if (desc_cnt != static_cast<uint32_t>(buf_packs.size())) {
-        throw std::runtime_error("Invalid descriptor count to write buffers");
-    }
-
-    // Create vector of DescriptorBufferInfo in the result pack
-    write_pack.desc_buf_infos.emplace_back();
-    std::vector<vk::DescriptorBufferInfo>& buf_info =
-            write_pack.desc_buf_infos.back();
-    // Create DescriptorBufferInfo
-    for (auto&& buf_pack : buf_packs) {
-        buf_info.emplace_back(*buf_pack->buf, 0, VK_WHOLE_SIZE);
-    }
-
-    // Create and Add WriteDescriptorSet
-    write_pack.write_desc_sets.emplace_back(
-            *desc_set_pack.desc_set, binding_idx, 0, desc_cnt, desc_type,
-            nullptr, buf_info.data(), nullptr);  // TODO: buffer view
-}
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
 
 }  // namespace
 
@@ -461,9 +403,9 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 // -----------------------------------------------------------------------------
 // ------------------------------- Command Buffer ------------------------------
 // -----------------------------------------------------------------------------
-CommandBuffersPack CreateCommandBuffers(const vk::UniqueDevice& device,
-                                        uint32_t queue_family_idx,
-                                        uint32_t n_cmd_buffers) {
+CommandBuffersPackPtr CreateCommandBuffers(const vk::UniqueDevice& device,
+                                           uint32_t queue_family_idx,
+                                           uint32_t n_cmd_buffers) {
     // Create a command pool
     vk::UniqueCommandPool command_pool = device->createCommandPoolUnique(
             {vk::CommandPoolCreateFlags(), queue_family_idx});
@@ -473,18 +415,19 @@ CommandBuffersPack CreateCommandBuffers(const vk::UniqueDevice& device,
             {command_pool.get(), vk::CommandBufferLevel::ePrimary,
              n_cmd_buffers});
 
-    return {std::move(command_pool), std::move(cmd_bufs)};
+    return CommandBuffersPackPtr(new CommandBuffersPack{std::move(command_pool),
+                                                        std::move(cmd_bufs)});
 }
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
-SwapchainPack CreateSwapchain(const vk::PhysicalDevice& physical_device,
-                              const vk::UniqueDevice& device,
-                              const vk::UniqueSurfaceKHR& surface,
-                              uint32_t win_w, uint32_t win_h,
-                              const vk::Format& surface_format_,
-                              const vk::ImageUsageFlags& usage) {
+SwapchainPackPtr CreateSwapchain(const vk::PhysicalDevice& physical_device,
+                                 const vk::UniqueDevice& device,
+                                 const vk::UniqueSurfaceKHR& surface,
+                                 uint32_t win_w, uint32_t win_h,
+                                 const vk::Format& surface_format_,
+                                 const vk::ImageUsageFlags& usage) {
     // Set swapchain present mode
     const vk::PresentModeKHR swapchain_present_mode = vk::PresentModeKHR::eFifo;
 
@@ -518,19 +461,20 @@ SwapchainPack CreateSwapchain(const vk::PhysicalDevice& physical_device,
         img_views.push_back(std::move(img_view));
     }
 
-    return {std::move(swapchain), std::move(img_views), swapchain_extent};
+    return SwapchainPackPtr(new SwapchainPack{
+            std::move(swapchain), std::move(img_views), swapchain_extent});
 }
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
-ImagePack CreateImage(const vk::PhysicalDevice& physical_device,
-                      const vk::UniqueDevice& device, const vk::Format& format,
-                      const vk::Extent2D& size,
-                      const vk::ImageUsageFlags& usage,
-                      const vk::MemoryPropertyFlags& memory_props,
-                      const vk::ImageAspectFlags& aspects, bool is_staging,
-                      bool is_shared) {
+ImagePackPtr CreateImage(const vk::PhysicalDevice& physical_device,
+                         const vk::UniqueDevice& device,
+                         const vk::Format& format, const vk::Extent2D& size,
+                         const vk::ImageUsageFlags& usage,
+                         const vk::MemoryPropertyFlags& memory_props,
+                         const vk::ImageAspectFlags& aspects, bool is_staging,
+                         bool is_shared) {
     // Select tiling mode
     vk::ImageTiling tiling =
             is_staging ? vk::ImageTiling::eOptimal : vk::ImageTiling::eLinear;
@@ -556,38 +500,40 @@ ImagePack CreateImage(const vk::PhysicalDevice& physical_device,
     auto img_view = CreateImageView(*img, format, aspects, device);
 
     // Construct image pack
-    return {std::move(img), std::move(img_view), std::move(device_mem),
-            memory_requs.size};
+    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
+                                      std::move(device_mem),
+                                      memory_requs.size});
 }
 
-void SendToDevice(const vk::UniqueDevice& device, const ImagePack& img_pack,
+void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
                   const void* data, uint64_t n_bytes) {
-    SendToDevice(device, img_pack.dev_mem, img_pack.dev_mem_size, data,
+    SendToDevice(device, img_pack->dev_mem, img_pack->dev_mem_size, data,
                  n_bytes);
 }
 
-TexturePack CreateTexture(ImagePack&& img_pack, const vk::UniqueDevice& device,
-                          const vk::Filter& mag_filter,
-                          const vk::Filter& min_filter,
-                          const vk::SamplerMipmapMode& mipmap,
-                          const vk::SamplerAddressMode& addr_u,
-                          const vk::SamplerAddressMode& addr_v,
-                          const vk::SamplerAddressMode& addr_w) {
+TexturePackPtr CreateTexture(const ImagePackPtr& img_pack,
+                             const vk::UniqueDevice& device,
+                             const vk::Filter& mag_filter,
+                             const vk::Filter& min_filter,
+                             const vk::SamplerMipmapMode& mipmap,
+                             const vk::SamplerAddressMode& addr_u,
+                             const vk::SamplerAddressMode& addr_v,
+                             const vk::SamplerAddressMode& addr_w) {
     // Create sampler
     auto sampler = CreateSampler(device, mag_filter, min_filter, mipmap, addr_u,
                                  addr_v, addr_w);
     // Construct texture pack
-    return {std::move(img_pack), std::move(sampler)};
+    return TexturePackPtr(new TexturePack{img_pack, std::move(sampler)});
 }
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
-BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
-                        const vk::UniqueDevice& device,
-                        const vk::DeviceSize& size,
-                        const vk::BufferUsageFlags& usage,
-                        const vk::MemoryPropertyFlags& memory_props) {
+BufferPackPtr CreateBuffer(const vk::PhysicalDevice& physical_device,
+                           const vk::UniqueDevice& device,
+                           const vk::DeviceSize& size,
+                           const vk::BufferUsageFlags& usage,
+                           const vk::MemoryPropertyFlags& memory_props) {
     // Create buffer
     auto buf =
             device->createBufferUnique({vk::BufferCreateFlags(), size, usage});
@@ -600,20 +546,21 @@ BufferPack CreateBuffer(const vk::PhysicalDevice& physical_device,
     // Bind memory
     device->bindBufferMemory(buf.get(), device_mem.get(), 0);
 
-    return {std::move(buf), std::move(device_mem), memory_requs.size};
+    return BufferPackPtr(new BufferPack{std::move(buf), std::move(device_mem),
+                                        memory_requs.size});
 }
 
-void SendToDevice(const vk::UniqueDevice& device, const BufferPack& buf_pack,
+void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
                   const void* data, uint64_t n_bytes) {
-    SendToDevice(device, buf_pack.dev_mem, buf_pack.dev_mem_size, data,
+    SendToDevice(device, buf_pack->dev_mem, buf_pack->dev_mem_size, data,
                  n_bytes);
 }
 
 // -----------------------------------------------------------------------------
 // ------------------------------- DescriptorSet -------------------------------
 // -----------------------------------------------------------------------------
-DescSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
-                                const std::vector<DescSetInfo>& infos) {
+DescSetPackPtr CreateDescriptorSet(const vk::UniqueDevice& device,
+                                   const std::vector<DescSetInfo>& infos) {
     const uint32_t n_bindings = static_cast<uint32_t>(infos.size());
 
     // Parse into raw array of bindings, pool sizes
@@ -648,51 +595,102 @@ DescSetPack CreateDescriptorSet(const vk::UniqueDevice& device,
             {*desc_pool, 1, &*desc_set_layout});
     auto& desc_set = desc_sets[0];
 
-    return {std::move(desc_set_layout), std::move(desc_pool),
-            std::move(desc_set), infos};
+    return DescSetPackPtr(new DescSetPack{std::move(desc_set_layout),
+                                          std::move(desc_pool),
+                                          std::move(desc_set), infos});
 }
 
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
-                     const uint32_t binding_idx, const TexturePack& tex_pack) {
-    AddWriteDescSet(write_pack, desc_set_pack, binding_idx, {&tex_pack});
-}
-
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
+void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
+                     const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<TexturePack>& tex_packs) {
-    // Repack
-    std::vector<const TexturePack*> tmp_packs;
-    for (auto&& buf_pack : tex_packs) {
-        tmp_packs.emplace_back(&buf_pack);
+                     const std::vector<TexturePackPtr>& tex_packs) {
+    // Fetch form and check with DescSetInfo
+    const DescSetInfo& desc_set_info =
+            desc_set_pack->desc_set_info[binding_idx];
+    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
+    const uint32_t desc_cnt = std::get<1>(desc_set_info);
+    if (desc_cnt != static_cast<uint32_t>(tex_packs.size())) {
+        throw std::runtime_error("Invalid descriptor count to write images");
     }
-    // Execute
-    AddWriteDescSet(write_pack, desc_set_pack, binding_idx, tmp_packs);
+    // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
+
+    // Create vector of DescriptorImageInfo in the result pack
+    write_pack->desc_img_infos.emplace_back();
+    std::vector<vk::DescriptorImageInfo>& img_info =
+            write_pack->desc_img_infos.back();
+    // Create DescriptorImageInfo
+    for (auto&& tex_pack : tex_packs) {
+        img_info.emplace_back(*tex_pack->sampler, *tex_pack->img_pack->view,
+                              vk::ImageLayout::eShaderReadOnlyOptimal);
+    }
+
+    // Create and Add WriteDescriptorSet
+    write_pack->write_desc_sets.emplace_back(
+            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
+            img_info.data(), nullptr, nullptr);
 }
 
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
-                     const uint32_t binding_idx, const BufferPack& buf_pack) {
-    AddWriteDescSet(write_pack, desc_set_pack, binding_idx, {&buf_pack});
-}
-
-void AddWriteDescSet(WriteDescSetPack& write_pack,
-                     const DescSetPack& desc_set_pack,
+void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
+                     const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<BufferPack>& buf_packs) {
-    // Repack
-    std::vector<const BufferPack*> tmp_packs;
+                     const std::vector<BufferPackPtr>& buf_packs) {
+    // Fetch form and check with DescSetInfo
+    const DescSetInfo& desc_set_info =
+            desc_set_pack->desc_set_info[binding_idx];
+    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
+    const uint32_t desc_cnt = std::get<1>(desc_set_info);
+    if (desc_cnt != static_cast<uint32_t>(buf_packs.size())) {
+        throw std::runtime_error("Invalid descriptor count to write buffers");
+    }
+
+    // Create vector of DescriptorBufferInfo in the result pack
+    write_pack->desc_buf_infos.emplace_back();
+    std::vector<vk::DescriptorBufferInfo>& buf_info =
+            write_pack->desc_buf_infos.back();
+    // Create DescriptorBufferInfo
     for (auto&& buf_pack : buf_packs) {
-        tmp_packs.emplace_back(&buf_pack);
+        buf_info.emplace_back(*buf_pack->buf, 0, VK_WHOLE_SIZE);
     }
-    // Execute
-    AddWriteDescSet(write_pack, desc_set_pack, binding_idx, tmp_packs);
+
+    // Create and Add WriteDescriptorSet
+    write_pack->write_desc_sets.emplace_back(
+            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
+            nullptr, buf_info.data(), nullptr);  // TODO: buffer view
 }
 
 void UpdateDescriptorSets(const vk::UniqueDevice& device,
-                          const WriteDescSetPack& write_desc_set_pack) {
-    device->updateDescriptorSets(write_desc_set_pack.write_desc_sets, nullptr);
+                          const WriteDescSetPackPtr& write_desc_set_pack) {
+    device->updateDescriptorSets(write_desc_set_pack->write_desc_sets, nullptr);
 }
+
+// -----------------------------------------------------------------------------
+// -------------------------------- RenderPass ---------------------------------
+// -----------------------------------------------------------------------------
+//
+//     VULKAN_HPP_CONSTEXPR AttachmentDescription(
+//     vk::AttachmentDescriptionFlags flags_ = vk::AttachmentDescriptionFlags(),
+//                                                 vk::Format format_ =
+//                                                 vk::Format::eUndefined,
+//                                                 vk::SampleCountFlagBits
+//                                                 samples_ =
+//                                                 vk::SampleCountFlagBits::e1,
+//                                                 vk::AttachmentLoadOp loadOp_
+//                                                 =
+//                                                 vk::AttachmentLoadOp::eLoad,
+//                                                 vk::AttachmentStoreOp
+//                                                 storeOp_ =
+//                                                 vk::AttachmentStoreOp::eStore,
+//                                                 vk::AttachmentLoadOp
+//                                                 stencilLoadOp_ =
+//                                                 vk::AttachmentLoadOp::eLoad,
+//                                                 vk::AttachmentStoreOp
+//                                                 stencilStoreOp_ =
+//                                                 vk::AttachmentStoreOp::eStore,
+//                                                 vk::ImageLayout
+//                                                 initialLayout_ =
+//                                                 vk::ImageLayout::eUndefined,
+//                                                 vk::ImageLayout finalLayout_
+//                                                 = vk::ImageLayout::eUndefined
+//                                                 ) VULKAN_HPP_NOEXCEPT
 
 }  // namespace vkw

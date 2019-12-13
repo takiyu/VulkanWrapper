@@ -38,7 +38,7 @@ int main(int argc, char const* argv[]) {
     uint32_t n_cmd_buffers = 1;
     auto command_buffers_pack =
             vkw::CreateCommandBuffers(device, queue_family_idx, n_cmd_buffers);
-    auto& command_buffer = command_buffers_pack.cmd_bufs[0];
+    auto& command_buffer = command_buffers_pack->cmd_bufs[0];
 
     auto swapchain_pack = vkw::CreateSwapchain(physical_device, device,
                                                surface, win_w, win_h);
@@ -46,7 +46,7 @@ int main(int argc, char const* argv[]) {
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack =
             vkw::CreateImage(physical_device, device, depth_format,
-                             swapchain_pack.size,
+                             swapchain_pack->size,
                              vk::ImageUsageFlagBits::eDepthStencilAttachment,
                              vk::MemoryPropertyFlagBits::eDeviceLocal,
                              vk::ImageAspectFlagBits::eDepth, true, false);
@@ -79,12 +79,9 @@ int main(int argc, char const* argv[]) {
 //     auto desc_set_pack = vkw::CreateDescriptorSet(device, { {vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex},
 //                                                             {vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eVertex} });
 
-    vk::DescriptorBufferInfo desc_buf_info(uniform_buf_pack.buf.get(), 0, sizeof(glm::mat4x4));
-    device->updateDescriptorSets(vk::WriteDescriptorSet(desc_set_pack.desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &desc_buf_info), {});
-
-    vkw::WriteDescSetPack write_desc_set_pack;
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0, uniform_buf_pack);
-//     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, tex_pack);
+    vkw::WriteDescSetPackPtr write_desc_set_pack = std::make_shared<vkw::WriteDescSetPack>();
+    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0, {uniform_buf_pack});
+//     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack});
 
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
