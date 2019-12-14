@@ -16,3 +16,5 @@ AlignAfterOpenBracket: Align
 ColumnLimit: 80
 AllowShortFunctionsOnASingleLine: Empty
 BasedOnStyle: 'Google'
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false

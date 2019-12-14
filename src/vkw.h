@@ -30,7 +30,8 @@ UniqueGLFWWindow InitGLFWWindow(const std::string& win_name, uint32_t win_w,
 vk::UniqueInstance CreateInstance(const std::string& app_name,
                                   uint32_t app_version,
                                   const std::string& engine_name,
-                                  uint32_t engine_version);
+                                  uint32_t engine_version,
+                                  bool debug_enable = true);
 
 // -----------------------------------------------------------------------------
 // ------------------------------ PhysicalDevice -------------------------------
@@ -77,9 +78,9 @@ struct CommandBuffersPack {
     std::vector<vk::UniqueCommandBuffer> cmd_bufs;
 };
 using CommandBuffersPackPtr = std::shared_ptr<CommandBuffersPack>;
-CommandBuffersPackPtr CreateCommandBuffers(const vk::UniqueDevice& device,
-                                           uint32_t queue_family_idx,
-                                           uint32_t n_cmd_buffers = 1);
+CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
+                                               uint32_t queue_family_idx,
+                                               uint32_t n_cmd_buffers = 1);
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
@@ -90,7 +91,7 @@ struct SwapchainPack {
     vk::Extent2D size;
 };
 using SwapchainPackPtr = std::shared_ptr<SwapchainPack>;
-SwapchainPackPtr CreateSwapchain(
+SwapchainPackPtr CreateSwapchainPack(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueDevice& device, const vk::UniqueSurfaceKHR& surface,
         uint32_t win_w = 0, uint32_t win_h = 0,
@@ -108,7 +109,7 @@ struct ImagePack {
     vk::DeviceSize dev_mem_size;
 };
 using ImagePackPtr = std::shared_ptr<ImagePack>;
-ImagePackPtr CreateImage(
+ImagePackPtr CreateImagePack(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueDevice& device,
         const vk::Format& format = vk::Format::eR8G8B8A8Uint,
@@ -127,7 +128,7 @@ struct TexturePack {
     vk::UniqueSampler sampler;
 };
 using TexturePackPtr = std::shared_ptr<TexturePack>;
-TexturePackPtr CreateTexture(
+TexturePackPtr CreateTexturePack(
         const ImagePackPtr& img_pack, const vk::UniqueDevice& device,
         const vk::Filter& mag_filter = vk::Filter::eLinear,
         const vk::Filter& min_filter = vk::Filter::eLinear,
@@ -145,13 +146,13 @@ struct BufferPack {
     vk::DeviceSize dev_mem_size;
 };
 using BufferPackPtr = std::shared_ptr<BufferPack>;
-BufferPackPtr CreateBuffer(const vk::PhysicalDevice& physical_device,
-                           const vk::UniqueDevice& device,
-                           const vk::DeviceSize& size = 256,
-                           const vk::BufferUsageFlags& usage =
-                                   vk::BufferUsageFlagBits::eVertexBuffer,
-                           const vk::MemoryPropertyFlags& memory_props =
-                                   vk::MemoryPropertyFlagBits::eDeviceLocal);
+BufferPackPtr CreateBufferPack(
+        const vk::PhysicalDevice& physical_device,
+        const vk::UniqueDevice& device, const vk::DeviceSize& size = 256,
+        const vk::BufferUsageFlags& usage =
+                vk::BufferUsageFlagBits::eVertexBuffer,
+        const vk::MemoryPropertyFlags& memory_props =
+                vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
                   const void* data, uint64_t n_bytes);
@@ -169,15 +170,17 @@ struct DescSetPack {
     std::vector<DescSetInfo> desc_set_info;
 };
 using DescSetPackPtr = std::shared_ptr<DescSetPack>;
-DescSetPackPtr CreateDescriptorSet(const vk::UniqueDevice& device,
-                                   const std::vector<DescSetInfo>& info);
+DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice& device,
+                                       const std::vector<DescSetInfo>& info);
 
 struct WriteDescSetPack {
     std::vector<vk::WriteDescriptorSet> write_desc_sets;
-    std::vector<std::vector<vk::DescriptorImageInfo>> desc_img_infos;
-    std::vector<std::vector<vk::DescriptorBufferInfo>> desc_buf_infos;
+    std::vector<std::vector<vk::DescriptorImageInfo>> desc_img_info_vecs;
+    std::vector<std::vector<vk::DescriptorBufferInfo>> desc_buf_info_vecs;
 };
 using WriteDescSetPackPtr = std::shared_ptr<WriteDescSetPack>;
+WriteDescSetPackPtr CreateWriteDescSetPack();
+
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
@@ -195,36 +198,31 @@ void UpdateDescriptorSets(const vk::UniqueDevice& device,
 // -----------------------------------------------------------------------------
 struct RenderPassPack {
     std::vector<vk::AttachmentDescription> attachment_descs;
-    std::vector<std::vector<vk::AttachmentReference>> attachment_refs;
+    std::vector<std::vector<vk::AttachmentReference>> attachment_ref_vecs;
     std::vector<vk::SubpassDescription> subpass_descs;
     vk::UniqueRenderPass render_pass;
     // TODO: dependency
 };
 
-// void AddAttachientDesc(RenderPassPack& render_pass_pack,
-//                        );
-//                 vk::Format format_ = vk::Format::eUndefined,
-//                                                 vk::SampleCountFlagBits
-//                                                 samples_ =
-//                                                 vk::SampleCountFlagBits::e1,
-//                                                 vk::AttachmentLoadOp loadOp_
-//                                                 =
-//                                                 vk::AttachmentLoadOp::eLoad,
-//                                                 vk::AttachmentStoreOp
-//                                                 storeOp_ =
-//                                                 vk::AttachmentStoreOp::eStore,
-//                                                 vk::AttachmentLoadOp
-//                                                 stencilLoadOp_ =
-//                                                 vk::AttachmentLoadOp::eLoad,
-//                                                 vk::AttachmentStoreOp
-//                                                 stencilStoreOp_ =
-//                                                 vk::AttachmentStoreOp::eStore,
-//                                                 vk::ImageLayout
-//                                                 initialLayout_ =
-//                                                 vk::ImageLayout::eUndefined,
-//                                                 vk::ImageLayout finalLayout_
-//                                                 = vk::ImageLayout::eUndefined
-//                                                 ) VULKAN_HPP_NOEXCEPT
+using RenderPassPackPtr = std::shared_ptr<RenderPassPack>;
+RenderPassPackPtr CreateRenderPassPack();
+void AddAttachientDesc(
+        RenderPassPackPtr& render_pass_pack,
+        const vk::Format& format = vk::Format::eB8G8R8A8Unorm,
+        const vk::AttachmentLoadOp& load_op = vk::AttachmentLoadOp::eClear,
+        const vk::AttachmentStoreOp& store_op = vk::AttachmentStoreOp::eStore,
+        const vk::ImageLayout& final_Layout = vk::ImageLayout::ePresentSrcKHR);
+
+using AttachmentIdx = uint32_t;
+using AttachmentRefInfo = std::tuple<AttachmentIdx, vk::ImageLayout>;
+void AddSubpassDesc(RenderPassPackPtr& render_pass_pack,
+                    const std::vector<AttachmentRefInfo>& inp_attach_refs,
+                    const std::vector<AttachmentRefInfo>& col_attach_refs,
+                    const AttachmentRefInfo& depth_stencil_attach_ref = {
+                            uint32_t(~0), vk::ImageLayout::eUndefined});
+
+void UpdateRenderPass(const vk::UniqueDevice& device,
+                      RenderPassPackPtr& render_pass_pack);
 
 }  // namespace vkw
 
