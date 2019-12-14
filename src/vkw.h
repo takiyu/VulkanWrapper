@@ -105,6 +105,7 @@ SwapchainPackPtr CreateSwapchainPack(
 struct ImagePack {
     vk::UniqueImage img;
     vk::UniqueImageView view;
+    vk::Extent2D size;
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
 };
@@ -142,6 +143,7 @@ TexturePackPtr CreateTexturePack(
 // -----------------------------------------------------------------------------
 struct BufferPack {
     vk::UniqueBuffer buf;
+    vk::DeviceSize size;
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
 };
@@ -223,6 +225,21 @@ void AddSubpassDesc(RenderPassPackPtr& render_pass_pack,
 
 void UpdateRenderPass(const vk::UniqueDevice& device,
                       RenderPassPackPtr& render_pass_pack);
+
+// -----------------------------------------------------------------------------
+// -------------------------------- FrameBuffer --------------------------------
+// -----------------------------------------------------------------------------
+vk::UniqueFramebuffer CreateFrameBuffer(
+        const vk::UniqueDevice& device,
+        const RenderPassPackPtr& render_pass_pack,
+        const std::vector<ImagePackPtr>& imgs,
+        const vk::Extent2D& size = {0, 0});
+
+std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
+        const vk::UniqueDevice& device,
+        const RenderPassPackPtr& render_pass_pack,
+        const std::vector<ImagePackPtr>& imgs,
+        const uint32_t swapchain_attach_idx, const SwapchainPackPtr& swapchain);
 
 }  // namespace vkw
 

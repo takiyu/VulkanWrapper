@@ -110,6 +110,8 @@ int main(int argc, char const *argv[]) {
                         {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
     vkw::UpdateRenderPass(device, render_pass_pack);
 
+    auto frame_buffers = vkw::CreateFrameBuffers(device, render_pass_pack, {nullptr, depth_img_pack}, 0, swapchain_pack);
+
     // clang-format off
 
 //

@@ -208,7 +208,41 @@ static vk::UniqueSampler CreateSampler(const vk::UniqueDevice &device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+void CheckFrameBufferArgs(const RenderPassPackPtr &render_pass_pack,
+                          const std::vector<ImagePackPtr> &imgs) {
+    // Check the number of input images
+    const auto &attachment_descs = render_pass_pack->attachment_descs;
+    if (attachment_descs.size() != imgs.size() || imgs.empty()) {
+        throw std::runtime_error("n_imgs != n_att_descs (FrameBuffer)");
+    }
+}
 
+void CheckFrameBufferImageSize(const std::vector<ImagePackPtr> &imgs,
+                               const vk::Extent2D &size) {
+    for (uint32_t i = 0; i < imgs.size(); i++) {
+        if (imgs[i] && imgs[i]->size != size) {
+            throw std::runtime_error("Image sizes are not match (FrameBuffer)");
+        }
+    }
+}
+
+std::vector<vk::ImageView> ExtractImageViews(
+        const std::vector<ImagePackPtr> &imgs) {
+    std::vector<vk::ImageView> result;
+    result.reserve(result.size());
+    for (auto &&img : imgs) {
+        if (img) {
+            result.push_back(*img->view);
+        } else {
+            result.emplace_back();
+        }
+    }
+    return result;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 }  // namespace
 
 // -----------------------------------------------------------------------------
@@ -238,8 +272,7 @@ UniqueGLFWWindow InitGLFWWindow(const std::string &win_name, uint32_t win_w,
 vk::UniqueInstance CreateInstance(const std::string &app_name,
                                   uint32_t app_version,
                                   const std::string &engine_name,
-                                  uint32_t engine_version,
-                                  bool debug_enable) {
+                                  uint32_t engine_version, bool debug_enable) {
     // Print extension names required by GLFW
     uint32_t n_glfw_exts = 0;
     const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_exts);
@@ -510,7 +543,7 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     auto img_view = CreateImageView(*img, format, aspects, device);
 
     // Construct image pack
-    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
+    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view), size,
                                       std::move(device_mem),
                                       memory_requs.size});
 }
@@ -556,8 +589,8 @@ BufferPackPtr CreateBufferPack(const vk::PhysicalDevice &physical_device,
     // Bind memory
     device->bindBufferMemory(buf.get(), device_mem.get(), 0);
 
-    return BufferPackPtr(new BufferPack{std::move(buf), std::move(device_mem),
-                                        memory_requs.size});
+    return BufferPackPtr(new BufferPack{
+            std::move(buf), size, std::move(device_mem), memory_requs.size});
 }
 
 void SendToDevice(const vk::UniqueDevice &device, const BufferPackPtr &buf_pack,
@@ -757,6 +790,69 @@ void UpdateRenderPass(const vk::UniqueDevice &device,
     render_pass_pack->render_pass = device->createRenderPassUnique(
             {vk::RenderPassCreateFlags(), n_att_descs, att_descs.data(),
              n_sub_descs, sub_descs.data()});
+}
+
+// -----------------------------------------------------------------------------
+// -------------------------------- FrameBuffer --------------------------------
+// -----------------------------------------------------------------------------
+vk::UniqueFramebuffer CreateFrameBuffer(
+        const vk::UniqueDevice &device,
+        const RenderPassPackPtr &render_pass_pack,
+        const std::vector<ImagePackPtr> &imgs, const vk::Extent2D &size_org) {
+    // Check the number of input images
+    CheckFrameBufferArgs(render_pass_pack, imgs);
+
+    // Extract size from the first image
+    vk::Extent2D size = size_org;
+    if (size.width == 0 || size.height == 0) {
+        size = imgs[0]->size;
+    }
+    // Check image sizes
+    CheckFrameBufferImageSize(imgs, size);
+
+    // Create attachments
+    std::vector<vk::ImageView> attachments = ExtractImageViews(imgs);
+    const uint32_t n_att = static_cast<uint32_t>(attachments.size());
+
+    // Create Frame Buffer
+    const uint32_t n_layers = 1;
+    return device->createFramebufferUnique(
+            {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
+             n_att, attachments.data(), size.width, size.height, n_layers});
+}
+
+std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
+        const vk::UniqueDevice &device,
+        const RenderPassPackPtr &render_pass_pack,
+        const std::vector<ImagePackPtr> &imgs,
+        const uint32_t swapchain_attach_idx,
+        const SwapchainPackPtr &swapchain) {
+    // Check the number of input images
+    CheckFrameBufferArgs(render_pass_pack, imgs);
+
+    // Extract size from swapchain
+    const auto &size = swapchain->size;
+    // Check image sizes
+    CheckFrameBufferImageSize(imgs, size);
+
+    // Create attachments
+    std::vector<vk::ImageView> attachments = ExtractImageViews(imgs);
+    const uint32_t n_att = static_cast<uint32_t>(attachments.size());
+
+    // Create Frame Buffers
+    std::vector<vk::UniqueFramebuffer> frame_buffers;
+    const auto &swapchain_views = swapchain->views;
+    frame_buffers.reserve(swapchain_views.size());
+    for (auto &&view : swapchain_views) {
+        attachments[swapchain_attach_idx] = *view;
+        const uint32_t n_layers = 1;
+        auto fb = device->createFramebufferUnique(
+                {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
+                 n_att, attachments.data(), size.width, size.height, n_layers});
+        frame_buffers.push_back(std::move(fb));
+    }
+
+    return frame_buffers;
 }
 
 }  // namespace vkw
