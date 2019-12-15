@@ -1,5 +1,7 @@
 #include "vkw.h"
 
+#include <bits/stdint-uintn.h>
+
 #include "warning_suppressor.h"
 
 VKW_SUPPRESS_WARNING_PUSH
@@ -10,6 +12,7 @@ VKW_SUPPRESS_WARNING_POP
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -38,7 +41,7 @@ T &EmplaceBackEmpty(std::vector<T> &vec) {
     return vec.back();
 }
 
-std::vector<std::string> Split(const std::string& str, char del = '\n') {
+std::vector<std::string> Split(const std::string &str, char del = '\n') {
     std::vector<std::string> result;
     std::string::size_type first_pos = 0, last_pos = 0;
     while (first_pos < str.size()) {
@@ -304,7 +307,7 @@ std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
     shader.setStrings(source_strs, 1);
 
     // Error handling function
-    auto throw_shader_err = [&](const std::string& tag) {
+    auto throw_shader_err = [&](const std::string &tag) {
         std::stringstream err_ss;
         err_ss << tag << std::endl;
         err_ss << shader.getInfoLog() << std::endl;
@@ -949,15 +952,154 @@ GLSLCompiler::~GLSLCompiler() {
     glslang::FinalizeProcess();
 }
 
-vk::UniqueShaderModule GLSLCompiler::compileFromString(
+ShaderModulePackPtr GLSLCompiler::compileFromString(
         const vk::UniqueDevice &device, const std::string &source,
         const vk::ShaderStageFlagBits &stage) {
     // Compile GLSL to SPIRV
     const std::vector<unsigned int> &spv_data = CompileGLSL(stage, source);
     // Create shader module
-    return device->createShaderModuleUnique(
+    auto shader_module = device->createShaderModuleUnique(
             {vk::ShaderModuleCreateFlags(),
              spv_data.size() * sizeof(unsigned int), spv_data.data()});
+    return ShaderModulePackPtr(
+            new ShaderModulePack{std::move(shader_module), stage});
+}
+
+// -----------------------------------------------------------------------------
+// ---------------------------------- Pipeline ---------------------------------
+// -----------------------------------------------------------------------------
+PipelinePackPtr CreatePipeline(
+        const vk::UniqueDevice &device,
+        const std::vector<ShaderModulePackPtr> &shader_modules,
+        const std::vector<VtxInputBindingInfo> &vtx_inp_binding_info,
+        const std::vector<VtxInputAttribInfo> &vtx_inp_attrib_info,
+        const DescSetPackPtr &desc_set_pack,
+        const RenderPassPackPtr &render_pass_pack) {
+    // Shader stage create infos
+    std::vector<vk::PipelineShaderStageCreateInfo> shader_stage_cis;
+    shader_stage_cis.reserve(shader_modules.size());
+    for (auto &&shader : shader_modules) {
+        shader_stage_cis.emplace_back(vk::PipelineShaderStageCreateFlags(),
+                                      shader->stage,
+                                      shader->shader_module.get(), "main");
+    }
+
+    // Parse vertex input binding description
+    std::vector<vk::VertexInputBindingDescription> vtx_inp_binding_descs;
+    vtx_inp_binding_descs.reserve(vtx_inp_binding_info.size());
+    for (auto &&info : vtx_inp_binding_info) {
+        vtx_inp_binding_descs.emplace_back(info.binding_idx, info.stride);
+    }
+    // Parse vertex input attribute description
+    std::vector<vk::VertexInputAttributeDescription> vtx_inp_attrib_descs;
+    vtx_inp_attrib_descs.reserve(vtx_inp_attrib_info.size());
+    for (auto &&info : vtx_inp_attrib_info) {
+        vtx_inp_attrib_descs.emplace_back(info.location, info.binding_idx,
+                                          info.format, info.offset);
+    }
+    // Vertex input state create info
+    vk::PipelineVertexInputStateCreateInfo vtx_inp_state_ci(
+            vk::PipelineVertexInputStateCreateFlags(),
+            static_cast<uint32_t>(vtx_inp_binding_descs.size()),
+            vtx_inp_binding_descs.data(),
+            static_cast<uint32_t>(vtx_inp_attrib_descs.size()),
+            vtx_inp_attrib_descs.data());
+
+    // Input assembly state create info
+    vk::PipelineInputAssemblyStateCreateInfo inp_assembly_state_ci(
+            vk::PipelineInputAssemblyStateCreateFlags(),
+            vk::PrimitiveTopology::eTriangleList);
+
+    // Viewport state create info
+    vk::PipelineViewportStateCreateInfo viewport_state_ci(
+            vk::PipelineViewportStateCreateFlags(), 1, nullptr, 1, nullptr);
+
+    // Rasterization state create info
+    vk::PipelineRasterizationStateCreateInfo rasterization_state_ci(
+            vk::PipelineRasterizationStateCreateFlags(),  // flags
+            false,                                        // depthClampEnable
+            false,                        // rasterizerDiscardEnable
+            vk::PolygonMode::eFill,       // polygonMode
+            vk::CullModeFlagBits::eBack,  // cullMode
+            vk::FrontFace::eClockwise,    // frontFace
+            false,                        // depthBiasEnable
+            0.0f,                         // depthBiasConstantFactor
+            0.0f,                         // depthBiasClamp
+            0.0f,                         // depthBiasSlopeFactor
+            1.0f                          // lineWidth
+    );
+
+    vk::PipelineMultisampleStateCreateInfo multisample_state_ci;
+
+    vk::StencilOpState stencilOpState(
+            vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::StencilOp::eKeep,
+            vk::CompareOp::eAlways);
+    vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo(
+            vk::PipelineDepthStencilStateCreateFlags(),  // flags
+            true,                                        // depthTestEnable
+            true,                                        // depthWriteEnable
+            vk::CompareOp::eLessOrEqual,                 // depthCompareOp
+            false,                                       // depthBoundTestEnable
+            false,                                       // stencilTestEnable
+            stencilOpState,                              // front
+            stencilOpState                               // back
+    );
+
+    vk::ColorComponentFlags colorComponentFlags(
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
+    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState(
+            false,                   // blendEnable
+            vk::BlendFactor::eZero,  // srcColorBlendFactor
+            vk::BlendFactor::eZero,  // dstColorBlendFactor
+            vk::BlendOp::eAdd,       // colorBlendOp
+            vk::BlendFactor::eZero,  // srcAlphaBlendFactor
+            vk::BlendFactor::eZero,  // dstAlphaBlendFactor
+            vk::BlendOp::eAdd,       // alphaBlendOp
+            colorComponentFlags      // colorWriteMask
+    );
+    vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo(
+            vk::PipelineColorBlendStateCreateFlags(),  // flags
+            false,                                     // logicOpEnable
+            vk::LogicOp::eNoOp,                        // logicOp
+            1,                                         // attachmentCount
+            &pipelineColorBlendAttachmentState,        // pAttachments
+            {{1.0f, 1.0f, 1.0f, 1.0f}}                 // blendConstants
+    );
+
+    vk::DynamicState dynamicStates[2] = {vk::DynamicState::eViewport,
+                                         vk::DynamicState::eScissor};
+    vk::PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo(
+            vk::PipelineDynamicStateCreateFlags(), 2, dynamicStates);
+
+    // Create pipeline layout (TODO: multiple)
+    auto pipeline_layout = device->createPipelineLayoutUnique(
+            {vk::PipelineLayoutCreateFlags(), 1,
+             &desc_set_pack->desc_set_layout.get()});
+
+    // Create pipeline
+    auto pipeline = device->createGraphicsPipelineUnique(
+            nullptr,
+            {
+                    vk::PipelineCreateFlags(),  // flags
+                    static_cast<uint32_t>(
+                            shader_stage_cis.size()),  // stageCount
+                    shader_stage_cis.data(),           // pStages
+                    &vtx_inp_state_ci,                 // pVertexInputState
+                    &inp_assembly_state_ci,            // pInputAssemblyState
+                    nullptr,                           // pTessellationState
+                    &viewport_state_ci,                // pViewportState
+                    &rasterization_state_ci,           // pRasterizationState
+                    &multisample_state_ci,             // pMultisampleState
+                    &pipelineDepthStencilStateCreateInfo,  // pDepthStencilState
+                    &pipelineColorBlendStateCreateInfo,    // pColorBlendState
+                    &pipelineDynamicStateCreateInfo,       // pDynamicState
+                    pipeline_layout.get(),                 // layout
+                    render_pass_pack->render_pass.get()    // renderPass
+            });
+
+    return PipelinePackPtr(
+            new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});
 }
 
 }  // namespace vkw

@@ -206,9 +206,9 @@ int main(int argc, char const *argv[]) {
                                                  swapchain_pack);
 
     vkw::GLSLCompiler glsl_compiler;
-    auto vert_shader_module = glsl_compiler.compileFromString(
+    auto vert_shader_module_pack = glsl_compiler.compileFromString(
             device, VERT_SOURCE, vk::ShaderStageFlagBits::eVertex);
-    auto frag_shader_module = glsl_compiler.compileFromString(
+    auto frag_shader_module_pack = glsl_compiler.compileFromString(
             device, FRAG_SOURCE, vk::ShaderStageFlagBits::eFragment);
 
     const size_t vertex_buf_size = CUBE_VERTICES.size() * sizeof(Vertex);
@@ -220,167 +220,77 @@ int main(int argc, char const *argv[]) {
     vkw::SendToDevice(device, vertex_buf_pack, CUBE_VERTICES.data(),
                       vertex_buf_size);
 
-    // ------------------
-
-    vk::PipelineShaderStageCreateInfo pipelineShaderStageCreateInfos[2] = {
-            vk::PipelineShaderStageCreateInfo(
-                    vk::PipelineShaderStageCreateFlags(),
-                    vk::ShaderStageFlagBits::eVertex, vert_shader_module.get(),
-                    "main"),
-            vk::PipelineShaderStageCreateInfo(
-                    vk::PipelineShaderStageCreateFlags(),
-                    vk::ShaderStageFlagBits::eFragment,
-                    frag_shader_module.get(), "main")};
-
-    vk::VertexInputBindingDescription vertexInputBindingDescription(
-            0, sizeof(Vertex));
-    vk::VertexInputAttributeDescription vertexInputAttributeDescriptions[2] = {
-            vk::VertexInputAttributeDescription(
-                    0, 0, vk::Format::eR32G32B32A32Sfloat, 0),
-            vk::VertexInputAttributeDescription(
-                    1, 0, vk::Format::eR32G32B32A32Sfloat, 16)};
-    vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo(
-            vk::PipelineVertexInputStateCreateFlags(),  // flags
-            1,                                // vertexBindingDescriptionCount
-            &vertexInputBindingDescription,   // pVertexBindingDescription
-            2,                                // vertexAttributeDescriptionCount
-            vertexInputAttributeDescriptions  // pVertexAttributeDescriptions
-    );
-
-    vk::PipelineInputAssemblyStateCreateInfo
-            pipelineInputAssemblyStateCreateInfo(
-                    vk::PipelineInputAssemblyStateCreateFlags(),
-                    vk::PrimitiveTopology::eTriangleList);
-
-    vk::PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo(
-            vk::PipelineViewportStateCreateFlags(), 1, nullptr, 1, nullptr);
-
-    vk::PipelineRasterizationStateCreateInfo
-            pipelineRasterizationStateCreateInfo(
-                    vk::PipelineRasterizationStateCreateFlags(),  // flags
-                    false,                        // depthClampEnable
-                    false,                        // rasterizerDiscardEnable
-                    vk::PolygonMode::eFill,       // polygonMode
-                    vk::CullModeFlagBits::eBack,  // cullMode
-                    vk::FrontFace::eClockwise,    // frontFace
-                    false,                        // depthBiasEnable
-                    0.0f,                         // depthBiasConstantFactor
-                    0.0f,                         // depthBiasClamp
-                    0.0f,                         // depthBiasSlopeFactor
-                    1.0f                          // lineWidth
-            );
-
-    vk::PipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo;
-
-    vk::StencilOpState stencilOpState(
-            vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::StencilOp::eKeep,
-            vk::CompareOp::eAlways);
-    vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo(
-            vk::PipelineDepthStencilStateCreateFlags(),  // flags
-            true,                                        // depthTestEnable
-            true,                                        // depthWriteEnable
-            vk::CompareOp::eLessOrEqual,                 // depthCompareOp
-            false,                                       // depthBoundTestEnable
-            false,                                       // stencilTestEnable
-            stencilOpState,                              // front
-            stencilOpState                               // back
-    );
-
-    vk::ColorComponentFlags colorComponentFlags(
-            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
-    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState(
-            false,                   // blendEnable
-            vk::BlendFactor::eZero,  // srcColorBlendFactor
-            vk::BlendFactor::eZero,  // dstColorBlendFactor
-            vk::BlendOp::eAdd,       // colorBlendOp
-            vk::BlendFactor::eZero,  // srcAlphaBlendFactor
-            vk::BlendFactor::eZero,  // dstAlphaBlendFactor
-            vk::BlendOp::eAdd,       // alphaBlendOp
-            colorComponentFlags      // colorWriteMask
-    );
-    vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo(
-            vk::PipelineColorBlendStateCreateFlags(),  // flags
-            false,                                     // logicOpEnable
-            vk::LogicOp::eNoOp,                        // logicOp
-            1,                                         // attachmentCount
-            &pipelineColorBlendAttachmentState,        // pAttachments
-            {{1.0f, 1.0f, 1.0f, 1.0f}}                 // blendConstants
-    );
-
-    vk::DynamicState dynamicStates[2] = {vk::DynamicState::eViewport,
-                                         vk::DynamicState::eScissor};
-    vk::PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo(
-            vk::PipelineDynamicStateCreateFlags(), 2, dynamicStates);
-
-    vk::UniquePipelineLayout pipeline_layout =
-            device->createPipelineLayoutUnique(
-                    {vk::PipelineLayoutCreateFlags(), 1,
-                     &desc_set_pack->desc_set_layout.get()});
-
-    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo(
-            vk::PipelineCreateFlags(),              // flags
-            2,                                      // stageCount
-            pipelineShaderStageCreateInfos,         // pStages
-            &pipelineVertexInputStateCreateInfo,    // pVertexInputState
-            &pipelineInputAssemblyStateCreateInfo,  // pInputAssemblyState
-            nullptr,                                // pTessellationState
-            &pipelineViewportStateCreateInfo,       // pViewportState
-            &pipelineRasterizationStateCreateInfo,  // pRasterizationState
-            &pipelineMultisampleStateCreateInfo,    // pMultisampleState
-            &pipelineDepthStencilStateCreateInfo,   // pDepthStencilState
-            &pipelineColorBlendStateCreateInfo,     // pColorBlendState
-            &pipelineDynamicStateCreateInfo,        // pDynamicState
-            pipeline_layout.get(),                  // layout
-            render_pass_pack->render_pass.get()     // renderPass
-    );
-
-    vk::UniquePipeline pipeline = device->createGraphicsPipelineUnique(
-            nullptr, graphicsPipelineCreateInfo);
+    auto pipeline_pack = vkw::CreatePipeline(
+            device, {vert_shader_module_pack, frag_shader_module_pack},
+            {{.binding_idx = 0, .stride = sizeof(Vertex)}},
+            {{0, .binding_idx = 0, vk::Format::eR32G32B32A32Sfloat, 0},
+             {1, .binding_idx = 0, vk::Format::eR32G32B32A32Sfloat, 16}},
+            desc_set_pack, render_pass_pack);
 
     // ------------------
 
     // Get the index of the next available swapchain image:
-    vk::UniqueSemaphore imageAcquiredSemaphore = device->createSemaphoreUnique(vk::SemaphoreCreateInfo());
+    vk::UniqueSemaphore imageAcquiredSemaphore =
+            device->createSemaphoreUnique(vk::SemaphoreCreateInfo());
     const uint64_t FenceTimeout = 100000000;
-    vk::ResultValue<uint32_t> currentBuffer = device->acquireNextImageKHR(swapchain_pack->swapchain.get(), FenceTimeout, imageAcquiredSemaphore.get(), nullptr);
+    vk::ResultValue<uint32_t> currentBuffer = device->acquireNextImageKHR(
+            swapchain_pack->swapchain.get(), FenceTimeout,
+            imageAcquiredSemaphore.get(), nullptr);
     assert(currentBuffer.result == vk::Result::eSuccess);
     assert(currentBuffer.value < frame_buffers.size());
 
-    command_buffer->begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlags()));
+    command_buffer->begin(
+            vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlags()));
 
     vk::ClearValue clearValues[2];
-    clearValues[0].color = vk::ClearColorValue(std::array<float, 4>({ 0.2f, 0.2f, 0.2f, 0.2f }));
+    clearValues[0].color =
+            vk::ClearColorValue(std::array<float, 4>({0.2f, 0.2f, 0.2f, 0.2f}));
     clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
-    vk::RenderPassBeginInfo renderPassBeginInfo(render_pass_pack->render_pass.get(), frame_buffers[currentBuffer.value].get(), vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size), 2, clearValues);
-    command_buffer->beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
-    command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
-    command_buffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout.get(), 0, desc_set_pack->desc_set.get(), nullptr);
+    vk::RenderPassBeginInfo renderPassBeginInfo(
+            render_pass_pack->render_pass.get(),
+            frame_buffers[currentBuffer.value].get(),
+            vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size), 2,
+            clearValues);
+    command_buffer->beginRenderPass(renderPassBeginInfo,
+                                    vk::SubpassContents::eInline);
+    command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                 pipeline_pack->pipeline.get());
+    command_buffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                       pipeline_pack->pipeline_layout.get(), 0,
+                                       desc_set_pack->desc_set.get(), nullptr);
 
     command_buffer->bindVertexBuffers(0, *vertex_buf_pack->buf, {0});
-    command_buffer->setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapchain_pack->size.width), static_cast<float>(swapchain_pack->size.height), 0.0f, 1.0f));
-    command_buffer->setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
+    command_buffer->setViewport(
+            0, vk::Viewport(0.0f, 0.0f,
+                            static_cast<float>(swapchain_pack->size.width),
+                            static_cast<float>(swapchain_pack->size.height),
+                            0.0f, 1.0f));
+    command_buffer->setScissor(
+            0, vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
 
     command_buffer->draw(12 * 3, 1, 0, 0);
     command_buffer->endRenderPass();
     command_buffer->end();
 
-    vk::UniqueFence drawFence = device->createFenceUnique(vk::FenceCreateInfo());
+    vk::UniqueFence drawFence =
+            device->createFenceUnique(vk::FenceCreateInfo());
 
-    vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore.get(), &waitDestinationStageMask, 1, &command_buffer.get());
+    vk::PipelineStageFlags waitDestinationStageMask(
+            vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore.get(),
+                              &waitDestinationStageMask, 1,
+                              &command_buffer.get());
     queue.submit(submitInfo, drawFence.get());
 
-    while (vk::Result::eTimeout == device->waitForFences(drawFence.get(), VK_TRUE, FenceTimeout))
-      ;
+    while (vk::Result::eTimeout ==
+           device->waitForFences(drawFence.get(), VK_TRUE, FenceTimeout))
+        ;
 
-    queue.presentKHR(vk::PresentInfoKHR(0, nullptr, 1, &swapchain_pack->swapchain.get(), &currentBuffer.value));
+    queue.presentKHR(vk::PresentInfoKHR(0, nullptr, 1,
+                                        &swapchain_pack->swapchain.get(),
+                                        &currentBuffer.value));
 
     // clang-format off
-
-
-
-
     while (!glfwWindowShouldClose(window.get())) {
         glfwPollEvents();
 //         break;

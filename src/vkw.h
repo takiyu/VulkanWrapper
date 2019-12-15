@@ -241,15 +241,48 @@ std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
 // -----------------------------------------------------------------------------
 // -------------------------------- ShaderModule -------------------------------
 // -----------------------------------------------------------------------------
+struct ShaderModulePack {
+    vk::UniqueShaderModule shader_module;
+    vk::ShaderStageFlagBits stage;
+};
+using ShaderModulePackPtr = std::shared_ptr<ShaderModulePack>;
+
 class GLSLCompiler {
 public:
     GLSLCompiler();
     ~GLSLCompiler();
-    vk::UniqueShaderModule compileFromString(
+    ShaderModulePackPtr compileFromString(
             const vk::UniqueDevice& device, const std::string& source,
             const vk::ShaderStageFlagBits& stage =
                     vk::ShaderStageFlagBits::eVertex);
 };
+
+// -----------------------------------------------------------------------------
+// ---------------------------------- Pipeline ---------------------------------
+// -----------------------------------------------------------------------------
+struct VtxInputBindingInfo {
+    uint32_t binding_idx = 0;
+    uint32_t stride = sizeof(float);
+};
+struct VtxInputAttribInfo {
+    uint32_t location = 0;     // Location in shader
+    uint32_t binding_idx = 0;  // Select a binding
+    vk::Format format = vk::Format::eR32G32B32A32Sfloat;
+    uint32_t offset = 0;  // Offset in the binding buffer
+};
+
+struct PipelinePack {
+    vk::UniquePipelineLayout pipeline_layout;
+    vk::UniquePipeline pipeline;
+};
+using PipelinePackPtr = std::shared_ptr<PipelinePack>;
+PipelinePackPtr CreatePipeline(
+        const vk::UniqueDevice& device,
+        const std::vector<ShaderModulePackPtr>& shader_modules,
+        const std::vector<VtxInputBindingInfo>& vtx_inp_binding_info,
+        const std::vector<VtxInputAttribInfo>& vtx_inp_attrib_info,
+        const DescSetPackPtr& desc_set_pack,
+        const RenderPassPackPtr& render_pass_pack);
 
 }  // namespace vkw
 
