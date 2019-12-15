@@ -97,7 +97,7 @@ set(ENABLE_SPVREMAPPER OFF CACHE BOOL "")
 set(ENABLE_HLSL OFF CACHE BOOL "")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
-list(APPEND VKPR_LIBRARY glslang SPIRV)
+list(APPEND VKPR_LIBRARY glslang SPIRV glslang-default-resource-limits)
 
 # GLM
 list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)

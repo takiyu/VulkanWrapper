@@ -14,9 +14,7 @@ namespace vkw {
 // ----------------------------------- GLFW ------------------------------------
 // -----------------------------------------------------------------------------
 struct GLFWWindowDeleter {
-    void operator()(GLFWwindow* ptr) {
-        glfwDestroyWindow(ptr);
-    }
+    void operator()(GLFWwindow* ptr);
 };
 using UniqueGLFWWindow = std::unique_ptr<GLFWwindow, GLFWWindowDeleter>;
 
@@ -239,6 +237,19 @@ std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
         const RenderPassPackPtr& render_pass_pack,
         const std::vector<ImagePackPtr>& imgs,
         const uint32_t swapchain_attach_idx, const SwapchainPackPtr& swapchain);
+
+// -----------------------------------------------------------------------------
+// -------------------------------- ShaderModule -------------------------------
+// -----------------------------------------------------------------------------
+class GLSLCompiler {
+public:
+    GLSLCompiler();
+    ~GLSLCompiler();
+    vk::UniqueShaderModule compileFromString(
+            const vk::UniqueDevice& device, const std::string& source,
+            const vk::ShaderStageFlagBits& stage =
+                    vk::ShaderStageFlagBits::eVertex);
+};
 
 }  // namespace vkw
 

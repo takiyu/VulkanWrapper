@@ -8,6 +8,96 @@
 
 #include "vkw.h"
 
+// vertex shader with (P)osition and (C)olor in and (C)olor out
+const std::string VERT_SOURCE = R"(
+#version 400
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+layout (std140, binding = 0) uniform buffer
+{
+  mat4 mvp;
+} uniformBuffer;
+
+layout (location = 0) in vec4 pos;
+layout (location = 1) in vec4 inColor;
+
+layout (location = 0) out vec4 outColor;
+
+void main()
+{
+  outColor = inColor;
+  gl_Position = uniformBuffer.mvp * pos;
+}
+)";
+
+// fragment shader with (C)olor in and (C)olor out
+const std::string FRAG_SOURCE = R"(
+#version 400
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+layout (location = 0) in vec4 color;
+
+layout (location = 0) out vec4 outColor;
+
+void main()
+{
+  outColor = color;
+}
+)";
+
+struct Vertex {
+    float x, y, z, w;  // Position
+    float r, g, b, a;  // Color
+};
+const std::vector<Vertex> CUBE_VERTICES = {
+        // red face
+        {-1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},
+        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},
+        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},
+        // green face
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        // blue face
+        {-1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        // yellow face
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        // magenta face
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        // cyan face
+        {1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+};
+
 int main(int argc, char const *argv[]) {
     (void)argc, (void)argv;
 
@@ -15,8 +105,8 @@ int main(int argc, char const *argv[]) {
     const int app_version = 1;
     const std::string engine_name = "engine name";
     const int engine_version = 1;
-    uint32_t win_w = 200;
-    uint32_t win_h = 200;
+    uint32_t win_w = 600;
+    uint32_t win_h = 600;
 
     auto window = vkw::InitGLFWWindow(app_name, win_w, win_h);
     auto instance = vkw::CreateInstance(app_name, app_version, engine_name,
@@ -38,6 +128,8 @@ int main(int argc, char const *argv[]) {
     auto command_buffers_pack = vkw::CreateCommandBuffersPack(
             device, queue_family_idx, n_cmd_buffers);
     auto &command_buffer = command_buffers_pack->cmd_bufs[0];
+
+    vk::Queue queue = device->getQueue(queue_family_idx, 0);
 
     auto swapchain_pack = vkw::CreateSwapchainPack(physical_device, device,
                                                    surface, win_w, win_h);
@@ -69,8 +161,7 @@ int main(int argc, char const *argv[]) {
             vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
-    vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
-                      16 * sizeof(float));
+    vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0], sizeof(mvpc_mat));
 
 #if 1
     auto desc_set_pack = vkw::CreateDescriptorSetPack(
@@ -110,19 +201,190 @@ int main(int argc, char const *argv[]) {
                         {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
     vkw::UpdateRenderPass(device, render_pass_pack);
 
-    auto frame_buffers = vkw::CreateFrameBuffers(device, render_pass_pack, {nullptr, depth_img_pack}, 0, swapchain_pack);
+    auto frame_buffers = vkw::CreateFrameBuffers(device, render_pass_pack,
+                                                 {nullptr, depth_img_pack}, 0,
+                                                 swapchain_pack);
+
+    vkw::GLSLCompiler glsl_compiler;
+    auto vert_shader_module = glsl_compiler.compileFromString(
+            device, VERT_SOURCE, vk::ShaderStageFlagBits::eVertex);
+    auto frag_shader_module = glsl_compiler.compileFromString(
+            device, FRAG_SOURCE, vk::ShaderStageFlagBits::eFragment);
+
+    const size_t vertex_buf_size = CUBE_VERTICES.size() * sizeof(Vertex);
+    auto vertex_buf_pack = vkw::CreateBufferPack(
+            physical_device, device, vertex_buf_size,
+            vk::BufferUsageFlagBits::eVertexBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible |
+                    vk::MemoryPropertyFlagBits::eHostCoherent);
+    vkw::SendToDevice(device, vertex_buf_pack, CUBE_VERTICES.data(),
+                      vertex_buf_size);
+
+    // ------------------
+
+    vk::PipelineShaderStageCreateInfo pipelineShaderStageCreateInfos[2] = {
+            vk::PipelineShaderStageCreateInfo(
+                    vk::PipelineShaderStageCreateFlags(),
+                    vk::ShaderStageFlagBits::eVertex, vert_shader_module.get(),
+                    "main"),
+            vk::PipelineShaderStageCreateInfo(
+                    vk::PipelineShaderStageCreateFlags(),
+                    vk::ShaderStageFlagBits::eFragment,
+                    frag_shader_module.get(), "main")};
+
+    vk::VertexInputBindingDescription vertexInputBindingDescription(
+            0, sizeof(Vertex));
+    vk::VertexInputAttributeDescription vertexInputAttributeDescriptions[2] = {
+            vk::VertexInputAttributeDescription(
+                    0, 0, vk::Format::eR32G32B32A32Sfloat, 0),
+            vk::VertexInputAttributeDescription(
+                    1, 0, vk::Format::eR32G32B32A32Sfloat, 16)};
+    vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo(
+            vk::PipelineVertexInputStateCreateFlags(),  // flags
+            1,                                // vertexBindingDescriptionCount
+            &vertexInputBindingDescription,   // pVertexBindingDescription
+            2,                                // vertexAttributeDescriptionCount
+            vertexInputAttributeDescriptions  // pVertexAttributeDescriptions
+    );
+
+    vk::PipelineInputAssemblyStateCreateInfo
+            pipelineInputAssemblyStateCreateInfo(
+                    vk::PipelineInputAssemblyStateCreateFlags(),
+                    vk::PrimitiveTopology::eTriangleList);
+
+    vk::PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo(
+            vk::PipelineViewportStateCreateFlags(), 1, nullptr, 1, nullptr);
+
+    vk::PipelineRasterizationStateCreateInfo
+            pipelineRasterizationStateCreateInfo(
+                    vk::PipelineRasterizationStateCreateFlags(),  // flags
+                    false,                        // depthClampEnable
+                    false,                        // rasterizerDiscardEnable
+                    vk::PolygonMode::eFill,       // polygonMode
+                    vk::CullModeFlagBits::eBack,  // cullMode
+                    vk::FrontFace::eClockwise,    // frontFace
+                    false,                        // depthBiasEnable
+                    0.0f,                         // depthBiasConstantFactor
+                    0.0f,                         // depthBiasClamp
+                    0.0f,                         // depthBiasSlopeFactor
+                    1.0f                          // lineWidth
+            );
+
+    vk::PipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo;
+
+    vk::StencilOpState stencilOpState(
+            vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::StencilOp::eKeep,
+            vk::CompareOp::eAlways);
+    vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo(
+            vk::PipelineDepthStencilStateCreateFlags(),  // flags
+            true,                                        // depthTestEnable
+            true,                                        // depthWriteEnable
+            vk::CompareOp::eLessOrEqual,                 // depthCompareOp
+            false,                                       // depthBoundTestEnable
+            false,                                       // stencilTestEnable
+            stencilOpState,                              // front
+            stencilOpState                               // back
+    );
+
+    vk::ColorComponentFlags colorComponentFlags(
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
+    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState(
+            false,                   // blendEnable
+            vk::BlendFactor::eZero,  // srcColorBlendFactor
+            vk::BlendFactor::eZero,  // dstColorBlendFactor
+            vk::BlendOp::eAdd,       // colorBlendOp
+            vk::BlendFactor::eZero,  // srcAlphaBlendFactor
+            vk::BlendFactor::eZero,  // dstAlphaBlendFactor
+            vk::BlendOp::eAdd,       // alphaBlendOp
+            colorComponentFlags      // colorWriteMask
+    );
+    vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo(
+            vk::PipelineColorBlendStateCreateFlags(),  // flags
+            false,                                     // logicOpEnable
+            vk::LogicOp::eNoOp,                        // logicOp
+            1,                                         // attachmentCount
+            &pipelineColorBlendAttachmentState,        // pAttachments
+            {{1.0f, 1.0f, 1.0f, 1.0f}}                 // blendConstants
+    );
+
+    vk::DynamicState dynamicStates[2] = {vk::DynamicState::eViewport,
+                                         vk::DynamicState::eScissor};
+    vk::PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo(
+            vk::PipelineDynamicStateCreateFlags(), 2, dynamicStates);
+
+    vk::UniquePipelineLayout pipeline_layout =
+            device->createPipelineLayoutUnique(
+                    {vk::PipelineLayoutCreateFlags(), 1,
+                     &desc_set_pack->desc_set_layout.get()});
+
+    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo(
+            vk::PipelineCreateFlags(),              // flags
+            2,                                      // stageCount
+            pipelineShaderStageCreateInfos,         // pStages
+            &pipelineVertexInputStateCreateInfo,    // pVertexInputState
+            &pipelineInputAssemblyStateCreateInfo,  // pInputAssemblyState
+            nullptr,                                // pTessellationState
+            &pipelineViewportStateCreateInfo,       // pViewportState
+            &pipelineRasterizationStateCreateInfo,  // pRasterizationState
+            &pipelineMultisampleStateCreateInfo,    // pMultisampleState
+            &pipelineDepthStencilStateCreateInfo,   // pDepthStencilState
+            &pipelineColorBlendStateCreateInfo,     // pColorBlendState
+            &pipelineDynamicStateCreateInfo,        // pDynamicState
+            pipeline_layout.get(),                  // layout
+            render_pass_pack->render_pass.get()     // renderPass
+    );
+
+    vk::UniquePipeline pipeline = device->createGraphicsPipelineUnique(
+            nullptr, graphicsPipelineCreateInfo);
+
+    // ------------------
+
+    // Get the index of the next available swapchain image:
+    vk::UniqueSemaphore imageAcquiredSemaphore = device->createSemaphoreUnique(vk::SemaphoreCreateInfo());
+    const uint64_t FenceTimeout = 100000000;
+    vk::ResultValue<uint32_t> currentBuffer = device->acquireNextImageKHR(swapchain_pack->swapchain.get(), FenceTimeout, imageAcquiredSemaphore.get(), nullptr);
+    assert(currentBuffer.result == vk::Result::eSuccess);
+    assert(currentBuffer.value < frame_buffers.size());
+
+    command_buffer->begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlags()));
+
+    vk::ClearValue clearValues[2];
+    clearValues[0].color = vk::ClearColorValue(std::array<float, 4>({ 0.2f, 0.2f, 0.2f, 0.2f }));
+    clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+    vk::RenderPassBeginInfo renderPassBeginInfo(render_pass_pack->render_pass.get(), frame_buffers[currentBuffer.value].get(), vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size), 2, clearValues);
+    command_buffer->beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+    command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
+    command_buffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout.get(), 0, desc_set_pack->desc_set.get(), nullptr);
+
+    command_buffer->bindVertexBuffers(0, *vertex_buf_pack->buf, {0});
+    command_buffer->setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapchain_pack->size.width), static_cast<float>(swapchain_pack->size.height), 0.0f, 1.0f));
+    command_buffer->setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
+
+    command_buffer->draw(12 * 3, 1, 0, 0);
+    command_buffer->endRenderPass();
+    command_buffer->end();
+
+    vk::UniqueFence drawFence = device->createFenceUnique(vk::FenceCreateInfo());
+
+    vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore.get(), &waitDestinationStageMask, 1, &command_buffer.get());
+    queue.submit(submitInfo, drawFence.get());
+
+    while (vk::Result::eTimeout == device->waitForFences(drawFence.get(), VK_TRUE, FenceTimeout))
+      ;
+
+    queue.presentKHR(vk::PresentInfoKHR(0, nullptr, 1, &swapchain_pack->swapchain.get(), &currentBuffer.value));
 
     // clang-format off
 
-//
-//     vk::UniquePipelineLayout pipeline_layout = device->createPipelineLayoutUnique({vk::PipelineLayoutCreateFlags(), 1, &desc_set_layout.get()});
 
 
-//
-//     while (!glfwWindowShouldClose(window.get())) {
-//         glfwPollEvents();
+
+    while (!glfwWindowShouldClose(window.get())) {
+        glfwPollEvents();
 //         break;
-//     }
+    }
 
     std::cout << "exit" << std::endl;
 

@@ -4,9 +4,11 @@
 
 VKW_SUPPRESS_WARNING_PUSH
 #include <SPIRV/GlslangToSpv.h>
+#include <StandAlone/ResourceLimits.h>
 VKW_SUPPRESS_WARNING_POP
 
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 
 // Storage for dispatcher
@@ -34,6 +36,24 @@ template <typename T>
 T &EmplaceBackEmpty(std::vector<T> &vec) {
     vec.emplace_back();
     return vec.back();
+}
+
+std::vector<std::string> Split(const std::string& str, char del = '\n') {
+    std::vector<std::string> result;
+    std::string::size_type first_pos = 0, last_pos = 0;
+    while (first_pos < str.size()) {
+        // Find next splitter position
+        last_pos = str.find_first_of(del, first_pos);
+        if (last_pos == std::string::npos) {
+            break;
+        }
+        // Extract sub string
+        std::string sub_str(str, first_pos, last_pos - first_pos);
+        result.push_back(sub_str);
+        // Go to next position
+        first_pos = last_pos + 1;
+    }
+    return result;
 }
 
 // -----------------------------------------------------------------------------
@@ -249,11 +269,84 @@ auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+EShLanguage CvtShaderStage(const vk::ShaderStageFlagBits &stage) {
+    switch (stage) {
+        case vk::ShaderStageFlagBits::eVertex: return EShLangVertex;
+        case vk::ShaderStageFlagBits::eTessellationControl:
+            return EShLangTessControl;
+        case vk::ShaderStageFlagBits::eTessellationEvaluation:
+            return EShLangTessEvaluation;
+        case vk::ShaderStageFlagBits::eGeometry: return EShLangGeometry;
+        case vk::ShaderStageFlagBits::eFragment: return EShLangFragment;
+        case vk::ShaderStageFlagBits::eCompute: return EShLangCompute;
+        case vk::ShaderStageFlagBits::eRaygenNV: return EShLangRayGenNV;
+        case vk::ShaderStageFlagBits::eAnyHitNV: return EShLangAnyHitNV;
+        case vk::ShaderStageFlagBits::eClosestHitNV: return EShLangClosestHitNV;
+        case vk::ShaderStageFlagBits::eMissNV: return EShLangMissNV;
+        case vk::ShaderStageFlagBits::eIntersectionNV:
+            return EShLangIntersectNV;
+        case vk::ShaderStageFlagBits::eCallableNV: return EShLangCallableNV;
+        case vk::ShaderStageFlagBits::eTaskNV: return EShLangTaskNV;
+        case vk::ShaderStageFlagBits::eMeshNV: return EShLangMeshNV;
+        default: throw std::runtime_error("Invalid shader type");
+    }
+}
+
+std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
+                                      const std::string &source) {
+    const EShLanguage stage = CvtShaderStage(vk_stage);
+    const EShMessages rules = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+
+    // Set source string
+    glslang::TShader shader(stage);
+    const char *source_strs[1] = {source.data()};
+    shader.setStrings(source_strs, 1);
+
+    // Error handling function
+    auto throw_shader_err = [&](const std::string& tag) {
+        std::stringstream err_ss;
+        err_ss << tag << std::endl;
+        err_ss << shader.getInfoLog() << std::endl;
+        err_ss << shader.getInfoDebugLog() << std::endl;
+        err_ss << " Shader Source:" << std::endl;
+        std::vector<std::string> source_lines = Split(source);
+        for (size_t i = 0; i < source_lines.size(); i++) {
+            err_ss << "  " << (i + 1) << ": " << source_lines[i] << std::endl;
+        }
+        throw std::runtime_error(err_ss.str());
+    };
+
+    // Parse GLSL with SPIR-V and Vulkan rules
+    if (!shader.parse(&glslang::DefaultTBuiltInResource, 100, false, rules)) {
+        throw_shader_err("Failed to parse GLSL");
+    }
+
+    // Link to program
+    glslang::TProgram program;
+    program.addShader(&shader);
+    if (!program.link(rules)) {
+        throw_shader_err("Failed to link GLSL");
+    }
+
+    // Convert GLSL to SPIRV
+    std::vector<unsigned int> spv_data;
+    glslang::GlslangToSpv(*program.getIntermediate(stage), spv_data);
+    return spv_data;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 }  // namespace
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- GLFW ------------------------------------
 // -----------------------------------------------------------------------------
+void GLFWWindowDeleter::operator()(GLFWwindow *ptr) {
+    glfwDestroyWindow(ptr);
+}
+
 UniqueGLFWWindow InitGLFWWindow(const std::string &win_name, uint32_t win_w,
                                 uint32_t win_h) {
     // Initialize GLFW
@@ -843,6 +936,28 @@ std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
                  size.width, size.height, n_layers}));
     }
     return frame_buffers;
+}
+
+// -----------------------------------------------------------------------------
+// -------------------------------- ShaderModule -------------------------------
+// -----------------------------------------------------------------------------
+GLSLCompiler::GLSLCompiler() {
+    glslang::InitializeProcess();
+}
+
+GLSLCompiler::~GLSLCompiler() {
+    glslang::FinalizeProcess();
+}
+
+vk::UniqueShaderModule GLSLCompiler::compileFromString(
+        const vk::UniqueDevice &device, const std::string &source,
+        const vk::ShaderStageFlagBits &stage) {
+    // Compile GLSL to SPIRV
+    const std::vector<unsigned int> &spv_data = CompileGLSL(stage, source);
+    // Create shader module
+    return device->createShaderModuleUnique(
+            {vk::ShaderModuleCreateFlags(),
+             spv_data.size() * sizeof(unsigned int), spv_data.data()});
 }
 
 }  // namespace vkw
