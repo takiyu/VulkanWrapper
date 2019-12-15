@@ -115,7 +115,7 @@ int main(int argc, char const *argv[]) {
     // clang-format off
 
 //
-//     vk::UniquePipelineLayout pipeline_layout = device->createPipelineLayoutUnique({vk::PipelineLayoutCreateFlags(), 1, &descset_layout.get()});
+//     vk::UniquePipelineLayout pipeline_layout = device->createPipelineLayoutUnique({vk::PipelineLayoutCreateFlags(), 1, &desc_set_layout.get()});
 
 
 //

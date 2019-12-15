@@ -1,5 +1,6 @@
 #include "vkw.h"
 
+#include <SPIRV/GlslangToSpv.h>
 #include <bits/stdint-uintn.h>
 
 #include <iostream>
@@ -17,7 +18,7 @@ namespace {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 template <typename T>
-inline T clamp(const T &x, const T &min_v, const T &max_v) {
+inline T Clamp(const T &x, const T &min_v, const T &max_v) {
     return std::min(std::max(x, min_v), max_v);
 }
 
@@ -102,8 +103,8 @@ static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
         // If the surface size is undefined, setting screen size is requested.
         const auto &min_ex = surface_capas.minImageExtent;
         const auto &max_ex = surface_capas.maxImageExtent;
-        swapchain_extent.width = clamp(win_w, min_ex.width, max_ex.width);
-        swapchain_extent.height = clamp(win_h, min_ex.height, max_ex.height);
+        swapchain_extent.width = Clamp(win_w, min_ex.width, max_ex.width);
+        swapchain_extent.height = Clamp(win_h, min_ex.height, max_ex.height);
     }
 
     // Set swapchain pre-transform
@@ -208,36 +209,39 @@ static vk::UniqueSampler CreateSampler(const vk::UniqueDevice &device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void CheckFrameBufferArgs(const RenderPassPackPtr &render_pass_pack,
-                          const std::vector<ImagePackPtr> &imgs) {
+auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
+                        const std::vector<ImagePackPtr> &imgs,
+                        const vk::Extent2D &size_org) {
     // Check the number of input images
     const auto &attachment_descs = render_pass_pack->attachment_descs;
     if (attachment_descs.size() != imgs.size() || imgs.empty()) {
         throw std::runtime_error("n_imgs != n_att_descs (FrameBuffer)");
     }
-}
 
-void CheckFrameBufferImageSize(const std::vector<ImagePackPtr> &imgs,
-                               const vk::Extent2D &size) {
+    // Extract size from the first image
+    vk::Extent2D size = size_org;
+    if (size.width == 0 || size.height == 0) {
+        size = imgs[0]->size;
+    }
+
+    // Check image sizes
     for (uint32_t i = 0; i < imgs.size(); i++) {
         if (imgs[i] && imgs[i]->size != size) {
             throw std::runtime_error("Image sizes are not match (FrameBuffer)");
         }
     }
-}
 
-std::vector<vk::ImageView> ExtractImageViews(
-        const std::vector<ImagePackPtr> &imgs) {
-    std::vector<vk::ImageView> result;
-    result.reserve(result.size());
+    // Create attachments
+    std::vector<vk::ImageView> attachments;
+    attachments.reserve(imgs.size());
     for (auto &&img : imgs) {
         if (img) {
-            result.push_back(*img->view);
+            attachments.push_back(*img->view);
         } else {
-            result.emplace_back();
+            attachments.emplace_back();
         }
     }
-    return result;
+    return std::make_tuple(size, std::move(attachments));
 }
 
 // -----------------------------------------------------------------------------
@@ -799,26 +803,17 @@ vk::UniqueFramebuffer CreateFrameBuffer(
         const vk::UniqueDevice &device,
         const RenderPassPackPtr &render_pass_pack,
         const std::vector<ImagePackPtr> &imgs, const vk::Extent2D &size_org) {
-    // Check the number of input images
-    CheckFrameBufferArgs(render_pass_pack, imgs);
-
-    // Extract size from the first image
-    vk::Extent2D size = size_org;
-    if (size.width == 0 || size.height == 0) {
-        size = imgs[0]->size;
-    }
-    // Check image sizes
-    CheckFrameBufferImageSize(imgs, size);
-
-    // Create attachments
-    std::vector<vk::ImageView> attachments = ExtractImageViews(imgs);
-    const uint32_t n_att = static_cast<uint32_t>(attachments.size());
+    // Prepare frame buffer creation
+    auto info = PrepareFrameBuffer(render_pass_pack, imgs, size_org);
+    const vk::Extent2D &size = std::get<0>(info);
+    const std::vector<vk::ImageView> &attachments = std::get<1>(info);
+    const uint32_t n_layers = 1;
 
     // Create Frame Buffer
-    const uint32_t n_layers = 1;
     return device->createFramebufferUnique(
             {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
-             n_att, attachments.data(), size.width, size.height, n_layers});
+             static_cast<uint32_t>(attachments.size()), attachments.data(),
+             size.width, size.height, n_layers});
 }
 
 std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
@@ -827,29 +822,23 @@ std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
         const std::vector<ImagePackPtr> &imgs,
         const uint32_t swapchain_attach_idx,
         const SwapchainPackPtr &swapchain) {
-    // Check the number of input images
-    CheckFrameBufferArgs(render_pass_pack, imgs);
-
-    // Extract size from swapchain
-    const auto &size = swapchain->size;
-    // Check image sizes
-    CheckFrameBufferImageSize(imgs, size);
-
-    // Create attachments
-    std::vector<vk::ImageView> attachments = ExtractImageViews(imgs);
-    const uint32_t n_att = static_cast<uint32_t>(attachments.size());
+    // Prepare frame buffer creation
+    auto info = PrepareFrameBuffer(render_pass_pack, imgs, swapchain->size);
+    const vk::Extent2D &size = std::get<0>(info);
+    std::vector<vk::ImageView> &attachments = std::get<1>(info);
+    const uint32_t n_layers = 1;
 
     // Create Frame Buffers
     std::vector<vk::UniqueFramebuffer> frame_buffers;
-    const auto &swapchain_views = swapchain->views;
-    frame_buffers.reserve(swapchain_views.size());
-    for (auto &&view : swapchain_views) {
+    frame_buffers.reserve(swapchain->views.size());
+    for (auto &&view : swapchain->views) {
+        // Overwrite swapchain image view
         attachments[swapchain_attach_idx] = *view;
-        const uint32_t n_layers = 1;
-        auto fb = device->createFramebufferUnique(
+        // Create one Frame Buffer
+        frame_buffers.push_back(device->createFramebufferUnique(
                 {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
-                 n_att, attachments.data(), size.width, size.height, n_layers});
-        frame_buffers.push_back(std::move(fb));
+                 static_cast<uint32_t>(attachments.size()), attachments.data(),
+                 size.width, size.height, n_layers}));
     }
 
     return frame_buffers;
