@@ -1,11 +1,13 @@
 #include "vkw.h"
 
+#include "warning_suppressor.h"
+
+VKW_SUPPRESS_WARNING_PUSH
 #include <SPIRV/GlslangToSpv.h>
-#include <bits/stdint-uintn.h>
+VKW_SUPPRESS_WARNING_POP
 
 #include <iostream>
 #include <stdexcept>
-#include <vulkan/vulkan.hpp>
 
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -840,7 +842,6 @@ std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
                  static_cast<uint32_t>(attachments.size()), attachments.data(),
                  size.width, size.height, n_layers}));
     }
-
     return frame_buffers;
 }
 
