@@ -975,7 +975,7 @@ PipelinePackPtr CreatePipeline(
         const std::vector<ShaderModulePackPtr> &shader_modules,
         const std::vector<VtxInputBindingInfo> &vtx_inp_binding_info,
         const std::vector<VtxInputAttribInfo> &vtx_inp_attrib_info,
-        const DescSetPackPtr &desc_set_pack,
+        const PipelineInfo &pipeline_info, const DescSetPackPtr &desc_set_pack,
         const RenderPassPackPtr &render_pass_pack) {
     // Shader stage create infos
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stage_cis;
@@ -1010,7 +1010,7 @@ PipelinePackPtr CreatePipeline(
     // Input assembly state create info
     vk::PipelineInputAssemblyStateCreateInfo inp_assembly_state_ci(
             vk::PipelineInputAssemblyStateCreateFlags(),
-            vk::PrimitiveTopology::eTriangleList);
+            pipeline_info.prim_type);
 
     // Viewport state create info
     vk::PipelineViewportStateCreateInfo viewport_state_ci(
@@ -1018,48 +1018,42 @@ PipelinePackPtr CreatePipeline(
 
     // Rasterization state create info
     vk::PipelineRasterizationStateCreateInfo rasterization_state_ci(
-            vk::PipelineRasterizationStateCreateFlags(),  // flags
-            false,                                        // depthClampEnable
-            false,                        // rasterizerDiscardEnable
-            vk::PolygonMode::eFill,       // polygonMode
-            vk::CullModeFlagBits::eBack,  // cullMode
-            vk::FrontFace::eClockwise,    // frontFace
-            false,                        // depthBiasEnable
-            0.0f,                         // depthBiasConstantFactor
-            0.0f,                         // depthBiasClamp
-            0.0f,                         // depthBiasSlopeFactor
-            1.0f                          // lineWidth
-    );
+            vk::PipelineRasterizationStateCreateFlags(),
+            false,                   // depthClampEnable
+            false,                   // rasterizerDiscardEnable
+            vk::PolygonMode::eFill,  // polygonMode
+            pipeline_info.face_culling,
+            vk::FrontFace::eClockwise,  // frontFace
+            false,                      // depthBiasEnable
+            0.0f,                       // depthBiasConstantFactor
+            0.0f,                       // depthBiasClamp
+            0.0f,                       // depthBiasSlopeFactor
+            pipeline_info.line_width);
 
+    // Multi-sample state create info
     vk::PipelineMultisampleStateCreateInfo multisample_state_ci;
 
-    vk::StencilOpState stencilOpState(
-            vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::StencilOp::eKeep,
-            vk::CompareOp::eAlways);
-    vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo(
-            vk::PipelineDepthStencilStateCreateFlags(),  // flags
-            true,                                        // depthTestEnable
-            true,                                        // depthWriteEnable
-            vk::CompareOp::eLessOrEqual,                 // depthCompareOp
-            false,                                       // depthBoundTestEnable
-            false,                                       // stencilTestEnable
-            stencilOpState,                              // front
-            stencilOpState                               // back
+    // Depth stencil state create info
+    vk::StencilOpState stencil_op(vk::StencilOp::eKeep, vk::StencilOp::eKeep,
+                                  vk::StencilOp::eKeep, vk::CompareOp::eAlways);
+    vk::PipelineDepthStencilStateCreateInfo depth_stencil_state_ci(
+            vk::PipelineDepthStencilStateCreateFlags(),
+            pipeline_info.depth_test_enable, pipeline_info.depth_write_enable,
+            pipeline_info.depth_comp_op,
+            false,       // depthBoundTestEnable
+            false,       // stencilTestEnable
+            stencil_op,  // front
+            stencil_op   // back
     );
 
-    vk::ColorComponentFlags colorComponentFlags(
-            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
+    // Color blend attachment state
     vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState(
-            false,                   // blendEnable
-            vk::BlendFactor::eZero,  // srcColorBlendFactor
-            vk::BlendFactor::eZero,  // dstColorBlendFactor
-            vk::BlendOp::eAdd,       // colorBlendOp
-            vk::BlendFactor::eZero,  // srcAlphaBlendFactor
-            vk::BlendFactor::eZero,  // dstAlphaBlendFactor
-            vk::BlendOp::eAdd,       // alphaBlendOp
-            colorComponentFlags      // colorWriteMask
-    );
+            pipeline_info.blend_enable, pipeline_info.blend_src_col_factor,
+            pipeline_info.blend_dst_col_factor, pipeline_info.blend_color_op,
+            pipeline_info.blend_src_alpha_factor,
+            pipeline_info.blend_dst_alpha_factor, pipeline_info.blend_alpha_op,
+            pipeline_info.blend_write_mask);
+
     vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo(
             vk::PipelineColorBlendStateCreateFlags(),  // flags
             false,                                     // logicOpEnable
@@ -1083,21 +1077,21 @@ PipelinePackPtr CreatePipeline(
     auto pipeline = device->createGraphicsPipelineUnique(
             nullptr,
             {
-                    vk::PipelineCreateFlags(),  // flags
+                    vk::PipelineCreateFlags(),
                     static_cast<uint32_t>(
-                            shader_stage_cis.size()),  // stageCount
-                    shader_stage_cis.data(),           // pStages
-                    &vtx_inp_state_ci,                 // pVertexInputState
-                    &inp_assembly_state_ci,            // pInputAssemblyState
-                    nullptr,                           // pTessellationState
-                    &viewport_state_ci,                // pViewportState
-                    &rasterization_state_ci,           // pRasterizationState
-                    &multisample_state_ci,             // pMultisampleState
-                    &pipelineDepthStencilStateCreateInfo,  // pDepthStencilState
-                    &pipelineColorBlendStateCreateInfo,    // pColorBlendState
-                    &pipelineDynamicStateCreateInfo,       // pDynamicState
-                    pipeline_layout.get(),                 // layout
-                    render_pass_pack->render_pass.get()    // renderPass
+                            shader_stage_cis.size()),    // stageCount
+                    shader_stage_cis.data(),             // pStages
+                    &vtx_inp_state_ci,                   // pVertexInputState
+                    &inp_assembly_state_ci,              // pInputAssemblyState
+                    nullptr,                             // pTessellationState
+                    &viewport_state_ci,                  // pViewportState
+                    &rasterization_state_ci,             // pRasterizationState
+                    &multisample_state_ci,               // pMultisampleState
+                    &depth_stencil_state_ci,             // pDepthStencilState
+                    &pipelineColorBlendStateCreateInfo,  // pColorBlendState
+                    &pipelineDynamicStateCreateInfo,     // pDynamicState
+                    pipeline_layout.get(),               // layout
+                    render_pass_pack->render_pass.get()  // renderPass
             });
 
     return PipelinePackPtr(

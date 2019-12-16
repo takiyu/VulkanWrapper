@@ -225,6 +225,7 @@ int main(int argc, char const *argv[]) {
             {{0, sizeof(Vertex)}},
             {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
              {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
+            vkw::PipelineInfo(),
             desc_set_pack, render_pass_pack);
 
     // ------------------

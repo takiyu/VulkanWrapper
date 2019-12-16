@@ -278,6 +278,27 @@ struct VtxInputAttribInfo {
     uint32_t offset = 0;  // Offset in the binding buffer
 };
 
+struct PipelineInfo {
+    vk::PrimitiveTopology prim_type = vk::PrimitiveTopology::eTriangleList;
+    vk::CullModeFlags face_culling = vk::CullModeFlagBits::eBack;
+    float line_width = 1.f;
+    // Depth
+    bool depth_test_enable = true;
+    bool depth_write_enable = true;
+    vk::CompareOp depth_comp_op = vk::CompareOp::eLessOrEqual;
+    // Blend
+    bool blend_enable = false;
+    vk::BlendFactor blend_src_col_factor = vk::BlendFactor::eSrcAlpha;
+    vk::BlendFactor blend_dst_col_factor = vk::BlendFactor::eOneMinusSrcAlpha;
+    vk::BlendOp blend_color_op = vk::BlendOp::eAdd;
+    vk::BlendFactor blend_src_alpha_factor = vk::BlendFactor::eSrcAlpha;
+    vk::BlendFactor blend_dst_alpha_factor = vk::BlendFactor::eOneMinusSrcAlpha;
+    vk::BlendOp blend_alpha_op = vk::BlendOp::eAdd;
+    vk::ColorComponentFlags blend_write_mask =
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+};
+
 struct PipelinePack {
     vk::UniquePipelineLayout pipeline_layout;
     vk::UniquePipeline pipeline;
@@ -288,7 +309,7 @@ PipelinePackPtr CreatePipeline(
         const std::vector<ShaderModulePackPtr>& shader_modules,
         const std::vector<VtxInputBindingInfo>& vtx_inp_binding_info,
         const std::vector<VtxInputAttribInfo>& vtx_inp_attrib_info,
-        const DescSetPackPtr& desc_set_pack,
+        const PipelineInfo& pipeline_info, const DescSetPackPtr& desc_set_pack,
         const RenderPassPackPtr& render_pass_pack);
 
 }  // namespace vkw
