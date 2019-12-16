@@ -17,7 +17,7 @@ const std::string VERT_SOURCE = R"(
 
 layout (std140, binding = 0) uniform buffer
 {
-  mat4 mvp;
+    mat4 mvp;
 } uniformBuffer;
 
 layout (location = 0) in vec4 pos;
@@ -27,8 +27,8 @@ layout (location = 0) out vec4 outColor;
 
 void main()
 {
-  outColor = inColor;
-  gl_Position = uniformBuffer.mvp * pos;
+    outColor = inColor;
+    gl_Position = uniformBuffer.mvp * pos;
 }
 )";
 
@@ -45,7 +45,7 @@ layout (location = 0) out vec4 outColor;
 
 void main()
 {
-  outColor = color;
+    outColor = color;
 }
 )";
 
@@ -290,10 +290,8 @@ int main(int argc, char const *argv[]) {
                                         &swapchain_pack->swapchain.get(),
                                         &currentBuffer.value));
 
-    // clang-format off
     while (!glfwWindowShouldClose(window.get())) {
         glfwPollEvents();
-//         break;
     }
 
     std::cout << "exit" << std::endl;

@@ -1,10 +1,10 @@
 #include "vkw.h"
 
-#include <vulkan/vulkan.hpp>
-
 VKW_SUPPRESS_WARNING_PUSH
 #include <SPIRV/GlslangToSpv.h>
 #include <StandAlone/ResourceLimits.h>
+
+#include <vulkan/vulkan.hpp>
 VKW_SUPPRESS_WARNING_POP
 
 #include <iostream>
@@ -433,7 +433,7 @@ vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
                                    const UniqueGLFWWindow &window) {
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
     // Create Android surface
-    struct ANativeWindow* window = nullptr;  // TODO
+    struct ANativeWindow *window = nullptr;  // TODO
     return instance->createAndroidSurfaceKHR(vk::AndroidSurfaceCreateFlagsKHR(),
                                              window)
 
@@ -445,14 +445,11 @@ vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
     if (err) {
         throw std::runtime_error("Failed to create window surface");
     }
-
     // Wrap with smart handler
     using Deleter =
             vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
     Deleter deleter(*instance, nullptr, VULKAN_HPP_DEFAULT_DISPATCHER);
-    auto surface = vk::UniqueSurfaceKHR(s_raw, deleter);
-
-    return surface;
+    return vk::UniqueSurfaceKHR(s_raw, deleter);
 #endif
 }
 
