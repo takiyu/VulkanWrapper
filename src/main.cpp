@@ -222,9 +222,9 @@ int main(int argc, char const *argv[]) {
 
     auto pipeline_pack = vkw::CreatePipeline(
             device, {vert_shader_module_pack, frag_shader_module_pack},
-            {{.binding_idx = 0, .stride = sizeof(Vertex)}},
-            {{0, .binding_idx = 0, vk::Format::eR32G32B32A32Sfloat, 0},
-             {1, .binding_idx = 0, vk::Format::eR32G32B32A32Sfloat, 16}},
+            {{0, sizeof(Vertex)}},
+            {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
+             {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
             desc_set_pack, render_pass_pack);
 
     // ------------------

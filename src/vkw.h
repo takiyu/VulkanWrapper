@@ -1,12 +1,19 @@
 #ifndef VKW_H_20191130
 #define VKW_H_20191130
 
-#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#include "warning_suppressor.h"
 
+VKW_SUPPRESS_WARNING_PUSH
+// Vulkan-Hpp
+#define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 1
+#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#include <vulkan/vulkan.hpp>
+// GLFW for Desktop
+#ifndef VK_USE_PLATFORM_ANDROID_KHR
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
-#include <vulkan/vulkan.hpp>
+#endif
+VKW_SUPPRESS_WARNING_POP
 
 namespace vkw {
 

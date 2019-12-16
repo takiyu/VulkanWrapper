@@ -76,10 +76,15 @@ endfunction(setup_target_simple)
 # --------------------------- Third Party Libraries ----------------------------
 # ------------------------------------------------------------------------------
 
-# Vulkan
-find_package(Vulkan REQUIRED)
-list(APPEND VKPR_INCLUDE ${Vulkan_INCLUDE_DIRS})
-list(APPEND VKPR_LIBRARY ${Vulkan_LIBRARY})
+if (0)
+    # Vulkan (Static)
+    find_package(Vulkan REQUIRED)
+    list(APPEND VKPR_INCLUDE ${Vulkan_INCLUDE_DIRS})
+    list(APPEND VKPR_LIBRARY ${Vulkan_LIBRARY})
+else()
+    # Vulkan (Dynamic)
+    list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
+endif()
 
 # GLFW3
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "")

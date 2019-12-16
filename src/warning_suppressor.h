@@ -16,7 +16,8 @@
     _Pragma("GCC diagnostic ignored \"-Wstrict-overflow\"") \
     _Pragma("GCC diagnostic ignored \"-Wdeprecated-copy\"") \
     _Pragma("GCC diagnostic ignored \"-Wnoexcept\"") \
-    _Pragma("GCC diagnostic ignored \"-Wunused-parameter\"")
+    _Pragma("GCC diagnostic ignored \"-Wunused-parameter\"") \
+    _Pragma("GCC diagnostic ignored \"-Winit-list-lifetime\"")
 #elif defined _MSC_VER
     // TODO: MSVC here
 #else

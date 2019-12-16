@@ -1,8 +1,6 @@
 #include "vkw.h"
 
-#include <bits/stdint-uintn.h>
-
-#include "warning_suppressor.h"
+#include <vulkan/vulkan.hpp>
 
 VKW_SUPPRESS_WARNING_PUSH
 #include <SPIRV/GlslangToSpv.h>
@@ -12,7 +10,6 @@ VKW_SUPPRESS_WARNING_POP
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <vulkan/vulkan.hpp>
 
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -382,8 +379,9 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
-            vk::DynamicLoader().getProcAddress<PFN_vkGetInstanceProcAddr>(
-                    "vkGetInstanceProcAddr");
+            vk::DynamicLoader()
+                    .template getProcAddress<PFN_vkGetInstanceProcAddr>(
+                            "vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
     // Create a Vulkan instance
@@ -433,6 +431,13 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 // -----------------------------------------------------------------------------
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
                                    const UniqueGLFWWindow &window) {
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+    // Create Android surface
+    struct ANativeWindow* window = nullptr;  // TODO
+    return instance->createAndroidSurfaceKHR(vk::AndroidSurfaceCreateFlagsKHR(),
+                                             window)
+
+#else
     // Create a window surface (GLFW)
     VkSurfaceKHR s_raw = nullptr;
     VkResult err =
@@ -441,14 +446,14 @@ vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
         throw std::runtime_error("Failed to create window surface");
     }
 
-    // TODO: Android (non-GLFW) version
-    // vkCreateAndroidSurfaceKHR
-
-    // Smart wrapper
-    using Deleter = vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>;
-    vk::UniqueSurfaceKHR surface(s_raw, Deleter(*instance));
+    // Wrap with smart handler
+    using Deleter =
+            vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
+    Deleter deleter(*instance, nullptr, VULKAN_HPP_DEFAULT_DISPATCHER);
+    auto surface = vk::UniqueSurfaceKHR(s_raw, deleter);
 
     return surface;
+#endif
 }
 
 vk::Format GetSurfaceFormat(const vk::PhysicalDevice &physical_device,
