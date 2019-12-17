@@ -1047,20 +1047,25 @@ PipelinePackPtr CreatePipeline(
     );
 
     // Color blend attachment state
-    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState(
-            pipeline_info.blend_enable, pipeline_info.blend_src_col_factor,
-            pipeline_info.blend_dst_col_factor, pipeline_info.blend_color_op,
-            pipeline_info.blend_src_alpha_factor,
-            pipeline_info.blend_dst_alpha_factor, pipeline_info.blend_alpha_op,
-            pipeline_info.blend_write_mask);
-
-    vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo(
+    std::vector<vk::PipelineColorBlendAttachmentState> blend_attach_states;
+    for (auto &&color_blend_info : pipeline_info.color_blend_infos) {
+        blend_attach_states.emplace_back(
+                color_blend_info.blend_enable,
+                color_blend_info.blend_src_col_factor,
+                color_blend_info.blend_dst_col_factor,
+                color_blend_info.blend_color_op,
+                color_blend_info.blend_src_alpha_factor,
+                color_blend_info.blend_dst_alpha_factor,
+                color_blend_info.blend_alpha_op,
+                color_blend_info.blend_write_mask);
+    }
+    vk::PipelineColorBlendStateCreateInfo color_blend_state_ci(
             vk::PipelineColorBlendStateCreateFlags(),  // flags
             false,                                     // logicOpEnable
             vk::LogicOp::eNoOp,                        // logicOp
-            1,                                         // attachmentCount
-            &pipelineColorBlendAttachmentState,        // pAttachments
-            {{1.0f, 1.0f, 1.0f, 1.0f}}                 // blendConstants
+            static_cast<uint32_t>(blend_attach_states.size()),
+            blend_attach_states.data(),
+            {{1.0f, 1.0f, 1.0f, 1.0f}}  // blendConstants
     );
 
     vk::DynamicState dynamicStates[2] = {vk::DynamicState::eViewport,
@@ -1075,24 +1080,23 @@ PipelinePackPtr CreatePipeline(
 
     // Create pipeline
     auto pipeline = device->createGraphicsPipelineUnique(
-            nullptr,
-            {
-                    vk::PipelineCreateFlags(),
-                    static_cast<uint32_t>(
-                            shader_stage_cis.size()),    // stageCount
-                    shader_stage_cis.data(),             // pStages
-                    &vtx_inp_state_ci,                   // pVertexInputState
-                    &inp_assembly_state_ci,              // pInputAssemblyState
-                    nullptr,                             // pTessellationState
-                    &viewport_state_ci,                  // pViewportState
-                    &rasterization_state_ci,             // pRasterizationState
-                    &multisample_state_ci,               // pMultisampleState
-                    &depth_stencil_state_ci,             // pDepthStencilState
-                    &pipelineColorBlendStateCreateInfo,  // pColorBlendState
-                    &pipelineDynamicStateCreateInfo,     // pDynamicState
-                    pipeline_layout.get(),               // layout
-                    render_pass_pack->render_pass.get()  // renderPass
-            });
+            nullptr, {
+                             vk::PipelineCreateFlags(),
+                             static_cast<uint32_t>(
+                                     shader_stage_cis.size()),  // stageCount
+                             shader_stage_cis.data(),           // pStages
+                             &vtx_inp_state_ci,        // pVertexInputState
+                             &inp_assembly_state_ci,   // pInputAssemblyState
+                             nullptr,                  // pTessellationState
+                             &viewport_state_ci,       // pViewportState
+                             &rasterization_state_ci,  // pRasterizationState
+                             &multisample_state_ci,    // pMultisampleState
+                             &depth_stencil_state_ci,  // pDepthStencilState
+                             &color_blend_state_ci,    // pColorBlendState
+                             &pipelineDynamicStateCreateInfo,  // pDynamicState
+                             pipeline_layout.get(),            // layout
+                             render_pass_pack->render_pass.get()  // renderPass
+                     });
 
     return PipelinePackPtr(
             new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});

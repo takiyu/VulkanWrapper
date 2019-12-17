@@ -278,15 +278,7 @@ struct VtxInputAttribInfo {
     uint32_t offset = 0;  // Offset in the binding buffer
 };
 
-struct PipelineInfo {
-    vk::PrimitiveTopology prim_type = vk::PrimitiveTopology::eTriangleList;
-    vk::CullModeFlags face_culling = vk::CullModeFlagBits::eBack;
-    float line_width = 1.f;
-    // Depth
-    bool depth_test_enable = true;
-    bool depth_write_enable = true;
-    vk::CompareOp depth_comp_op = vk::CompareOp::eLessOrEqual;
-    // Blend
+struct PipelineColorBlendAttachInfo {
     bool blend_enable = false;
     vk::BlendFactor blend_src_col_factor = vk::BlendFactor::eSrcAlpha;
     vk::BlendFactor blend_dst_col_factor = vk::BlendFactor::eOneMinusSrcAlpha;
@@ -297,6 +289,17 @@ struct PipelineInfo {
     vk::ColorComponentFlags blend_write_mask =
             vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
             vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+};
+struct PipelineInfo {
+    vk::PrimitiveTopology prim_type = vk::PrimitiveTopology::eTriangleList;
+    vk::CullModeFlags face_culling = vk::CullModeFlagBits::eBack;
+    float line_width = 1.f;
+    // Depth
+    bool depth_test_enable = true;
+    bool depth_write_enable = true;
+    vk::CompareOp depth_comp_op = vk::CompareOp::eLessOrEqual;
+    // Blend (Must be same number as color attachments)
+    std::vector<PipelineColorBlendAttachInfo> color_blend_infos;
 };
 
 struct PipelinePack {

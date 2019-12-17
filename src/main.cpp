@@ -220,13 +220,14 @@ int main(int argc, char const *argv[]) {
     vkw::SendToDevice(device, vertex_buf_pack, CUBE_VERTICES.data(),
                       vertex_buf_size);
 
+    vkw::PipelineInfo pipeline_info;
+    pipeline_info.color_blend_infos.resize(1);
     auto pipeline_pack = vkw::CreatePipeline(
             device, {vert_shader_module_pack, frag_shader_module_pack},
             {{0, sizeof(Vertex)}},
             {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
              {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
-            vkw::PipelineInfo(),
-            desc_set_pack, render_pass_pack);
+            pipeline_info, desc_set_pack, render_pass_pack);
 
     // ------------------
 
