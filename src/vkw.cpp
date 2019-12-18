@@ -476,7 +476,7 @@ void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
         const auto &flags_str = vk::to_string(prop.queueFlags);
         const auto &max_queue_cnt = prop.queueCount;
         std::cout << "  " << i << ": " << flags_str
-                  << "  (max_cnt:" << max_queue_cnt << ")" << std::endl;
+                  << "  (max_queue_cnt:" << max_queue_cnt << ")" << std::endl;
     }
 }
 
@@ -545,6 +545,14 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device.get());
 
     return device;
+}
+
+// -----------------------------------------------------------------------------
+// ----------------------------------- Queue -----------------------------------
+// -----------------------------------------------------------------------------
+vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
+                   uint32_t queue_idx) {
+    return device->getQueue(queue_family_idx, queue_idx);
 }
 
 // -----------------------------------------------------------------------------
@@ -1102,6 +1110,21 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice &device,
 
     return CommandBuffersPackPtr(new CommandBuffersPack{std::move(command_pool),
                                                         std::move(cmd_bufs)});
+}
+
+// -----------------------------------------------------------------------------
+// -------------------------------- Asynchronous -------------------------------
+// -----------------------------------------------------------------------------
+vk::UniqueFence CreateFence(const vk::UniqueDevice& device) {
+    return device->createFenceUnique({});
+}
+
+vk::UniqueEvent CreateEvent(const vk::UniqueDevice& device) {
+    return device->createEventUnique({});
+}
+
+vk::UniqueSemaphore CreateSemaphore(const vk::UniqueDevice& device) {
+    return device->createSemaphoreUnique({});
 }
 
 }  // namespace vkw

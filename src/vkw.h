@@ -75,6 +75,13 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               bool swapchain_support = true);
 
 // -----------------------------------------------------------------------------
+// ----------------------------------- Queue -----------------------------------
+// -----------------------------------------------------------------------------
+vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
+                   uint32_t queue_idx = 0);
+
+
+// -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
 struct SwapchainPack {
@@ -315,6 +322,15 @@ using CommandBuffersPackPtr = std::shared_ptr<CommandBuffersPack>;
 CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
                                                uint32_t queue_family_idx,
                                                uint32_t n_cmd_buffers = 1);
+
+// -----------------------------------------------------------------------------
+// -------------------------------- Asynchronous -------------------------------
+// -----------------------------------------------------------------------------
+vk::UniqueFence CreateFence(const vk::UniqueDevice& device);
+
+vk::UniqueEvent CreateEvent(const vk::UniqueDevice& device);
+
+vk::UniqueSemaphore CreateSemaphore(const vk::UniqueDevice& device);
 
 }  // namespace vkw
 

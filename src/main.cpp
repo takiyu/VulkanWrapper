@@ -123,6 +123,7 @@ int main(int argc, char const *argv[]) {
     uint32_t n_queues = 1;
     auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
                                     true);
+    auto queue = vkw::GetQueue(device, queue_family_idx);
 
     auto swapchain_pack = vkw::CreateSwapchainPack(physical_device, device,
                                                    surface, win_w, win_h);
@@ -227,8 +228,6 @@ int main(int argc, char const *argv[]) {
             device, queue_family_idx, n_cmd_buffers);
     auto &command_buffer = command_buffers_pack->cmd_bufs[0];
 
-    vk::Queue queue = device->getQueue(queue_family_idx, 0);
-
     // ------------------
 
     // Get the index of the next available swapchain image:
@@ -283,6 +282,7 @@ int main(int argc, char const *argv[]) {
     vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore.get(),
                               &waitDestinationStageMask, 1,
                               &command_buffer.get());
+
     queue.submit(submitInfo, drawFence.get());
 
     while (vk::Result::eTimeout ==
