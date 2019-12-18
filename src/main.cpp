@@ -120,7 +120,7 @@ int main(int argc, char const *argv[]) {
     uint32_t queue_family_idx =
             vkw::GetGraphicPresentQueueFamilyIdx(physical_device, surface);
 
-    uint32_t n_queues = 1;
+    const uint32_t n_queues = 1;
     auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
                                     true);
     auto queue = vkw::GetQueue(device, queue_family_idx);
@@ -223,10 +223,10 @@ int main(int argc, char const *argv[]) {
              {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
             pipeline_info, {desc_set_pack}, render_pass_pack);
 
-    uint32_t n_cmd_buffers = 1;
-    auto command_buffers_pack = vkw::CreateCommandBuffersPack(
-            device, queue_family_idx, n_cmd_buffers);
-    auto &command_buffer = command_buffers_pack->cmd_bufs[0];
+    const uint32_t n_cmd_bufs = 1;
+    auto cmd_bufs_pack = vkw::CreateCommandBuffersPack(
+            device, queue_family_idx, n_cmd_bufs);
+    auto &cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
 
@@ -239,8 +239,7 @@ int main(int argc, char const *argv[]) {
     assert(currentBuffer.result == vk::Result::eSuccess);
     assert(currentBuffer.value < frame_buffers.size());
 
-    command_buffer->begin(
-            vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlags()));
+    vkw::BeginCommand(cmd_buf);
 
     vk::ClearValue clearValues[2];
     clearValues[0].color =
@@ -251,27 +250,29 @@ int main(int argc, char const *argv[]) {
             frame_buffers[currentBuffer.value].get(),
             vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size), 2,
             clearValues);
-    command_buffer->beginRenderPass(renderPassBeginInfo,
+    cmd_buf->beginRenderPass(renderPassBeginInfo,
                                     vk::SubpassContents::eInline);
-    command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics,
+    cmd_buf->bindPipeline(vk::PipelineBindPoint::eGraphics,
                                  pipeline_pack->pipeline.get());
-    command_buffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+    cmd_buf->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                                        pipeline_pack->pipeline_layout.get(), 0,
                                        desc_set_pack->desc_set.get(), nullptr);
 
-    command_buffer->bindVertexBuffers(0, *vertex_buf_pack->buf, {0});
-    command_buffer->setViewport(
+    cmd_buf->bindVertexBuffers(0, *vertex_buf_pack->buf, {0});
+    cmd_buf->setViewport(
             0, vk::Viewport(0.0f, 0.0f,
                             static_cast<float>(swapchain_pack->size.width),
                             static_cast<float>(swapchain_pack->size.height),
                             0.0f, 1.0f));
-    command_buffer->setScissor(
+    cmd_buf->setScissor(
             0, vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
 
-    command_buffer->draw(12 * 3, 1, 0, 0);
-    //command_buffer->nextSubpass(vk::SubpassContents::eInline);
-    command_buffer->endRenderPass();
-    command_buffer->end();
+    cmd_buf->draw(12 * 3, 1, 0, 0);
+    //cmd_buf->nextSubpass(vk::SubpassContents::eInline);
+    cmd_buf->endRenderPass();
+
+
+    vkw::EndCommand(cmd_buf);
 
     auto drawFence = vkw::CreateFence(device);
 
@@ -279,7 +280,7 @@ int main(int argc, char const *argv[]) {
             vk::PipelineStageFlagBits::eColorAttachmentOutput);
     vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore->get(),
                               &waitDestinationStageMask, 1,
-                              &command_buffer.get());
+                              &cmd_buf.get());
 
     queue.submit(submitInfo, drawFence->get());
 

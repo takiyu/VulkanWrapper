@@ -1100,16 +1100,23 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice &device,
                                                uint32_t queue_family_idx,
                                                uint32_t n_cmd_buffers) {
     // Create a command pool
-    vk::UniqueCommandPool command_pool = device->createCommandPoolUnique(
+    vk::UniqueCommandPool cmd_pool = device->createCommandPoolUnique(
             {vk::CommandPoolCreateFlags(), queue_family_idx});
 
     // Allocate a command buffer from the command pool
     auto cmd_bufs = device->allocateCommandBuffersUnique(
-            {command_pool.get(), vk::CommandBufferLevel::ePrimary,
-             n_cmd_buffers});
+            {cmd_pool.get(), vk::CommandBufferLevel::ePrimary, n_cmd_buffers});
 
-    return CommandBuffersPackPtr(new CommandBuffersPack{std::move(command_pool),
+    return CommandBuffersPackPtr(new CommandBuffersPack{std::move(cmd_pool),
                                                         std::move(cmd_bufs)});
+}
+
+void BeginCommand(const vk::UniqueCommandBuffer& cmd_buf) {
+    cmd_buf->begin({vk::CommandBufferUsageFlags()});
+}
+
+void EndCommand(const vk::UniqueCommandBuffer& cmd_buf) {
+    cmd_buf->end();
 }
 
 // -----------------------------------------------------------------------------

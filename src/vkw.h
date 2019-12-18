@@ -323,6 +323,11 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
                                                uint32_t queue_family_idx,
                                                uint32_t n_cmd_buffers = 1);
 
+void BeginCommand(const vk::UniqueCommandBuffer& cmd_buf);
+
+void EndCommand(const vk::UniqueCommandBuffer& cmd_buf);
+
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Fence -----------------------------------
 // -----------------------------------------------------------------------------
