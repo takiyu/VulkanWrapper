@@ -550,7 +550,7 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 // -----------------------------------------------------------------------------
 // ----------------------------------- Queue -----------------------------------
 // -----------------------------------------------------------------------------
-vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
+vk::Queue GetQueue(const vk::UniqueDevice &device, uint32_t queue_family_idx,
                    uint32_t queue_idx) {
     return device->getQueue(queue_family_idx, queue_idx);
 }
@@ -1069,14 +1069,14 @@ PipelinePackPtr CreatePipeline(
     // Repack descriptor set layout
     std::vector<vk::DescriptorSetLayout> desc_set_layouts;
     desc_set_layouts.reserve(desc_set_packs.size());
-    for (auto&& desc_set_pack : desc_set_packs) {
+    for (auto &&desc_set_pack : desc_set_packs) {
         desc_set_layouts.push_back(desc_set_pack->desc_set_layout.get());
     }
     // Create pipeline layout
     auto pipeline_layout = device->createPipelineLayoutUnique(
-            {vk::PipelineLayoutCreateFlags(), static_cast<uint32_t>(desc_set_layouts.size()),
-             desc_set_layouts.data()
-             });
+            {vk::PipelineLayoutCreateFlags(),
+             static_cast<uint32_t>(desc_set_layouts.size()),
+             desc_set_layouts.data()});
 
     // Create pipeline
     auto pipeline = device->createGraphicsPipelineUnique(
@@ -1113,18 +1113,27 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice &device,
 }
 
 // -----------------------------------------------------------------------------
-// -------------------------------- Asynchronous -------------------------------
+// ----------------------------------- Fence -----------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueFence CreateFence(const vk::UniqueDevice& device) {
-    return device->createFenceUnique({});
+FencePtr CreateFence(const vk::UniqueDevice &device) {
+    auto fence = device->createFenceUnique({});
+    return FencePtr(new vk::UniqueFence(std::move(fence)));
 }
 
-vk::UniqueEvent CreateEvent(const vk::UniqueDevice& device) {
-    return device->createEventUnique({});
+// -----------------------------------------------------------------------------
+// ----------------------------------- Event -----------------------------------
+// -----------------------------------------------------------------------------
+EventPtr CreateEvent(const vk::UniqueDevice &device) {
+    auto event = device->createEventUnique({});
+    return EventPtr(new vk::UniqueEvent{std::move(event)});
 }
 
-vk::UniqueSemaphore CreateSemaphore(const vk::UniqueDevice& device) {
-    return device->createSemaphoreUnique({});
+// -----------------------------------------------------------------------------
+// --------------------------------- Semaphore ---------------------------------
+// -----------------------------------------------------------------------------
+SemaphorePtr CreateSemaphore(const vk::UniqueDevice &device) {
+    auto semaphore = device->createSemaphoreUnique({});
+    return SemaphorePtr(new vk::UniqueSemaphore{std::move(semaphore)});
 }
 
 }  // namespace vkw

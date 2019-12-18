@@ -231,12 +231,11 @@ int main(int argc, char const *argv[]) {
     // ------------------
 
     // Get the index of the next available swapchain image:
-    vk::UniqueSemaphore imageAcquiredSemaphore =
-            device->createSemaphoreUnique(vk::SemaphoreCreateInfo());
+    auto imageAcquiredSemaphore = vkw::CreateSemaphore(device);
     const uint64_t FenceTimeout = 100000000;
     vk::ResultValue<uint32_t> currentBuffer = device->acquireNextImageKHR(
             swapchain_pack->swapchain.get(), FenceTimeout,
-            imageAcquiredSemaphore.get(), nullptr);
+            imageAcquiredSemaphore->get(), nullptr);
     assert(currentBuffer.result == vk::Result::eSuccess);
     assert(currentBuffer.value < frame_buffers.size());
 
@@ -274,19 +273,18 @@ int main(int argc, char const *argv[]) {
     command_buffer->endRenderPass();
     command_buffer->end();
 
-    vk::UniqueFence drawFence =
-            device->createFenceUnique(vk::FenceCreateInfo());
+    auto drawFence = vkw::CreateFence(device);
 
     vk::PipelineStageFlags waitDestinationStageMask(
             vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore.get(),
+    vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore->get(),
                               &waitDestinationStageMask, 1,
                               &command_buffer.get());
 
-    queue.submit(submitInfo, drawFence.get());
+    queue.submit(submitInfo, drawFence->get());
 
     while (vk::Result::eTimeout ==
-           device->waitForFences(drawFence.get(), VK_TRUE, FenceTimeout))
+           device->waitForFences(drawFence->get(), VK_TRUE, FenceTimeout))
         ;
 
     queue.presentKHR(vk::PresentInfoKHR(0, nullptr, 1,

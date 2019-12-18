@@ -324,13 +324,22 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
                                                uint32_t n_cmd_buffers = 1);
 
 // -----------------------------------------------------------------------------
-// -------------------------------- Asynchronous -------------------------------
+// ----------------------------------- Fence -----------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueFence CreateFence(const vk::UniqueDevice& device);
+using FencePtr = std::shared_ptr<vk::UniqueFence>;
+FencePtr CreateFence(const vk::UniqueDevice& device);
 
-vk::UniqueEvent CreateEvent(const vk::UniqueDevice& device);
+// -----------------------------------------------------------------------------
+// ----------------------------------- Event -----------------------------------
+// -----------------------------------------------------------------------------
+using EventPtr = std::shared_ptr<vk::UniqueEvent>;
+EventPtr CreateEvent(const vk::UniqueDevice& device);
 
-vk::UniqueSemaphore CreateSemaphore(const vk::UniqueDevice& device);
+// -----------------------------------------------------------------------------
+// --------------------------------- Semaphore ---------------------------------
+// -----------------------------------------------------------------------------
+using SemaphorePtr = std::shared_ptr<vk::UniqueSemaphore>;
+SemaphorePtr CreateSemaphore(const vk::UniqueDevice& device);
 
 }  // namespace vkw
 
