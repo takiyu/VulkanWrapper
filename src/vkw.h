@@ -75,18 +75,6 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               bool swapchain_support = true);
 
 // -----------------------------------------------------------------------------
-// ------------------------------- Command Buffer ------------------------------
-// -----------------------------------------------------------------------------
-struct CommandBuffersPack {
-    vk::UniqueCommandPool pool;
-    std::vector<vk::UniqueCommandBuffer> cmd_bufs;
-};
-using CommandBuffersPackPtr = std::shared_ptr<CommandBuffersPack>;
-CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
-                                               uint32_t queue_family_idx,
-                                               uint32_t n_cmd_buffers = 1);
-
-// -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
 struct SwapchainPack {
@@ -298,7 +286,7 @@ struct PipelineInfo {
     bool depth_test_enable = true;
     bool depth_write_enable = true;
     vk::CompareOp depth_comp_op = vk::CompareOp::eLessOrEqual;
-    // Blend (Must be same number as color attachments)
+    // Blend (Must be same number as color attachments) TODO: Automatic
     std::vector<PipelineColorBlendAttachInfo> color_blend_infos;
 };
 
@@ -312,8 +300,21 @@ PipelinePackPtr CreatePipeline(
         const std::vector<ShaderModulePackPtr>& shader_modules,
         const std::vector<VtxInputBindingInfo>& vtx_inp_binding_info,
         const std::vector<VtxInputAttribInfo>& vtx_inp_attrib_info,
-        const PipelineInfo& pipeline_info, const DescSetPackPtr& desc_set_pack,
+        const PipelineInfo& pipeline_info,
+        const std::vector<DescSetPackPtr>& desc_set_packs,
         const RenderPassPackPtr& render_pass_pack);
+
+// -----------------------------------------------------------------------------
+// ------------------------------- Command Buffer ------------------------------
+// -----------------------------------------------------------------------------
+struct CommandBuffersPack {
+    vk::UniqueCommandPool pool;
+    std::vector<vk::UniqueCommandBuffer> cmd_bufs;
+};
+using CommandBuffersPackPtr = std::shared_ptr<CommandBuffersPack>;
+CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
+                                               uint32_t queue_family_idx,
+                                               uint32_t n_cmd_buffers = 1);
 
 }  // namespace vkw
 

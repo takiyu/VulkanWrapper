@@ -548,25 +548,6 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 }
 
 // -----------------------------------------------------------------------------
-// ------------------------------- Command Buffer ------------------------------
-// -----------------------------------------------------------------------------
-CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice &device,
-                                               uint32_t queue_family_idx,
-                                               uint32_t n_cmd_buffers) {
-    // Create a command pool
-    vk::UniqueCommandPool command_pool = device->createCommandPoolUnique(
-            {vk::CommandPoolCreateFlags(), queue_family_idx});
-
-    // Allocate a command buffer from the command pool
-    auto cmd_bufs = device->allocateCommandBuffersUnique(
-            {command_pool.get(), vk::CommandBufferLevel::ePrimary,
-             n_cmd_buffers});
-
-    return CommandBuffersPackPtr(new CommandBuffersPack{std::move(command_pool),
-                                                        std::move(cmd_bufs)});
-}
-
-// -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
 SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
@@ -975,7 +956,8 @@ PipelinePackPtr CreatePipeline(
         const std::vector<ShaderModulePackPtr> &shader_modules,
         const std::vector<VtxInputBindingInfo> &vtx_inp_binding_info,
         const std::vector<VtxInputAttribInfo> &vtx_inp_attrib_info,
-        const PipelineInfo &pipeline_info, const DescSetPackPtr &desc_set_pack,
+        const PipelineInfo &pipeline_info,
+        const std::vector<DescSetPackPtr> &desc_set_packs,
         const RenderPassPackPtr &render_pass_pack) {
     // Shader stage create infos
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stage_cis;
@@ -1012,7 +994,7 @@ PipelinePackPtr CreatePipeline(
             vk::PipelineInputAssemblyStateCreateFlags(),
             pipeline_info.prim_type);
 
-    // Viewport state create info
+    // Viewport state create info (Not static)
     vk::PipelineViewportStateCreateInfo viewport_state_ci(
             vk::PipelineViewportStateCreateFlags(), 1, nullptr, 1, nullptr);
 
@@ -1059,6 +1041,7 @@ PipelinePackPtr CreatePipeline(
                 color_blend_info.blend_alpha_op,
                 color_blend_info.blend_write_mask);
     }
+    // Color blend attachment state create info
     vk::PipelineColorBlendStateCreateInfo color_blend_state_ci(
             vk::PipelineColorBlendStateCreateFlags(),  // flags
             false,                                     // logicOpEnable
@@ -1068,38 +1051,57 @@ PipelinePackPtr CreatePipeline(
             {{1.0f, 1.0f, 1.0f, 1.0f}}  // blendConstants
     );
 
-    vk::DynamicState dynamicStates[2] = {vk::DynamicState::eViewport,
-                                         vk::DynamicState::eScissor};
-    vk::PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo(
-            vk::PipelineDynamicStateCreateFlags(), 2, dynamicStates);
+    // Dynamic states
+    const vk::DynamicState dynamic_states[2] = {vk::DynamicState::eViewport,
+                                                vk::DynamicState::eScissor};
+    // Dynamic state create info
+    vk::PipelineDynamicStateCreateInfo dynamic_state_ci(
+            vk::PipelineDynamicStateCreateFlags(), 2, dynamic_states);
 
-    // Create pipeline layout (TODO: multiple)
+    // Repack descriptor set layout
+    std::vector<vk::DescriptorSetLayout> desc_set_layouts;
+    desc_set_layouts.reserve(desc_set_packs.size());
+    for (auto&& desc_set_pack : desc_set_packs) {
+        desc_set_layouts.push_back(desc_set_pack->desc_set_layout.get());
+    }
+    // Create pipeline layout
     auto pipeline_layout = device->createPipelineLayoutUnique(
-            {vk::PipelineLayoutCreateFlags(), 1,
-             &desc_set_pack->desc_set_layout.get()});
+            {vk::PipelineLayoutCreateFlags(), static_cast<uint32_t>(desc_set_layouts.size()),
+             desc_set_layouts.data()
+             });
 
     // Create pipeline
     auto pipeline = device->createGraphicsPipelineUnique(
-            nullptr, {
-                             vk::PipelineCreateFlags(),
-                             static_cast<uint32_t>(
-                                     shader_stage_cis.size()),  // stageCount
-                             shader_stage_cis.data(),           // pStages
-                             &vtx_inp_state_ci,        // pVertexInputState
-                             &inp_assembly_state_ci,   // pInputAssemblyState
-                             nullptr,                  // pTessellationState
-                             &viewport_state_ci,       // pViewportState
-                             &rasterization_state_ci,  // pRasterizationState
-                             &multisample_state_ci,    // pMultisampleState
-                             &depth_stencil_state_ci,  // pDepthStencilState
-                             &color_blend_state_ci,    // pColorBlendState
-                             &pipelineDynamicStateCreateInfo,  // pDynamicState
-                             pipeline_layout.get(),            // layout
-                             render_pass_pack->render_pass.get()  // renderPass
-                     });
+            nullptr,
+            {vk::PipelineCreateFlags(),
+             static_cast<uint32_t>(shader_stage_cis.size()),
+             shader_stage_cis.data(), &vtx_inp_state_ci, &inp_assembly_state_ci,
+             nullptr, &viewport_state_ci, &rasterization_state_ci,
+             &multisample_state_ci, &depth_stencil_state_ci,
+             &color_blend_state_ci, &dynamic_state_ci, pipeline_layout.get(),
+             render_pass_pack->render_pass.get()});
 
     return PipelinePackPtr(
             new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});
+}
+
+// -----------------------------------------------------------------------------
+// ------------------------------- Command Buffer ------------------------------
+// -----------------------------------------------------------------------------
+CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice &device,
+                                               uint32_t queue_family_idx,
+                                               uint32_t n_cmd_buffers) {
+    // Create a command pool
+    vk::UniqueCommandPool command_pool = device->createCommandPoolUnique(
+            {vk::CommandPoolCreateFlags(), queue_family_idx});
+
+    // Allocate a command buffer from the command pool
+    auto cmd_bufs = device->allocateCommandBuffersUnique(
+            {command_pool.get(), vk::CommandBufferLevel::ePrimary,
+             n_cmd_buffers});
+
+    return CommandBuffersPackPtr(new CommandBuffersPack{std::move(command_pool),
+                                                        std::move(cmd_bufs)});
 }
 
 }  // namespace vkw

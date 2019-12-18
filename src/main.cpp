@@ -124,13 +124,6 @@ int main(int argc, char const *argv[]) {
     auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
                                     true);
 
-    uint32_t n_cmd_buffers = 1;
-    auto command_buffers_pack = vkw::CreateCommandBuffersPack(
-            device, queue_family_idx, n_cmd_buffers);
-    auto &command_buffer = command_buffers_pack->cmd_bufs[0];
-
-    vk::Queue queue = device->getQueue(queue_family_idx, 0);
-
     auto swapchain_pack = vkw::CreateSwapchainPack(physical_device, device,
                                                    surface, win_w, win_h);
 
@@ -227,7 +220,14 @@ int main(int argc, char const *argv[]) {
             {{0, sizeof(Vertex)}},
             {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
              {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
-            pipeline_info, desc_set_pack, render_pass_pack);
+            pipeline_info, {desc_set_pack}, render_pass_pack);
+
+    uint32_t n_cmd_buffers = 1;
+    auto command_buffers_pack = vkw::CreateCommandBuffersPack(
+            device, queue_family_idx, n_cmd_buffers);
+    auto &command_buffer = command_buffers_pack->cmd_bufs[0];
+
+    vk::Queue queue = device->getQueue(queue_family_idx, 0);
 
     // ------------------
 
@@ -271,6 +271,7 @@ int main(int argc, char const *argv[]) {
             0, vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
 
     command_buffer->draw(12 * 3, 1, 0, 0);
+    //command_buffer->nextSubpass(vk::SubpassContents::eInline);
     command_buffer->endRenderPass();
     command_buffer->end();
 
