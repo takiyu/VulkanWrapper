@@ -232,6 +232,8 @@ int main(int argc, char const *argv[]) {
     auto &cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
+    while (!glfwWindowShouldClose(window.get())) {
+        vkw::ResetCommand(cmd_buf);
 
     // Get the index of the next available swapchain image:
     auto imageAcquiredSemaphore = vkw::CreateSemaphore(device);
@@ -290,7 +292,6 @@ int main(int argc, char const *argv[]) {
                                         &swapchain_pack->swapchain.get(),
                                         &currentBuffer.value));
 
-    while (!glfwWindowShouldClose(window.get())) {
         glfwPollEvents();
     }
 

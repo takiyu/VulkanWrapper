@@ -1105,10 +1105,17 @@ PipelinePackPtr CreatePipeline(
 // -----------------------------------------------------------------------------
 CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice &device,
                                                uint32_t queue_family_idx,
-                                               uint32_t n_cmd_buffers) {
+                                               uint32_t n_cmd_buffers,
+                                               bool reset_enable) {
+    // Create flags
+    vk::CommandPoolCreateFlags flags;
+    if (reset_enable) {
+        flags |= vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+    }
+
     // Create a command pool
     vk::UniqueCommandPool cmd_pool = device->createCommandPoolUnique(
-            {vk::CommandPoolCreateFlags(), queue_family_idx});
+            {flags, queue_family_idx});
 
     // Allocate a command buffer from the command pool
     auto cmd_bufs = device->allocateCommandBuffersUnique(
@@ -1132,6 +1139,11 @@ void BeginCommand(const vk::UniqueCommandBuffer &cmd_buf,
 void EndCommand(const vk::UniqueCommandBuffer &cmd_buf) {
     // End
     cmd_buf->end();
+}
+
+void ResetCommand(const vk::UniqueCommandBuffer& cmd_buf) {
+    // Reset
+    cmd_buf->reset(vk::CommandBufferResetFlags());
 }
 
 void CmdBeginRenderPass(const vk::UniqueCommandBuffer &cmd_buf,

@@ -327,11 +327,13 @@ struct CommandBuffersPack {
 using CommandBuffersPackPtr = std::shared_ptr<CommandBuffersPack>;
 CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
                                                uint32_t queue_family_idx,
-                                               uint32_t n_cmd_buffers = 1);
+                                               uint32_t n_cmd_buffers = 1,
+                                               bool reset_enable = true);
 
 void BeginCommand(const vk::UniqueCommandBuffer& cmd_buf,
                   bool one_time_submit = false);
 void EndCommand(const vk::UniqueCommandBuffer& cmd_buf);
+void ResetCommand(const vk::UniqueCommandBuffer& cmd_buf);
 
 void CmdBeginRenderPass(
         const vk::UniqueCommandBuffer& cmd_buf,
