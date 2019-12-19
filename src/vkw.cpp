@@ -1134,11 +1134,11 @@ void EndCommand(const vk::UniqueCommandBuffer &cmd_buf) {
     cmd_buf->end();
 }
 
-void AddCommandBeginRenderPass(const vk::UniqueCommandBuffer &cmd_buf,
-                               const RenderPassPackPtr &render_pass_pack,
-                               const FrameBufferPackPtr &frame_buffer_pack,
-                               const std::vector<vk::ClearValue> &clear_vals,
-                               const vk::Rect2D &render_area_org) {
+void CmdBeginRenderPass(const vk::UniqueCommandBuffer &cmd_buf,
+                        const RenderPassPackPtr &render_pass_pack,
+                        const FrameBufferPackPtr &frame_buffer_pack,
+                        const std::vector<vk::ClearValue> &clear_vals,
+                        const vk::Rect2D &render_area_org) {
     // Decide render area
     vk::Rect2D render_area;
     if (0 < render_area_org.extent.width && 0 < render_area_org.extent.height) {
@@ -1157,12 +1157,18 @@ void AddCommandBeginRenderPass(const vk::UniqueCommandBuffer &cmd_buf,
             vk::SubpassContents::eInline);
 }
 
-void AddCommandNextSubPass(const vk::UniqueCommandBuffer &cmd_buf) {
+void CmdNextSubPass(const vk::UniqueCommandBuffer &cmd_buf) {
     cmd_buf->nextSubpass(vk::SubpassContents::eInline);
 }
 
-void AddCommandEndRenderPass(const vk::UniqueCommandBuffer &cmd_buf) {
+void CmdEndRenderPass(const vk::UniqueCommandBuffer &cmd_buf) {
     cmd_buf->endRenderPass();
+}
+
+void CmdBindPipeline(const vk::UniqueCommandBuffer &cmd_buf,
+                     const PipelinePackPtr &pipeline_pack,
+                     const vk::PipelineBindPoint &bind_point) {
+    cmd_buf->bindPipeline(bind_point, pipeline_pack->pipeline.get());
 }
 
 // -----------------------------------------------------------------------------

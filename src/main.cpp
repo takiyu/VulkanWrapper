@@ -245,15 +245,15 @@ int main(int argc, char const *argv[]) {
     vkw::BeginCommand(cmd_buf);
 
     const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 0.2f};
-    vkw::AddCommandBeginRenderPass(cmd_buf, render_pass_pack,
-                                   frame_buffer_packs[currentBuffer.value],
-                                   {
-                                           vk::ClearColorValue(clear_color),
-                                           vk::ClearDepthStencilValue(1.0f, 0),
-                                   });
+    vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
+                            frame_buffer_packs[currentBuffer.value],
+                            {
+                                    vk::ClearColorValue(clear_color),
+                                    vk::ClearDepthStencilValue(1.0f, 0),
+                            });
 
-    cmd_buf->bindPipeline(vk::PipelineBindPoint::eGraphics,
-                          pipeline_pack->pipeline.get());
+    vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
+
     cmd_buf->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                                 pipeline_pack->pipeline_layout.get(), 0,
                                 desc_set_pack->desc_set.get(), nullptr);
@@ -268,8 +268,8 @@ int main(int argc, char const *argv[]) {
                         vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
 
     cmd_buf->draw(12 * 3, 1, 0, 0);
-    // vkw::AddCommandNextSubPass(cmd_buf);
-    vkw::AddCommandEndRenderPass(cmd_buf);
+    // vkw::CmdNextSubPass(cmd_buf);
+    vkw::CmdEndRenderPass(cmd_buf);
 
     vkw::EndCommand(cmd_buf);
 

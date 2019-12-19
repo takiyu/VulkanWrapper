@@ -331,19 +331,21 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
 
 void BeginCommand(const vk::UniqueCommandBuffer& cmd_buf,
                   bool one_time_submit = false);
-
 void EndCommand(const vk::UniqueCommandBuffer& cmd_buf);
 
-void AddCommandBeginRenderPass(
+void CmdBeginRenderPass(
         const vk::UniqueCommandBuffer& cmd_buf,
         const RenderPassPackPtr& render_pass_pack,
         const FrameBufferPackPtr& frame_buffer_pack,
         const std::vector<vk::ClearValue>& clear_vals,  // Resp to Attachments
         const vk::Rect2D& render_area = {});
+void CmdNextSubPass(const vk::UniqueCommandBuffer& cmd_buf);
+void CmdEndRenderPass(const vk::UniqueCommandBuffer& cmd_buf);
 
-void AddCommandNextSubPass(const vk::UniqueCommandBuffer& cmd_buf);
-
-void AddCommandEndRenderPass(const vk::UniqueCommandBuffer& cmd_buf);
+void CmdBindPipeline(const vk::UniqueCommandBuffer& cmd_buf,
+                     const PipelinePackPtr& pipeline_pack,
+                     const vk::PipelineBindPoint& bind_point =
+                             vk::PipelineBindPoint::eGraphics);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Fence -----------------------------------
