@@ -2,6 +2,7 @@
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -135,31 +136,15 @@ int main(int argc, char const *argv[]) {
             vk::MemoryPropertyFlagBits::eDeviceLocal,
             vk::ImageAspectFlagBits::eDepth, true, false);
 
-    glm::mat4 mvpc_mat;
-    {
-        const glm::mat4 model_mat = glm::mat4(1.0f);
-        const glm::mat4 view_mat = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f),
-                                               glm::vec3(0.0f, 0.0f, 0.0f),
-                                               glm::vec3(0.0f, -1.0f, 0.0f));
-        const glm::mat4 proj_mat =
-                glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-        // vulkan clip space has inverted y and half z !
-        const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
-                                    0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
-                                    0.0f, 0.0f, 0.5f, 1.0f};
-        mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
-    }
-
     auto uniform_buf_pack = vkw::CreateBufferPack(
-            physical_device, device, sizeof(mvpc_mat),
+            physical_device, device, sizeof(glm::mat4),
             vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
-    vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0], sizeof(mvpc_mat));
 
 #if 1
     auto desc_set_pack = vkw::CreateDescriptorSetPack(
-            device, {{vk::DescriptorType::eUniformBuffer, 1,
+            device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
                       vk::ShaderStageFlagBits::eVertex}});
 #else
     auto tex_pack = vkw::CreateTexture(
@@ -232,65 +217,84 @@ int main(int argc, char const *argv[]) {
     auto &cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
+    const glm::mat4 model_mat = glm::mat4(1.0f);
+    const glm::mat4 view_mat = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f),
+                                           glm::vec3(0.0f, 0.0f, 0.0f),
+                                           glm::vec3(0.0f, -1.0f, 0.0f));
+    const glm::mat4 proj_mat =
+            glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+    // vulkan clip space has inverted y and half z !
+    const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
+                                0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
+                                0.0f, 0.0f, 0.5f, 1.0f};
+    glm::mat4 rot_mat(1.f);
     while (!glfwWindowShouldClose(window.get())) {
+        rot_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 0.f)) * rot_mat;
+        glm::mat4 mvpc_mat =
+                clip_mat * proj_mat * view_mat * rot_mat * model_mat;
+        vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
+                          sizeof(mvpc_mat));
+
         vkw::ResetCommand(cmd_buf);
 
-    // Get the index of the next available swapchain image:
-    auto imageAcquiredSemaphore = vkw::CreateSemaphore(device);
-    const uint64_t FenceTimeout = 100000000;
-    vk::ResultValue<uint32_t> currentBuffer = device->acquireNextImageKHR(
-            swapchain_pack->swapchain.get(), FenceTimeout,
-            imageAcquiredSemaphore->get(), nullptr);
-    assert(currentBuffer.result == vk::Result::eSuccess);
-    assert(currentBuffer.value < frame_buffer_packs.size());
+        // Get the index of the next available swapchain image:
+        auto imageAcquiredSemaphore = vkw::CreateSemaphore(device);
+        const uint64_t FenceTimeout = 100000000;
+        vk::ResultValue<uint32_t> currentBuffer = device->acquireNextImageKHR(
+                swapchain_pack->swapchain.get(), FenceTimeout,
+                imageAcquiredSemaphore->get(), nullptr);
+        assert(currentBuffer.result == vk::Result::eSuccess);
+        assert(currentBuffer.value < frame_buffer_packs.size());
 
-    vkw::BeginCommand(cmd_buf);
+        vkw::BeginCommand(cmd_buf);
 
-    const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 0.2f};
-    vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
-                            frame_buffer_packs[currentBuffer.value],
-                            {
-                                    vk::ClearColorValue(clear_color),
-                                    vk::ClearDepthStencilValue(1.0f, 0),
-                            });
+        const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 0.2f};
+        vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
+                                frame_buffer_packs[currentBuffer.value],
+                                {
+                                        vk::ClearColorValue(clear_color),
+                                        vk::ClearDepthStencilValue(1.0f, 0),
+                                });
 
-    vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
+        vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
 
-    cmd_buf->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                pipeline_pack->pipeline_layout.get(), 0,
-                                desc_set_pack->desc_set.get(), nullptr);
+        uint32_t dynamic_offsets[1] = {0};
+        cmd_buf->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                    pipeline_pack->pipeline_layout.get(), 0, 1,
+                                    &desc_set_pack->desc_set.get(), 1,
+                                    dynamic_offsets);
 
-    cmd_buf->bindVertexBuffers(0, *vertex_buf_pack->buf, {0});
-    cmd_buf->setViewport(
-            0, vk::Viewport(0.0f, 0.0f,
-                            static_cast<float>(swapchain_pack->size.width),
-                            static_cast<float>(swapchain_pack->size.height),
-                            0.0f, 1.0f));
-    cmd_buf->setScissor(0,
-                        vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
+        cmd_buf->bindVertexBuffers(0, *vertex_buf_pack->buf, {0});
+        cmd_buf->setViewport(
+                0, vk::Viewport(0.0f, 0.0f,
+                                static_cast<float>(swapchain_pack->size.width),
+                                static_cast<float>(swapchain_pack->size.height),
+                                0.0f, 1.0f));
+        cmd_buf->setScissor(
+                0, vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
 
-    cmd_buf->draw(12 * 3, 1, 0, 0);
-    // vkw::CmdNextSubPass(cmd_buf);
-    vkw::CmdEndRenderPass(cmd_buf);
+        cmd_buf->draw(12 * 3, 1, 0, 0);
+        // vkw::CmdNextSubPass(cmd_buf);
+        vkw::CmdEndRenderPass(cmd_buf);
 
-    vkw::EndCommand(cmd_buf);
+        vkw::EndCommand(cmd_buf);
 
-    auto drawFence = vkw::CreateFence(device);
+        auto drawFence = vkw::CreateFence(device);
 
-    vk::PipelineStageFlags waitDestinationStageMask(
-            vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore->get(),
-                              &waitDestinationStageMask, 1, &cmd_buf.get());
+        vk::PipelineStageFlags waitDestinationStageMask(
+                vk::PipelineStageFlagBits::eColorAttachmentOutput);
+        vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore->get(),
+                                  &waitDestinationStageMask, 1, &cmd_buf.get());
 
-    queue.submit(submitInfo, drawFence->get());
+        queue.submit(submitInfo, drawFence->get());
 
-    while (vk::Result::eTimeout ==
-           device->waitForFences(drawFence->get(), VK_TRUE, FenceTimeout))
-        ;
+        while (vk::Result::eTimeout ==
+               device->waitForFences(drawFence->get(), VK_TRUE, FenceTimeout))
+            ;
 
-    queue.presentKHR(vk::PresentInfoKHR(0, nullptr, 1,
-                                        &swapchain_pack->swapchain.get(),
-                                        &currentBuffer.value));
+        queue.presentKHR(vk::PresentInfoKHR(0, nullptr, 1,
+                                            &swapchain_pack->swapchain.get(),
+                                            &currentBuffer.value));
 
         glfwPollEvents();
     }
