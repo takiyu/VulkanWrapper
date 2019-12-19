@@ -888,10 +888,10 @@ void UpdateRenderPass(const vk::UniqueDevice &device,
 // -----------------------------------------------------------------------------
 // -------------------------------- FrameBuffer --------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueFramebuffer CreateFrameBuffer(
-        const vk::UniqueDevice &device,
-        const RenderPassPackPtr &render_pass_pack,
-        const std::vector<ImagePackPtr> &imgs, const vk::Extent2D &size_org) {
+FrameBufferPackPtr CreateFrameBuffer(const vk::UniqueDevice &device,
+                                     const RenderPassPackPtr &render_pass_pack,
+                                     const std::vector<ImagePackPtr> &imgs,
+                                     const vk::Extent2D &size_org) {
     // Prepare frame buffer creation
     auto info = PrepareFrameBuffer(render_pass_pack, imgs, size_org);
     const vk::Extent2D &size = std::get<0>(info);
@@ -899,13 +899,16 @@ vk::UniqueFramebuffer CreateFrameBuffer(
     const uint32_t n_layers = 1;
 
     // Create Frame Buffer
-    return device->createFramebufferUnique(
+    auto frame_buffer = device->createFramebufferUnique(
             {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
              static_cast<uint32_t>(attachments.size()), attachments.data(),
              size.width, size.height, n_layers});
+
+    return FrameBufferPackPtr(new FrameBufferPack{
+            std::move(frame_buffer), size.width, size.height, n_layers});
 }
 
-std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
+std::vector<FrameBufferPackPtr> CreateFrameBuffers(
         const vk::UniqueDevice &device,
         const RenderPassPackPtr &render_pass_pack,
         const std::vector<ImagePackPtr> &imgs,
@@ -918,18 +921,22 @@ std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
     const uint32_t n_layers = 1;
 
     // Create Frame Buffers
-    std::vector<vk::UniqueFramebuffer> frame_buffers;
-    frame_buffers.reserve(swapchain->views.size());
+    std::vector<FrameBufferPackPtr> rets;
+    rets.reserve(swapchain->views.size());
     for (auto &&view : swapchain->views) {
         // Overwrite swapchain image view
         attachments[swapchain_attach_idx] = *view;
         // Create one Frame Buffer
-        frame_buffers.push_back(device->createFramebufferUnique(
+        auto frame_buffer = device->createFramebufferUnique(
                 {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
                  static_cast<uint32_t>(attachments.size()), attachments.data(),
-                 size.width, size.height, n_layers}));
+                 size.width, size.height, n_layers});
+        // Register
+        rets.emplace_back(new FrameBufferPack{
+                std::move(frame_buffer), size.width, size.height, n_layers});
     }
-    return frame_buffers;
+
+    return rets;
 }
 
 // -----------------------------------------------------------------------------
@@ -1107,16 +1114,55 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice &device,
     auto cmd_bufs = device->allocateCommandBuffersUnique(
             {cmd_pool.get(), vk::CommandBufferLevel::ePrimary, n_cmd_buffers});
 
-    return CommandBuffersPackPtr(new CommandBuffersPack{std::move(cmd_pool),
-                                                        std::move(cmd_bufs)});
+    return CommandBuffersPackPtr(
+            new CommandBuffersPack{std::move(cmd_pool), std::move(cmd_bufs)});
 }
 
-void BeginCommand(const vk::UniqueCommandBuffer& cmd_buf) {
-    cmd_buf->begin({vk::CommandBufferUsageFlags()});
+void BeginCommand(const vk::UniqueCommandBuffer &cmd_buf,
+                  bool one_time_submit) {
+    // Create begin flags
+    vk::CommandBufferUsageFlags flags;
+    if (one_time_submit) {
+        flags |= vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    }
+    // Begin
+    cmd_buf->begin({flags});
 }
 
-void EndCommand(const vk::UniqueCommandBuffer& cmd_buf) {
+void EndCommand(const vk::UniqueCommandBuffer &cmd_buf) {
+    // End
     cmd_buf->end();
+}
+
+void AddCommandBeginRenderPass(const vk::UniqueCommandBuffer &cmd_buf,
+                               const RenderPassPackPtr &render_pass_pack,
+                               const FrameBufferPackPtr &frame_buffer_pack,
+                               const std::vector<vk::ClearValue> &clear_vals,
+                               const vk::Rect2D &render_area_org) {
+    // Decide render area
+    vk::Rect2D render_area;
+    if (0 < render_area_org.extent.width && 0 < render_area_org.extent.height) {
+        render_area = render_area_org;
+    } else {
+        // Default size is same with surface size
+        render_area.extent.width = frame_buffer_pack->width;
+        render_area.extent.height = frame_buffer_pack->height;
+    }
+
+    // Begin render pass
+    cmd_buf->beginRenderPass(
+            {render_pass_pack->render_pass.get(),
+             frame_buffer_pack->frame_buffer.get(), render_area,
+             static_cast<uint32_t>(clear_vals.size()), clear_vals.data()},
+            vk::SubpassContents::eInline);
+}
+
+void AddCommandNextSubPass(const vk::UniqueCommandBuffer &cmd_buf) {
+    cmd_buf->nextSubpass(vk::SubpassContents::eInline);
+}
+
+void AddCommandEndRenderPass(const vk::UniqueCommandBuffer &cmd_buf) {
+    cmd_buf->endRenderPass();
 }
 
 // -----------------------------------------------------------------------------

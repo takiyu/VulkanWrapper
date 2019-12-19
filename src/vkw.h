@@ -80,7 +80,6 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
                    uint32_t queue_idx = 0);
 
-
 // -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
@@ -228,13 +227,20 @@ void UpdateRenderPass(const vk::UniqueDevice& device,
 // -----------------------------------------------------------------------------
 // -------------------------------- FrameBuffer --------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueFramebuffer CreateFrameBuffer(
-        const vk::UniqueDevice& device,
-        const RenderPassPackPtr& render_pass_pack,
-        const std::vector<ImagePackPtr>& imgs,
-        const vk::Extent2D& size = {0, 0});
+struct FrameBufferPack {
+    vk::UniqueFramebuffer frame_buffer;
+    uint32_t width;
+    uint32_t height;
+    uint32_t n_layers;
+};
+using FrameBufferPackPtr = std::shared_ptr<FrameBufferPack>;
 
-std::vector<vk::UniqueFramebuffer> CreateFrameBuffers(
+FrameBufferPackPtr CreateFrameBuffer(const vk::UniqueDevice& device,
+                                     const RenderPassPackPtr& render_pass_pack,
+                                     const std::vector<ImagePackPtr>& imgs,
+                                     const vk::Extent2D& size = {0, 0});
+
+std::vector<FrameBufferPackPtr> CreateFrameBuffers(
         const vk::UniqueDevice& device,
         const RenderPassPackPtr& render_pass_pack,
         const std::vector<ImagePackPtr>& imgs,
@@ -323,10 +329,21 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice& device,
                                                uint32_t queue_family_idx,
                                                uint32_t n_cmd_buffers = 1);
 
-void BeginCommand(const vk::UniqueCommandBuffer& cmd_buf);
+void BeginCommand(const vk::UniqueCommandBuffer& cmd_buf,
+                  bool one_time_submit = false);
 
 void EndCommand(const vk::UniqueCommandBuffer& cmd_buf);
 
+void AddCommandBeginRenderPass(
+        const vk::UniqueCommandBuffer& cmd_buf,
+        const RenderPassPackPtr& render_pass_pack,
+        const FrameBufferPackPtr& frame_buffer_pack,
+        const std::vector<vk::ClearValue>& clear_vals,  // Resp to Attachments
+        const vk::Rect2D& render_area = {});
+
+void AddCommandNextSubPass(const vk::UniqueCommandBuffer& cmd_buf);
+
+void AddCommandEndRenderPass(const vk::UniqueCommandBuffer& cmd_buf);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Fence -----------------------------------

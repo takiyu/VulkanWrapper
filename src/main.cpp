@@ -188,16 +188,19 @@ int main(int argc, char const *argv[]) {
                            vk::AttachmentStoreOp::eDontCare,
                            vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-    vkw::AddSubpassDesc(render_pass_pack, {},
+    vkw::AddSubpassDesc(render_pass_pack,
+                        {
+                                // No input attachments
+                        },
                         {
                                 {0, vk::ImageLayout::eColorAttachmentOptimal},
                         },
                         {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
     vkw::UpdateRenderPass(device, render_pass_pack);
 
-    auto frame_buffers = vkw::CreateFrameBuffers(device, render_pass_pack,
-                                                 {nullptr, depth_img_pack}, 0,
-                                                 swapchain_pack);
+    auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
+                                                      {nullptr, depth_img_pack},
+                                                      0, swapchain_pack);
 
     vkw::GLSLCompiler glsl_compiler;
     auto vert_shader_module_pack = glsl_compiler.compileFromString(
@@ -224,8 +227,8 @@ int main(int argc, char const *argv[]) {
             pipeline_info, {desc_set_pack}, render_pass_pack);
 
     const uint32_t n_cmd_bufs = 1;
-    auto cmd_bufs_pack = vkw::CreateCommandBuffersPack(
-            device, queue_family_idx, n_cmd_bufs);
+    auto cmd_bufs_pack =
+            vkw::CreateCommandBuffersPack(device, queue_family_idx, n_cmd_bufs);
     auto &cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
@@ -237,26 +240,23 @@ int main(int argc, char const *argv[]) {
             swapchain_pack->swapchain.get(), FenceTimeout,
             imageAcquiredSemaphore->get(), nullptr);
     assert(currentBuffer.result == vk::Result::eSuccess);
-    assert(currentBuffer.value < frame_buffers.size());
+    assert(currentBuffer.value < frame_buffer_packs.size());
 
     vkw::BeginCommand(cmd_buf);
 
-    vk::ClearValue clearValues[2];
-    clearValues[0].color =
-            vk::ClearColorValue(std::array<float, 4>({0.2f, 0.2f, 0.2f, 0.2f}));
-    clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
-    vk::RenderPassBeginInfo renderPassBeginInfo(
-            render_pass_pack->render_pass.get(),
-            frame_buffers[currentBuffer.value].get(),
-            vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size), 2,
-            clearValues);
-    cmd_buf->beginRenderPass(renderPassBeginInfo,
-                                    vk::SubpassContents::eInline);
+    const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 0.2f};
+    vkw::AddCommandBeginRenderPass(cmd_buf, render_pass_pack,
+                                   frame_buffer_packs[currentBuffer.value],
+                                   {
+                                           vk::ClearColorValue(clear_color),
+                                           vk::ClearDepthStencilValue(1.0f, 0),
+                                   });
+
     cmd_buf->bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                 pipeline_pack->pipeline.get());
+                          pipeline_pack->pipeline.get());
     cmd_buf->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                       pipeline_pack->pipeline_layout.get(), 0,
-                                       desc_set_pack->desc_set.get(), nullptr);
+                                pipeline_pack->pipeline_layout.get(), 0,
+                                desc_set_pack->desc_set.get(), nullptr);
 
     cmd_buf->bindVertexBuffers(0, *vertex_buf_pack->buf, {0});
     cmd_buf->setViewport(
@@ -264,13 +264,12 @@ int main(int argc, char const *argv[]) {
                             static_cast<float>(swapchain_pack->size.width),
                             static_cast<float>(swapchain_pack->size.height),
                             0.0f, 1.0f));
-    cmd_buf->setScissor(
-            0, vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
+    cmd_buf->setScissor(0,
+                        vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
 
     cmd_buf->draw(12 * 3, 1, 0, 0);
-    //cmd_buf->nextSubpass(vk::SubpassContents::eInline);
-    cmd_buf->endRenderPass();
-
+    // vkw::AddCommandNextSubPass(cmd_buf);
+    vkw::AddCommandEndRenderPass(cmd_buf);
 
     vkw::EndCommand(cmd_buf);
 
@@ -279,8 +278,7 @@ int main(int argc, char const *argv[]) {
     vk::PipelineStageFlags waitDestinationStageMask(
             vk::PipelineStageFlagBits::eColorAttachmentOutput);
     vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore->get(),
-                              &waitDestinationStageMask, 1,
-                              &cmd_buf.get());
+                              &waitDestinationStageMask, 1, &cmd_buf.get());
 
     queue.submit(submitInfo, drawFence->get());
 
