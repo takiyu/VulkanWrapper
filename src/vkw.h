@@ -349,6 +349,25 @@ void CmdBindPipeline(const vk::UniqueCommandBuffer& cmd_buf,
                      const vk::PipelineBindPoint& bind_point =
                              vk::PipelineBindPoint::eGraphics);
 
+void CmdBindDescSets(const vk::UniqueCommandBuffer& cmd_buf,
+                     const PipelinePackPtr& pipeline_pack,
+                     const std::vector<DescSetPackPtr>& desc_set_packs,
+                     const std::vector<uint32_t>& dynamic_offsets = {},
+                     const vk::PipelineBindPoint& bind_point =
+                             vk::PipelineBindPoint::eGraphics);
+
+void CmdBindVertexBuffers(const vk::UniqueCommandBuffer& cmd_buf,
+                          const std::vector<BufferPackPtr>& vtx_buf_packs);
+
+void CmdSetViewport(const vk::UniqueCommandBuffer& cmd_buf,
+                    const vk::Viewport& viewport);
+void CmdSetViewport(const vk::UniqueCommandBuffer& cmd_buf,
+                    const vk::Extent2D& viewport_size);
+void CmdSetScissor(const vk::UniqueCommandBuffer& cmd_buf,
+                   const vk::Rect2D& scissor);
+void CmdSetScissor(const vk::UniqueCommandBuffer& cmd_buf,
+                   const vk::Extent2D& scissor_size);
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Fence -----------------------------------
 // -----------------------------------------------------------------------------

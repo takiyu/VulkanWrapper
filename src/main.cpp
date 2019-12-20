@@ -258,20 +258,14 @@ int main(int argc, char const *argv[]) {
 
         vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
 
-        uint32_t dynamic_offsets[1] = {0};
-        cmd_buf->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                    pipeline_pack->pipeline_layout.get(), 0, 1,
-                                    &desc_set_pack->desc_set.get(), 1,
-                                    dynamic_offsets);
+        const std::vector<uint32_t> dynamic_offsets = {0};
+        vkw::CmdBindDescSets(cmd_buf, pipeline_pack, {desc_set_pack},
+                             dynamic_offsets);
 
-        cmd_buf->bindVertexBuffers(0, *vertex_buf_pack->buf, {0});
-        cmd_buf->setViewport(
-                0, vk::Viewport(0.0f, 0.0f,
-                                static_cast<float>(swapchain_pack->size.width),
-                                static_cast<float>(swapchain_pack->size.height),
-                                0.0f, 1.0f));
-        cmd_buf->setScissor(
-                0, vk::Rect2D(vk::Offset2D(0, 0), swapchain_pack->size));
+        vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
+
+        vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
+        vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
 
         cmd_buf->draw(12 * 3, 1, 0, 0);
         // vkw::CmdNextSubPass(cmd_buf);

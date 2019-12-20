@@ -1,5 +1,7 @@
 #include "vkw.h"
 
+#include <bits/stdint-uintn.h>
+
 VKW_SUPPRESS_WARNING_PUSH
 #include <SPIRV/GlslangToSpv.h>
 #include <StandAlone/ResourceLimits.h>
@@ -1114,8 +1116,8 @@ CommandBuffersPackPtr CreateCommandBuffersPack(const vk::UniqueDevice &device,
     }
 
     // Create a command pool
-    vk::UniqueCommandPool cmd_pool = device->createCommandPoolUnique(
-            {flags, queue_family_idx});
+    vk::UniqueCommandPool cmd_pool =
+            device->createCommandPoolUnique({flags, queue_family_idx});
 
     // Allocate a command buffer from the command pool
     auto cmd_bufs = device->allocateCommandBuffersUnique(
@@ -1141,7 +1143,7 @@ void EndCommand(const vk::UniqueCommandBuffer &cmd_buf) {
     cmd_buf->end();
 }
 
-void ResetCommand(const vk::UniqueCommandBuffer& cmd_buf) {
+void ResetCommand(const vk::UniqueCommandBuffer &cmd_buf) {
     // Reset
     cmd_buf->reset(vk::CommandBufferResetFlags());
 }
@@ -1181,6 +1183,75 @@ void CmdBindPipeline(const vk::UniqueCommandBuffer &cmd_buf,
                      const PipelinePackPtr &pipeline_pack,
                      const vk::PipelineBindPoint &bind_point) {
     cmd_buf->bindPipeline(bind_point, pipeline_pack->pipeline.get());
+}
+
+void CmdBindDescSets(const vk::UniqueCommandBuffer &cmd_buf,
+                     const PipelinePackPtr &pipeline_pack,
+                     const std::vector<DescSetPackPtr> &desc_set_packs,
+                     const std::vector<uint32_t> &dynamic_offsets,
+                     const vk::PipelineBindPoint &bind_point) {
+    // Repack descriptor set layout
+    std::vector<vk::DescriptorSet> desc_sets;
+    desc_sets.reserve(desc_set_packs.size());
+    for (auto &&desc_set_pack : desc_set_packs) {
+        desc_sets.push_back(desc_set_pack->desc_set.get());
+    }
+    // Bind
+    const uint32_t first_set = 0;
+    cmd_buf->bindDescriptorSets(
+            bind_point, pipeline_pack->pipeline_layout.get(), first_set,
+            static_cast<uint32_t>(desc_sets.size()), desc_sets.data(),
+            static_cast<uint32_t>(dynamic_offsets.size()),
+            dynamic_offsets.data());
+}
+
+void CmdBindVertexBuffers(const vk::UniqueCommandBuffer &cmd_buf,
+                          const std::vector<BufferPackPtr> &vtx_buf_packs) {
+    // Repack buffers
+    std::vector<vk::Buffer> vtx_bufs;
+    vtx_bufs.reserve(vtx_buf_packs.size());
+    for (auto &&vtx_buf_pack : vtx_buf_packs) {
+        vtx_bufs.push_back(vtx_buf_pack->buf.get());
+    }
+    // Bind
+    const uint32_t n_vtx_bufs = static_cast<uint32_t>(vtx_bufs.size());
+    const uint32_t first_binding = 0;
+    const std::vector<vk::DeviceSize> offsets(n_vtx_bufs, 0);  // no offsets
+    cmd_buf->bindVertexBuffers(first_binding, n_vtx_bufs, vtx_bufs.data(),
+                               offsets.data());
+}
+
+void CmdSetViewport(const vk::UniqueCommandBuffer &cmd_buf,
+                    const vk::Viewport &viewport) {
+    // Set a viewport
+    const uint32_t first_viewport = 0;
+    cmd_buf->setViewport(first_viewport, 1, &viewport);
+}
+
+void CmdSetViewport(const vk::UniqueCommandBuffer &cmd_buf,
+                    const vk::Extent2D &viewport_size) {
+    // Convert to viewport
+    const float min_depth = 0.f;
+    const float max_depth = 1.f;
+    vk::Viewport viewport(0.f, 0.f, viewport_size.width, viewport_size.height,
+                          min_depth, max_depth);
+    // Set
+    CmdSetViewport(cmd_buf, viewport);
+}
+
+void CmdSetScissor(const vk::UniqueCommandBuffer &cmd_buf,
+                   const vk::Rect2D &scissor) {
+    // Set a scissor
+    const uint32_t first_scissor = 0;
+    cmd_buf->setScissor(first_scissor, 1, &scissor);
+}
+
+void CmdSetScissor(const vk::UniqueCommandBuffer &cmd_buf,
+                   const vk::Extent2D &scissor_size) {
+    // Convert to rect2D
+    vk::Rect2D rect(vk::Offset2D(0, 0), scissor_size);
+    // Set
+    CmdSetScissor(cmd_buf, rect);
 }
 
 // -----------------------------------------------------------------------------
