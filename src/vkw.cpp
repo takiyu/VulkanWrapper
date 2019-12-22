@@ -568,6 +568,40 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 }
 
 // -----------------------------------------------------------------------------
+// ------------------------------- Asynchronous --------------------------------
+// -----------------------------------------------------------------------------
+FencePtr CreateFence(const vk::UniqueDevice &device) {
+    auto fence = device->createFenceUnique({});
+    return FencePtr(new vk::UniqueFence(std::move(fence)));
+}
+
+vk::Result WaitForFences(const vk::UniqueDevice &device,
+                         const std::vector<FencePtr> &fences, bool wait_all,
+                         uint64_t timeout) {
+    // Repack fences
+    const uint32_t n_fences = static_cast<uint32_t>(fences.size());
+    std::vector<vk::Fence> fences_raw;
+    fences_raw.reserve(n_fences);
+    for (auto &&f : fences) {
+        fences_raw.push_back(f->get());
+    }
+
+    // Wait during `timeout` nano-seconds
+    return device->waitForFences(n_fences, DataSafety(fences_raw), wait_all,
+                                 timeout);
+}
+
+EventPtr CreateEvent(const vk::UniqueDevice &device) {
+    auto event = device->createEventUnique({});
+    return EventPtr(new vk::UniqueEvent{std::move(event)});
+}
+
+SemaphorePtr CreateSemaphore(const vk::UniqueDevice &device) {
+    auto semaphore = device->createSemaphoreUnique({});
+    return SemaphorePtr(new vk::UniqueSemaphore{std::move(semaphore)});
+}
+
+// -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
 SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
@@ -611,6 +645,20 @@ SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
 
     return SwapchainPackPtr(new SwapchainPack{
             std::move(swapchain), std::move(img_views), swapchain_extent});
+}
+
+vk::Result AcquireNextImage(uint32_t *out_img_idx,
+                            const vk::UniqueDevice &device,
+                            const SwapchainPackPtr &swapchain_pack,
+                            const SemaphorePtr &signal_semaphore,
+                            const FencePtr &signal_fence, uint64_t timeout) {
+    // Escape nullptr
+    vk::Semaphore semaphore_raw =
+            signal_semaphore ? signal_semaphore->get() : vk::Semaphore();
+    vk::Fence fence_raw = signal_fence ? signal_fence->get() : vk::Fence();
+    // Acquire
+    return device->acquireNextImageKHR(swapchain_pack->swapchain.get(), timeout,
+                                       semaphore_raw, fence_raw, out_img_idx);
 }
 
 // -----------------------------------------------------------------------------
@@ -1270,55 +1318,6 @@ void CmdDraw(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_vtxs,
 }
 
 // -----------------------------------------------------------------------------
-// ----------------------------------- Fence -----------------------------------
-// -----------------------------------------------------------------------------
-FencePtr CreateFence(const vk::UniqueDevice &device) {
-    auto fence = device->createFenceUnique({});
-    return FencePtr(new vk::UniqueFence(std::move(fence)));
-}
-
-vk::Result WaitForFences(const vk::UniqueDevice& device,
-                         const std::vector<FencePtr>& fences,
-                         bool wait_all, uint64_t timeout) {
-    // Repack fences
-    const uint32_t n_fences = static_cast<uint32_t>(fences.size());
-    std::vector<vk::Fence> fences_raw;
-    fences_raw.reserve(n_fences);
-    for (auto&& f : fences) {
-        fences_raw.push_back(f->get());
-    }
-
-    if (timeout == NO_TIMEOUT) {
-        // Wait for non-timeout result
-        while (true) {
-            vk::Result ret = device->waitForFences(n_fences, DataSafety(fences_raw), wait_all, timeout);
-            if (ret != vk::Result::eTimeout) {
-                return ret;
-            }
-        }
-    } else {
-        // Wait during `timeout` nano-seconds
-        return device->waitForFences(n_fences, DataSafety(fences_raw), wait_all, timeout);
-    }
-}
-
-// -----------------------------------------------------------------------------
-// ----------------------------------- Event -----------------------------------
-// -----------------------------------------------------------------------------
-EventPtr CreateEvent(const vk::UniqueDevice &device) {
-    auto event = device->createEventUnique({});
-    return EventPtr(new vk::UniqueEvent{std::move(event)});
-}
-
-// -----------------------------------------------------------------------------
-// --------------------------------- Semaphore ---------------------------------
-// -----------------------------------------------------------------------------
-SemaphorePtr CreateSemaphore(const vk::UniqueDevice &device) {
-    auto semaphore = device->createSemaphoreUnique({});
-    return SemaphorePtr(new vk::UniqueSemaphore{std::move(semaphore)});
-}
-
-// -----------------------------------------------------------------------------
 // ----------------------------------- Queue -----------------------------------
 // -----------------------------------------------------------------------------
 vk::Queue GetQueue(const vk::UniqueDevice &device, uint32_t queue_family_idx,
@@ -1367,9 +1366,9 @@ void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
     queue.submit(1, &submit_info, fence);
 }
 
-void QueuePresent(const vk::Queue& queue,
+void QueuePresent(const vk::Queue &queue,
                   const SwapchainPackPtr &swapchain_pack, uint32_t img_idx,
-                  const std::vector<SemaphorePtr>& wait_semaphores) {
+                  const std::vector<SemaphorePtr> &wait_semaphores) {
     // Unpack signal semaphores
     const uint32_t n_wait_semaphores =
             static_cast<uint32_t>(wait_semaphores.size());
@@ -1381,9 +1380,9 @@ void QueuePresent(const vk::Queue& queue,
 
     // Present
     const uint32_t n_swapchains = 1;
-        queue.presentKHR({n_wait_semaphores, DataSafety(wait_semaphores_raw), n_swapchains,
-                                            &swapchain_pack->swapchain.get(),
-                                            &img_idx});
+    queue.presentKHR({n_wait_semaphores, DataSafety(wait_semaphores_raw),
+                      n_swapchains, &swapchain_pack->swapchain.get(),
+                      &img_idx});
 }
 
 }  // namespace vkw

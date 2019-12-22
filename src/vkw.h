@@ -78,6 +78,22 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               bool swapchain_support = true);
 
 // -----------------------------------------------------------------------------
+// ------------------------------- Asynchronous --------------------------------
+// -----------------------------------------------------------------------------
+using FencePtr = std::shared_ptr<vk::UniqueFence>;
+FencePtr CreateFence(const vk::UniqueDevice& device);
+
+vk::Result WaitForFences(const vk::UniqueDevice& device,
+                         const std::vector<FencePtr>& fences,
+                         bool wait_all = true, uint64_t timeout = NO_TIMEOUT);
+
+using EventPtr = std::shared_ptr<vk::UniqueEvent>;
+EventPtr CreateEvent(const vk::UniqueDevice& device);
+
+using SemaphorePtr = std::shared_ptr<vk::UniqueSemaphore>;
+SemaphorePtr CreateSemaphore(const vk::UniqueDevice& device);
+
+// -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
 struct SwapchainPack {
@@ -93,6 +109,13 @@ SwapchainPackPtr CreateSwapchainPack(
         const vk::Format& surface_format = vk::Format::eUndefined,
         const vk::ImageUsageFlags& usage =
                 vk::ImageUsageFlagBits::eColorAttachment);
+
+vk::Result AcquireNextImage(uint32_t* out_img_idx,
+                            const vk::UniqueDevice& device,
+                            const SwapchainPackPtr& swapchain_pack,
+                            const SemaphorePtr& signal_semaphore = nullptr,
+                            const FencePtr& signal_fence = nullptr,
+                            uint64_t timeout = NO_TIMEOUT);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
@@ -370,29 +393,6 @@ void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_vtxs,
              uint32_t n_instances = 1);
 
 // -----------------------------------------------------------------------------
-// ----------------------------------- Fence -----------------------------------
-// -----------------------------------------------------------------------------
-using FencePtr = std::shared_ptr<vk::UniqueFence>;
-FencePtr CreateFence(const vk::UniqueDevice& device);
-
-vk::Result WaitForFences(const vk::UniqueDevice& device,
-                         const std::vector<FencePtr>& fences,
-                         bool wait_all = true,
-                         uint64_t timeout = NO_TIMEOUT);
-
-// -----------------------------------------------------------------------------
-// ----------------------------------- Event -----------------------------------
-// -----------------------------------------------------------------------------
-using EventPtr = std::shared_ptr<vk::UniqueEvent>;
-EventPtr CreateEvent(const vk::UniqueDevice& device);
-
-// -----------------------------------------------------------------------------
-// --------------------------------- Semaphore ---------------------------------
-// -----------------------------------------------------------------------------
-using SemaphorePtr = std::shared_ptr<vk::UniqueSemaphore>;
-SemaphorePtr CreateSemaphore(const vk::UniqueDevice& device);
-
-// -----------------------------------------------------------------------------
 // ----------------------------------- Queue -----------------------------------
 // -----------------------------------------------------------------------------
 vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
@@ -406,7 +406,7 @@ void QueueSubmit(
         const std::vector<SemaphorePtr>& signal_semaphores = {});
 
 void QueuePresent(const vk::Queue& queue,
-                  const SwapchainPackPtr &swapchain_pack, uint32_t img_idx,
+                  const SwapchainPackPtr& swapchain_pack, uint32_t img_idx,
                   const std::vector<SemaphorePtr>& wait_semaphores = {});
 
 }  // namespace vkw

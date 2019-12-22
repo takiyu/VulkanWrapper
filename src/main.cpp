@@ -237,20 +237,16 @@ int main(int argc, char const *argv[]) {
 
         vkw::ResetCommand(cmd_buf);
 
-        // Get the index of the next available swapchain image:
-        auto imageAcquiredSemaphore = vkw::CreateSemaphore(device);
-        const uint64_t FenceTimeout = 100000000;
-        vk::ResultValue<uint32_t> currentBuffer = device->acquireNextImageKHR(
-                swapchain_pack->swapchain.get(), FenceTimeout,
-                imageAcquiredSemaphore->get(), nullptr);
-        assert(currentBuffer.result == vk::Result::eSuccess);
-        assert(currentBuffer.value < frame_buffer_packs.size());
+        auto img_acquired_semaphore = vkw::CreateSemaphore(device);
+        uint32_t curr_img_idx = 0;
+        vkw::AcquireNextImage(&curr_img_idx, device, swapchain_pack,
+                              img_acquired_semaphore, nullptr);
 
         vkw::BeginCommand(cmd_buf);
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 0.2f};
         vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
-                                frame_buffer_packs[currentBuffer.value],
+                                frame_buffer_packs[curr_img_idx],
                                 {
                                         vk::ClearColorValue(clear_color),
                                         vk::ClearDepthStencilValue(1.0f, 0),
@@ -278,13 +274,13 @@ int main(int argc, char const *argv[]) {
         auto draw_fence = vkw::CreateFence(device);
 
         vkw::QueueSubmit(queue, cmd_buf, draw_fence,
-                         {{imageAcquiredSemaphore,
+                         {{img_acquired_semaphore,
                            vk::PipelineStageFlagBits::eColorAttachmentOutput}},
                          {});
 
         vkw::WaitForFences(device, {draw_fence});
 
-        vkw::QueuePresent(queue, swapchain_pack, currentBuffer.value);
+        vkw::QueuePresent(queue, swapchain_pack, curr_img_idx);
 
         glfwPollEvents();
     }
