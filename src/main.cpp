@@ -206,7 +206,7 @@ int main(int argc, char const *argv[]) {
     pipeline_info.color_blend_infos.resize(1);
     auto pipeline_pack = vkw::CreatePipeline(
             device, {vert_shader_module_pack, frag_shader_module_pack},
-            {{0, sizeof(Vertex)}},
+            {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
             {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
              {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
             pipeline_info, {desc_set_pack}, render_pass_pack);
@@ -267,7 +267,9 @@ int main(int argc, char const *argv[]) {
         vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
         vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
 
-        cmd_buf->draw(12 * 3, 1, 0, 0);
+        const uint32_t n_instances = 1;
+        vkw::CmdDraw(cmd_buf, CUBE_VERTICES.size(), n_instances);
+
         // vkw::CmdNextSubPass(cmd_buf);
         vkw::CmdEndRenderPass(cmd_buf);
 

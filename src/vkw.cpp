@@ -989,7 +989,8 @@ PipelinePackPtr CreatePipeline(
     std::vector<vk::VertexInputBindingDescription> vtx_inp_binding_descs;
     vtx_inp_binding_descs.reserve(vtx_inp_binding_info.size());
     for (auto &&info : vtx_inp_binding_info) {
-        vtx_inp_binding_descs.emplace_back(info.binding_idx, info.stride);
+        vtx_inp_binding_descs.emplace_back(info.binding_idx, info.stride,
+                                           info.input_rate);
     }
     // Parse vertex input attribute description
     std::vector<vk::VertexInputAttributeDescription> vtx_inp_attrib_descs;
@@ -1252,6 +1253,13 @@ void CmdSetScissor(const vk::UniqueCommandBuffer &cmd_buf,
     vk::Rect2D rect(vk::Offset2D(0, 0), scissor_size);
     // Set
     CmdSetScissor(cmd_buf, rect);
+}
+
+void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf,
+             uint32_t n_vtxs, uint32_t n_instances) {
+    const uint32_t first_vtx = 0;
+    const uint32_t first_instance = 0;
+    cmd_buf->draw(n_vtxs, n_instances, first_vtx, first_instance);
 }
 
 // -----------------------------------------------------------------------------

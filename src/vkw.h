@@ -271,6 +271,7 @@ public:
 struct VtxInputBindingInfo {
     uint32_t binding_idx = 0;
     uint32_t stride = sizeof(float);
+    vk::VertexInputRate input_rate = vk::VertexInputRate::eVertex;
 };
 struct VtxInputAttribInfo {
     uint32_t location = 0;     // Location in shader
@@ -367,6 +368,9 @@ void CmdSetScissor(const vk::UniqueCommandBuffer& cmd_buf,
                    const vk::Rect2D& scissor);
 void CmdSetScissor(const vk::UniqueCommandBuffer& cmd_buf,
                    const vk::Extent2D& scissor_size);
+
+void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf,
+             uint32_t n_vtxs, uint32_t n_instances = 1);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Fence -----------------------------------
