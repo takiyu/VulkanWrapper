@@ -121,10 +121,11 @@ int main(int argc, char const *argv[]) {
     uint32_t queue_family_idx =
             vkw::GetGraphicPresentQueueFamilyIdx(physical_device, surface);
 
-    const uint32_t n_queues = 1;
+    const uint32_t n_queues = 2;
     auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
                                     true);
-    auto queue = vkw::GetQueue(device, queue_family_idx);
+    auto queue = vkw::GetQueue(device, queue_family_idx, 0);
+    auto queue2 = vkw::GetQueue(device, queue_family_idx, 1);
 
     auto swapchain_pack = vkw::CreateSwapchainPack(physical_device, device,
                                                    surface, win_w, win_h);
@@ -278,9 +279,9 @@ int main(int argc, char const *argv[]) {
                            vk::PipelineStageFlagBits::eColorAttachmentOutput}},
                          {});
 
-        vkw::WaitForFences(device, {draw_fence});
+        vkw::QueuePresent(queue2, swapchain_pack, curr_img_idx);
 
-        vkw::QueuePresent(queue, swapchain_pack, curr_img_idx);
+        vkw::WaitForFences(device, {draw_fence});
 
         glfwPollEvents();
     }

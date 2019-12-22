@@ -82,10 +82,10 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 // -----------------------------------------------------------------------------
 using FencePtr = std::shared_ptr<vk::UniqueFence>;
 FencePtr CreateFence(const vk::UniqueDevice& device);
-
 vk::Result WaitForFences(const vk::UniqueDevice& device,
                          const std::vector<FencePtr>& fences,
                          bool wait_all = true, uint64_t timeout = NO_TIMEOUT);
+void ResetFences(const vk::UniqueDevice& device, const std::vector<FencePtr>& fences);
 
 using EventPtr = std::shared_ptr<vk::UniqueEvent>;
 EventPtr CreateEvent(const vk::UniqueDevice& device);
