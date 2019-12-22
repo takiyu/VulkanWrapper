@@ -275,22 +275,16 @@ int main(int argc, char const *argv[]) {
 
         vkw::EndCommand(cmd_buf);
 
-        auto drawFence = vkw::CreateFence(device);
+        auto draw_fence = vkw::CreateFence(device);
 
-        vk::PipelineStageFlags waitDestinationStageMask(
-                vk::PipelineStageFlagBits::eColorAttachmentOutput);
-        vk::SubmitInfo submitInfo(1, &imageAcquiredSemaphore->get(),
-                                  &waitDestinationStageMask, 1, &cmd_buf.get());
+        vkw::QueueSubmit(queue, cmd_buf, draw_fence,
+                         {{imageAcquiredSemaphore,
+                           vk::PipelineStageFlagBits::eColorAttachmentOutput}},
+                         {});
 
-        queue.submit(submitInfo, drawFence->get());
+        vkw::WaitForFences(device, {draw_fence});
 
-        while (vk::Result::eTimeout ==
-               device->waitForFences(drawFence->get(), VK_TRUE, FenceTimeout))
-            ;
-
-        queue.presentKHR(vk::PresentInfoKHR(0, nullptr, 1,
-                                            &swapchain_pack->swapchain.get(),
-                                            &currentBuffer.value));
+        vkw::QueuePresent(queue, swapchain_pack, currentBuffer.value);
 
         glfwPollEvents();
     }

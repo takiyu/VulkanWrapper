@@ -17,6 +17,9 @@ VKW_SUPPRESS_WARNING_POP
 
 namespace vkw {
 
+// --------------------------------- Constants ---------------------------------
+const uint64_t NO_TIMEOUT = std::numeric_limits<uint64_t>::max();
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- GLFW ------------------------------------
 // -----------------------------------------------------------------------------
@@ -73,12 +76,6 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               const vk::PhysicalDevice& physical_device,
                               uint32_t n_queues = 1,
                               bool swapchain_support = true);
-
-// -----------------------------------------------------------------------------
-// ----------------------------------- Queue -----------------------------------
-// -----------------------------------------------------------------------------
-vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
-                   uint32_t queue_idx = 0);
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
@@ -369,14 +366,19 @@ void CmdSetScissor(const vk::UniqueCommandBuffer& cmd_buf,
 void CmdSetScissor(const vk::UniqueCommandBuffer& cmd_buf,
                    const vk::Extent2D& scissor_size);
 
-void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf,
-             uint32_t n_vtxs, uint32_t n_instances = 1);
+void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_vtxs,
+             uint32_t n_instances = 1);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Fence -----------------------------------
 // -----------------------------------------------------------------------------
 using FencePtr = std::shared_ptr<vk::UniqueFence>;
 FencePtr CreateFence(const vk::UniqueDevice& device);
+
+vk::Result WaitForFences(const vk::UniqueDevice& device,
+                         const std::vector<FencePtr>& fences,
+                         bool wait_all = true,
+                         uint64_t timeout = NO_TIMEOUT);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Event -----------------------------------
@@ -389,6 +391,23 @@ EventPtr CreateEvent(const vk::UniqueDevice& device);
 // -----------------------------------------------------------------------------
 using SemaphorePtr = std::shared_ptr<vk::UniqueSemaphore>;
 SemaphorePtr CreateSemaphore(const vk::UniqueDevice& device);
+
+// -----------------------------------------------------------------------------
+// ----------------------------------- Queue -----------------------------------
+// -----------------------------------------------------------------------------
+vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
+                   uint32_t queue_idx = 0);
+
+using WaitSemaphoreInfo = std::tuple<SemaphorePtr, vk::PipelineStageFlags>;
+void QueueSubmit(
+        const vk::Queue& queue, const vk::UniqueCommandBuffer& cmd_buf,
+        const FencePtr& signal_fence = nullptr,
+        const std::vector<WaitSemaphoreInfo>& wait_semaphore_infos = {},
+        const std::vector<SemaphorePtr>& signal_semaphores = {});
+
+void QueuePresent(const vk::Queue& queue,
+                  const SwapchainPackPtr &swapchain_pack, uint32_t img_idx,
+                  const std::vector<SemaphorePtr>& wait_semaphores = {});
 
 }  // namespace vkw
 

@@ -40,6 +40,24 @@ T &EmplaceBackEmpty(std::vector<T> &vec) {
     return vec.back();
 }
 
+template <typename T>
+const T *DataSafety(const std::vector<T> &vec) {
+    if (vec.empty()) {
+        return nullptr;
+    } else {
+        return vec.data();
+    }
+}
+
+template <typename T>
+T *DataSafety(std::vector<T> &vec) {
+    if (vec.empty()) {
+        return nullptr;
+    } else {
+        return vec.data();
+    }
+}
+
 std::vector<std::string> Split(const std::string &str, char del = '\n') {
     std::vector<std::string> result;
     std::string::size_type first_pos = 0, last_pos = 0;
@@ -550,14 +568,6 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 }
 
 // -----------------------------------------------------------------------------
-// ----------------------------------- Queue -----------------------------------
-// -----------------------------------------------------------------------------
-vk::Queue GetQueue(const vk::UniqueDevice &device, uint32_t queue_family_idx,
-                   uint32_t queue_idx) {
-    return device->getQueue(queue_family_idx, queue_idx);
-}
-
-// -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
 SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
@@ -855,13 +865,10 @@ void AddSubpassDesc(RenderPassPackPtr &render_pass_pack,
 
     // Collect attachment sizes and pointers
     const uint32_t n_inp = static_cast<uint32_t>(inp_refs.size());
-    const vk::AttachmentReference *inp_refs_data =
-            inp_refs.empty() ? nullptr : inp_refs.data();
+    const vk::AttachmentReference *inp_refs_data = DataSafety(inp_refs);
     const uint32_t n_col = static_cast<uint32_t>(col_refs.size());
-    const vk::AttachmentReference *col_refs_data =
-            col_refs.empty() ? nullptr : col_refs.data();
-    const vk::AttachmentReference *dep_ref_data =
-            dep_refs.empty() ? nullptr : dep_refs.data();
+    const vk::AttachmentReference *col_refs_data = DataSafety(col_refs);
+    const vk::AttachmentReference *dep_ref_data = DataSafety(dep_refs);
     // Unused options
     const vk::AttachmentReference *resolve_ref_data = nullptr;
     const uint32_t n_preserve_attachment = 0;
@@ -1255,8 +1262,8 @@ void CmdSetScissor(const vk::UniqueCommandBuffer &cmd_buf,
     CmdSetScissor(cmd_buf, rect);
 }
 
-void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf,
-             uint32_t n_vtxs, uint32_t n_instances) {
+void CmdDraw(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_vtxs,
+             uint32_t n_instances) {
     const uint32_t first_vtx = 0;
     const uint32_t first_instance = 0;
     cmd_buf->draw(n_vtxs, n_instances, first_vtx, first_instance);
@@ -1268,6 +1275,31 @@ void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf,
 FencePtr CreateFence(const vk::UniqueDevice &device) {
     auto fence = device->createFenceUnique({});
     return FencePtr(new vk::UniqueFence(std::move(fence)));
+}
+
+vk::Result WaitForFences(const vk::UniqueDevice& device,
+                         const std::vector<FencePtr>& fences,
+                         bool wait_all, uint64_t timeout) {
+    // Repack fences
+    const uint32_t n_fences = static_cast<uint32_t>(fences.size());
+    std::vector<vk::Fence> fences_raw;
+    fences_raw.reserve(n_fences);
+    for (auto&& f : fences) {
+        fences_raw.push_back(f->get());
+    }
+
+    if (timeout == NO_TIMEOUT) {
+        // Wait for non-timeout result
+        while (true) {
+            vk::Result ret = device->waitForFences(n_fences, DataSafety(fences_raw), wait_all, timeout);
+            if (ret != vk::Result::eTimeout) {
+                return ret;
+            }
+        }
+    } else {
+        // Wait during `timeout` nano-seconds
+        return device->waitForFences(n_fences, DataSafety(fences_raw), wait_all, timeout);
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -1284,6 +1316,74 @@ EventPtr CreateEvent(const vk::UniqueDevice &device) {
 SemaphorePtr CreateSemaphore(const vk::UniqueDevice &device) {
     auto semaphore = device->createSemaphoreUnique({});
     return SemaphorePtr(new vk::UniqueSemaphore{std::move(semaphore)});
+}
+
+// -----------------------------------------------------------------------------
+// ----------------------------------- Queue -----------------------------------
+// -----------------------------------------------------------------------------
+vk::Queue GetQueue(const vk::UniqueDevice &device, uint32_t queue_family_idx,
+                   uint32_t queue_idx) {
+    return device->getQueue(queue_family_idx, queue_idx);
+}
+
+void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
+                 const FencePtr &signal_fence,
+                 const std::vector<WaitSemaphoreInfo> &wait_semaphore_infos,
+                 const std::vector<SemaphorePtr> &signal_semaphores) {
+    const uint32_t n_cmd_bufs = 1;
+    const uint32_t n_wait_semaphores =
+            static_cast<uint32_t>(wait_semaphore_infos.size());
+    const uint32_t n_signal_semaphores =
+            static_cast<uint32_t>(signal_semaphores.size());
+
+    // Unpack wait semaphore infos
+    std::vector<vk::Semaphore> wait_semaphores_raw;
+    std::vector<vk::PipelineStageFlags> wait_semaphore_stage_flags_raw;
+    wait_semaphores_raw.reserve(n_wait_semaphores);
+    wait_semaphore_stage_flags_raw.reserve(n_wait_semaphores);
+    for (auto &&info : wait_semaphore_infos) {
+        wait_semaphores_raw.push_back(std::get<0>(info)->get());
+        wait_semaphore_stage_flags_raw.push_back(std::get<1>(info));
+    }
+
+    // Unpack signal semaphores
+    std::vector<vk::Semaphore> signal_semaphores_raw;
+    signal_semaphores_raw.reserve(n_signal_semaphores);
+    for (auto &&s : signal_semaphores) {
+        signal_semaphores_raw.push_back(s->get());
+    }
+
+    // Resolve signal fence
+    vk::Fence fence = signal_fence ? signal_fence->get() : vk::Fence();
+
+    // Submit
+    vk::SubmitInfo submit_info = {n_wait_semaphores,
+                                  DataSafety(wait_semaphores_raw),
+                                  DataSafety(wait_semaphore_stage_flags_raw),
+                                  n_cmd_bufs,
+                                  &cmd_buf.get(),
+                                  n_signal_semaphores,
+                                  DataSafety(signal_semaphores_raw)};
+    queue.submit(1, &submit_info, fence);
+}
+
+void QueuePresent(const vk::Queue& queue,
+                  const SwapchainPackPtr &swapchain_pack, uint32_t img_idx,
+                  const std::vector<SemaphorePtr>& wait_semaphores) {
+    // Unpack signal semaphores
+    const uint32_t n_wait_semaphores =
+            static_cast<uint32_t>(wait_semaphores.size());
+    std::vector<vk::Semaphore> wait_semaphores_raw;
+    wait_semaphores_raw.reserve(wait_semaphores.size());
+    for (auto &&s : wait_semaphores) {
+        wait_semaphores_raw.push_back(s->get());
+    }
+
+    // Present
+    const uint32_t n_swapchains = 1;
+        queue.presentKHR({n_wait_semaphores, DataSafety(wait_semaphores_raw), n_swapchains,
+                                            &swapchain_pack->swapchain.get(),
+                                            &img_idx});
 }
 
 }  // namespace vkw
