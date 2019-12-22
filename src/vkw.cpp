@@ -378,7 +378,7 @@ UniqueGLFWWindow InitGLFWWindow(const std::string &win_name, uint32_t win_w,
 
     // Create GLFW window
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     UniqueGLFWWindow window(
             glfwCreateWindow(static_cast<int>(win_w), static_cast<int>(win_h),
                              win_name.c_str(), nullptr, nullptr));

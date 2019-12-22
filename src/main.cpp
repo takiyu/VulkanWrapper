@@ -127,166 +127,174 @@ int main(int argc, char const *argv[]) {
     auto queue = vkw::GetQueue(device, queue_family_idx, 0);
     auto queue2 = vkw::GetQueue(device, queue_family_idx, 1);
 
-    auto swapchain_pack = vkw::CreateSwapchainPack(physical_device, device,
-                                                   surface, win_w, win_h);
+init_label:
+    {
+        auto swapchain_pack = vkw::CreateSwapchainPack(physical_device, device,
+                                                       surface, win_w, win_h);
 
-    const auto depth_format = vk::Format::eD16Unorm;
-    auto depth_img_pack = vkw::CreateImagePack(
-            physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            vk::ImageAspectFlagBits::eDepth, true, false);
+        const auto depth_format = vk::Format::eD16Unorm;
+        auto depth_img_pack = vkw::CreateImagePack(
+                physical_device, device, depth_format, swapchain_pack->size,
+                vk::ImageUsageFlagBits::eDepthStencilAttachment,
+                vk::MemoryPropertyFlagBits::eDeviceLocal,
+                vk::ImageAspectFlagBits::eDepth, true, false);
 
-    auto uniform_buf_pack = vkw::CreateBufferPack(
-            physical_device, device, sizeof(glm::mat4),
-            vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent);
+        auto uniform_buf_pack = vkw::CreateBufferPack(
+                physical_device, device, sizeof(glm::mat4),
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible |
+                        vk::MemoryPropertyFlagBits::eHostCoherent);
 
 #if 1
-    auto desc_set_pack = vkw::CreateDescriptorSetPack(
-            device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
-                      vk::ShaderStageFlagBits::eVertex}});
+        auto desc_set_pack = vkw::CreateDescriptorSetPack(
+                device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
+                          vk::ShaderStageFlagBits::eVertex}});
 #else
-    auto tex_pack = vkw::CreateTexture(
-            vkw::CreateImage(physical_device, device), device);
-    auto desc_set_pack = vkw::CreateDescriptorSet(
-            device, {{vk::DescriptorType::eUniformBuffer, 1,
-                      vk::ShaderStageFlagBits::eVertex},
-                     {vk::DescriptorType::eCombinedImageSampler, 1,
-                      vk::ShaderStageFlagBits::eVertex}});
+        auto tex_pack = vkw::CreateTexture(
+                vkw::CreateImage(physical_device, device), device);
+        auto desc_set_pack = vkw::CreateDescriptorSet(
+                device, {{vk::DescriptorType::eUniformBuffer, 1,
+                          vk::ShaderStageFlagBits::eVertex},
+                         {vk::DescriptorType::eCombinedImageSampler, 1,
+                          vk::ShaderStageFlagBits::eVertex}});
 #endif
 
-    auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
-                         {uniform_buf_pack});
+        auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
+        vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
+                             {uniform_buf_pack});
 #if 0
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack});
+        vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack});
 #endif
-    vkw::UpdateDescriptorSets(device, write_desc_set_pack);
+        vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
-    auto render_pass_pack = vkw::CreateRenderPassPack();
-    vkw::AddAttachientDesc(
-            render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
-    vkw::AddAttachientDesc(render_pass_pack, depth_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        auto render_pass_pack = vkw::CreateRenderPassPack();
+        vkw::AddAttachientDesc(
+                render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
+                vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+        vkw::AddAttachientDesc(render_pass_pack, depth_format,
+                               vk::AttachmentLoadOp::eClear,
+                               vk::AttachmentStoreOp::eDontCare,
+                               vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-    vkw::AddSubpassDesc(render_pass_pack,
-                        {
-                                // No input attachments
-                        },
-                        {
-                                {0, vk::ImageLayout::eColorAttachmentOptimal},
-                        },
-                        {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
-    vkw::UpdateRenderPass(device, render_pass_pack);
+        vkw::AddSubpassDesc(render_pass_pack,
+                            {
+                                    // No input attachments
+                            },
+                            {
+                                    {0, vk::ImageLayout::eColorAttachmentOptimal},
+                            },
+                            {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+        vkw::UpdateRenderPass(device, render_pass_pack);
 
-    auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
-                                                      {nullptr, depth_img_pack},
-                                                      0, swapchain_pack);
+        auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
+                                                          {nullptr, depth_img_pack},
+                                                          0, swapchain_pack);
 
-    vkw::GLSLCompiler glsl_compiler;
-    auto vert_shader_module_pack = glsl_compiler.compileFromString(
-            device, VERT_SOURCE, vk::ShaderStageFlagBits::eVertex);
-    auto frag_shader_module_pack = glsl_compiler.compileFromString(
-            device, FRAG_SOURCE, vk::ShaderStageFlagBits::eFragment);
+        vkw::GLSLCompiler glsl_compiler;
+        auto vert_shader_module_pack = glsl_compiler.compileFromString(
+                device, VERT_SOURCE, vk::ShaderStageFlagBits::eVertex);
+        auto frag_shader_module_pack = glsl_compiler.compileFromString(
+                device, FRAG_SOURCE, vk::ShaderStageFlagBits::eFragment);
 
-    const size_t vertex_buf_size = CUBE_VERTICES.size() * sizeof(Vertex);
-    auto vertex_buf_pack = vkw::CreateBufferPack(
-            physical_device, device, vertex_buf_size,
-            vk::BufferUsageFlagBits::eVertexBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent);
-    vkw::SendToDevice(device, vertex_buf_pack, CUBE_VERTICES.data(),
-                      vertex_buf_size);
+        const size_t vertex_buf_size = CUBE_VERTICES.size() * sizeof(Vertex);
+        auto vertex_buf_pack = vkw::CreateBufferPack(
+                physical_device, device, vertex_buf_size,
+                vk::BufferUsageFlagBits::eVertexBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible |
+                        vk::MemoryPropertyFlagBits::eHostCoherent);
+        vkw::SendToDevice(device, vertex_buf_pack, CUBE_VERTICES.data(),
+                          vertex_buf_size);
 
-    vkw::PipelineInfo pipeline_info;
-    pipeline_info.color_blend_infos.resize(1);
-    auto pipeline_pack = vkw::CreatePipeline(
-            device, {vert_shader_module_pack, frag_shader_module_pack},
-            {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
-            {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
-             {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
-            pipeline_info, {desc_set_pack}, render_pass_pack);
+        vkw::PipelineInfo pipeline_info;
+        pipeline_info.color_blend_infos.resize(1);
+        auto pipeline_pack = vkw::CreatePipeline(
+                device, {vert_shader_module_pack, frag_shader_module_pack},
+                {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
+                {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
+                 {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
+                pipeline_info, {desc_set_pack}, render_pass_pack);
 
-    const uint32_t n_cmd_bufs = 1;
-    auto cmd_bufs_pack =
-            vkw::CreateCommandBuffersPack(device, queue_family_idx, n_cmd_bufs);
-    auto &cmd_buf = cmd_bufs_pack->cmd_bufs[0];
+        const uint32_t n_cmd_bufs = 1;
+        auto cmd_bufs_pack =
+                vkw::CreateCommandBuffersPack(device, queue_family_idx, n_cmd_bufs);
+        auto &cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
-    // ------------------
-    const glm::mat4 model_mat = glm::mat4(1.0f);
-    const glm::mat4 view_mat = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f),
-                                           glm::vec3(0.0f, 0.0f, 0.0f),
-                                           glm::vec3(0.0f, -1.0f, 0.0f));
-    const glm::mat4 proj_mat =
-            glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-    // vulkan clip space has inverted y and half z !
-    const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
-                                0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
-                                0.0f, 0.0f, 0.5f, 1.0f};
-    glm::mat4 rot_mat(1.f);
-    while (!glfwWindowShouldClose(window.get())) {
-        rot_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 0.f)) * rot_mat;
-        glm::mat4 mvpc_mat =
-                clip_mat * proj_mat * view_mat * rot_mat * model_mat;
-        vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
-                          sizeof(mvpc_mat));
+        // ------------------
+        const glm::mat4 model_mat = glm::mat4(1.0f);
+        const glm::mat4 view_mat = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f),
+                                               glm::vec3(0.0f, 0.0f, 0.0f),
+                                               glm::vec3(0.0f, -1.0f, 0.0f));
+        const glm::mat4 proj_mat =
+                glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+        // vulkan clip space has inverted y and half z !
+        const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
+                                    0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
+                                    0.0f, 0.0f, 0.5f, 1.0f};
+        glm::mat4 rot_mat(1.f);
+        while (!glfwWindowShouldClose(window.get())) {
+            rot_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 0.f)) * rot_mat;
+            glm::mat4 mvpc_mat =
+                    clip_mat * proj_mat * view_mat * rot_mat * model_mat;
+            vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
+                              sizeof(mvpc_mat));
 
-        vkw::ResetCommand(cmd_buf);
+            vkw::ResetCommand(cmd_buf);
 
-        auto img_acquired_semaphore = vkw::CreateSemaphore(device);
-        uint32_t curr_img_idx = 0;
-        vkw::AcquireNextImage(&curr_img_idx, device, swapchain_pack,
-                              img_acquired_semaphore, nullptr);
+            auto img_acquired_semaphore = vkw::CreateSemaphore(device);
+            uint32_t curr_img_idx = 0;
+            vkw::AcquireNextImage(&curr_img_idx, device, swapchain_pack,
+                                  img_acquired_semaphore, nullptr);
 
-        vkw::BeginCommand(cmd_buf);
+            vkw::BeginCommand(cmd_buf);
 
-        const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 0.2f};
-        vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
-                                frame_buffer_packs[curr_img_idx],
-                                {
-                                        vk::ClearColorValue(clear_color),
-                                        vk::ClearDepthStencilValue(1.0f, 0),
-                                });
+            const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 0.2f};
+            vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
+                                    frame_buffer_packs[curr_img_idx],
+                                    {
+                                            vk::ClearColorValue(clear_color),
+                                            vk::ClearDepthStencilValue(1.0f, 0),
+                                    });
 
-        vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
+            vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
 
-        const std::vector<uint32_t> dynamic_offsets = {0};
-        vkw::CmdBindDescSets(cmd_buf, pipeline_pack, {desc_set_pack},
-                             dynamic_offsets);
+            const std::vector<uint32_t> dynamic_offsets = {0};
+            vkw::CmdBindDescSets(cmd_buf, pipeline_pack, {desc_set_pack},
+                                 dynamic_offsets);
 
-        vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
+            vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
 
-        vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
-        vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
+            vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
+            vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
 
-        const uint32_t n_instances = 1;
-        vkw::CmdDraw(cmd_buf, CUBE_VERTICES.size(), n_instances);
+            const uint32_t n_instances = 1;
+            vkw::CmdDraw(cmd_buf, CUBE_VERTICES.size(), n_instances);
 
-        // vkw::CmdNextSubPass(cmd_buf);
-        vkw::CmdEndRenderPass(cmd_buf);
+            // vkw::CmdNextSubPass(cmd_buf);
+            vkw::CmdEndRenderPass(cmd_buf);
 
-        vkw::EndCommand(cmd_buf);
+            vkw::EndCommand(cmd_buf);
 
-        auto draw_fence = vkw::CreateFence(device);
+            auto draw_fence = vkw::CreateFence(device);
 
-        vkw::QueueSubmit(queue, cmd_buf, draw_fence,
-                         {{img_acquired_semaphore,
-                           vk::PipelineStageFlagBits::eColorAttachmentOutput}},
-                         {});
+            vkw::QueueSubmit(queue, cmd_buf, draw_fence,
+                             {{img_acquired_semaphore,
+                               vk::PipelineStageFlagBits::eColorAttachmentOutput}},
+                             {});
 
-        vkw::QueuePresent(queue2, swapchain_pack, curr_img_idx);
+            try {
+                vkw::QueuePresent(queue2, swapchain_pack, curr_img_idx);
+            } catch(...) {
+                vkw::WaitForFences(device, {draw_fence});
+                goto init_label;
+            }
 
-        vkw::WaitForFences(device, {draw_fence});
+            vkw::WaitForFences(device, {draw_fence});
 
-        glfwPollEvents();
+            glfwPollEvents();
+        }
+
+        std::cout << "exit" << std::endl;
     }
-
-    std::cout << "exit" << std::endl;
 
     return 0;
 }
