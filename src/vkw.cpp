@@ -581,7 +581,7 @@ FencePtr CreateFence(const vk::UniqueDevice &device) {
 
 vk::Result WaitForFences(const vk::UniqueDevice &device,
                          const std::vector<FencePtr> &fences, bool wait_all,
-                         uint64_t timeout) {
+                         bool reset, uint64_t timeout) {
     // Repack fences
     const uint32_t n_fences = static_cast<uint32_t>(fences.size());
     std::vector<vk::Fence> fences_raw;
@@ -591,20 +591,15 @@ vk::Result WaitForFences(const vk::UniqueDevice &device,
     }
 
     // Wait during `timeout` nano-seconds
-    return device->waitForFences(n_fences, fences_raw.data(), wait_all,
+    auto ret = device->waitForFences(n_fences, fences_raw.data(), wait_all,
                                  timeout);
-}
 
-void ResetFences(const vk::UniqueDevice& device, const std::vector<FencePtr>& fences) {
-    // Repack fences
-    const uint32_t n_fences = static_cast<uint32_t>(fences.size());
-    std::vector<vk::Fence> fences_raw;
-    fences_raw.reserve(n_fences);
-    for (auto &&f : fences) {
-        fences_raw.push_back(f->get());
+    // Reset fences
+    if (reset) {
+        device->resetFences(n_fences, fences_raw.data());
     }
 
-    device->resetFences(n_fences, fences_raw.data());
+    return ret;
 }
 
 EventPtr CreateEvent(const vk::UniqueDevice &device) {
