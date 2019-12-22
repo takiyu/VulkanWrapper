@@ -555,11 +555,12 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
     if (swapchain_support) {
         device_exts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
+    const uint32_t n_device_exts = static_cast<uint32_t>(device_exts.size());
 
     // Create a logical device
     vk::UniqueDevice device = physical_device.createDeviceUnique(
             {vk::DeviceCreateFlags(), 1, &device_queue_create_info, 0, nullptr,
-             static_cast<uint32_t>(device_exts.size()), device_exts.data()});
+             n_device_exts, DataSafety(device_exts)});
 
     // Initialize dispatcher for device
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device.get());
@@ -587,7 +588,7 @@ vk::Result WaitForFences(const vk::UniqueDevice &device,
     }
 
     // Wait during `timeout` nano-seconds
-    return device->waitForFences(n_fences, DataSafety(fences_raw), wait_all,
+    return device->waitForFences(n_fences, fences_raw.data(), wait_all,
                                  timeout);
 }
 
@@ -781,11 +782,11 @@ DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice &device,
     // Create DescriptorSetLayout
     auto desc_set_layout = device->createDescriptorSetLayoutUnique(
             {vk::DescriptorSetLayoutCreateFlags(), n_bindings,
-             bindings_raw.data()});
+             DataSafety(bindings_raw)});
     // Create DescriptorPool
     auto desc_pool = device->createDescriptorPoolUnique(
             {vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, desc_cnt_sum,
-             n_bindings, poolsizes_raw.data()});
+             n_bindings, DataSafety(poolsizes_raw)});
     // Create DescriptorSet
     auto desc_sets = device->allocateDescriptorSetsUnique(
             {*desc_pool, 1, &*desc_set_layout});
@@ -913,10 +914,7 @@ void AddSubpassDesc(RenderPassPackPtr &render_pass_pack,
 
     // Collect attachment sizes and pointers
     const uint32_t n_inp = static_cast<uint32_t>(inp_refs.size());
-    const vk::AttachmentReference *inp_refs_data = DataSafety(inp_refs);
     const uint32_t n_col = static_cast<uint32_t>(col_refs.size());
-    const vk::AttachmentReference *col_refs_data = DataSafety(col_refs);
-    const vk::AttachmentReference *dep_ref_data = DataSafety(dep_refs);
     // Unused options
     const vk::AttachmentReference *resolve_ref_data = nullptr;
     const uint32_t n_preserve_attachment = 0;
@@ -925,8 +923,9 @@ void AddSubpassDesc(RenderPassPackPtr &render_pass_pack,
     // Add subpass description
     render_pass_pack->subpass_descs.emplace_back(
             vk::SubpassDescriptionFlags(), vk::PipelineBindPoint::eGraphics,
-            n_inp, inp_refs_data, n_col, col_refs_data, resolve_ref_data,
-            dep_ref_data, n_preserve_attachment, preserve_attachments_p);
+            n_inp, DataSafety(inp_refs), n_col, DataSafety(col_refs),
+            resolve_ref_data, DataSafety(dep_refs), n_preserve_attachment,
+            preserve_attachments_p);
 }
 
 void UpdateRenderPass(const vk::UniqueDevice &device,
@@ -938,8 +937,8 @@ void UpdateRenderPass(const vk::UniqueDevice &device,
 
     // Create render pass instance
     render_pass_pack->render_pass = device->createRenderPassUnique(
-            {vk::RenderPassCreateFlags(), n_att_descs, att_descs.data(),
-             n_sub_descs, sub_descs.data()});
+            {vk::RenderPassCreateFlags(), n_att_descs, DataSafety(att_descs),
+             n_sub_descs, DataSafety(sub_descs)});
 }
 
 // -----------------------------------------------------------------------------
@@ -958,7 +957,7 @@ FrameBufferPackPtr CreateFrameBuffer(const vk::UniqueDevice &device,
     // Create Frame Buffer
     auto frame_buffer = device->createFramebufferUnique(
             {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
-             static_cast<uint32_t>(attachments.size()), attachments.data(),
+             static_cast<uint32_t>(attachments.size()), DataSafety(attachments),
              size.width, size.height, n_layers});
 
     return FrameBufferPackPtr(new FrameBufferPack{
@@ -986,8 +985,8 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
         // Create one Frame Buffer
         auto frame_buffer = device->createFramebufferUnique(
                 {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
-                 static_cast<uint32_t>(attachments.size()), attachments.data(),
-                 size.width, size.height, n_layers});
+                 static_cast<uint32_t>(attachments.size()),
+                 DataSafety(attachments), size.width, size.height, n_layers});
         // Register
         rets.emplace_back(new FrameBufferPack{
                 std::move(frame_buffer), size.width, size.height, n_layers});
@@ -1058,9 +1057,9 @@ PipelinePackPtr CreatePipeline(
     vk::PipelineVertexInputStateCreateInfo vtx_inp_state_ci(
             vk::PipelineVertexInputStateCreateFlags(),
             static_cast<uint32_t>(vtx_inp_binding_descs.size()),
-            vtx_inp_binding_descs.data(),
+            DataSafety(vtx_inp_binding_descs),
             static_cast<uint32_t>(vtx_inp_attrib_descs.size()),
-            vtx_inp_attrib_descs.data());
+            DataSafety(vtx_inp_attrib_descs));
 
     // Input assembly state create info
     vk::PipelineInputAssemblyStateCreateInfo inp_assembly_state_ci(
@@ -1223,7 +1222,7 @@ void CmdBeginRenderPass(const vk::UniqueCommandBuffer &cmd_buf,
     cmd_buf->beginRenderPass(
             {render_pass_pack->render_pass.get(),
              frame_buffer_pack->frame_buffer.get(), render_area,
-             static_cast<uint32_t>(clear_vals.size()), clear_vals.data()},
+             static_cast<uint32_t>(clear_vals.size()), DataSafety(clear_vals)},
             vk::SubpassContents::eInline);
 }
 
@@ -1258,7 +1257,7 @@ void CmdBindDescSets(const vk::UniqueCommandBuffer &cmd_buf,
             bind_point, pipeline_pack->pipeline_layout.get(), first_set,
             static_cast<uint32_t>(desc_sets.size()), desc_sets.data(),
             static_cast<uint32_t>(dynamic_offsets.size()),
-            dynamic_offsets.data());
+            DataSafety(dynamic_offsets));
 }
 
 void CmdBindVertexBuffers(const vk::UniqueCommandBuffer &cmd_buf,
