@@ -65,6 +65,9 @@ std::vector<std::string> Split(const std::string &str, char del = '\n') {
         // Find next splitter position
         last_pos = str.find_first_of(del, first_pos);
         if (last_pos == std::string::npos) {
+            // Add last item
+            std::string sub_str(str, first_pos);
+            result.push_back(sub_str);
             break;
         }
         // Extract sub string
