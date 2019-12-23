@@ -54,7 +54,8 @@ vk::UniqueInstance CreateInstance(const std::string& app_name,
                                   uint32_t app_version,
                                   const std::string& engine_name,
                                   uint32_t engine_version,
-                                  bool debug_enable = true, bool surface_enable=true);
+                                  bool debug_enable = true,
+                                  bool surface_enable = true);
 
 // -----------------------------------------------------------------------------
 // ------------------------------ PhysicalDevice -------------------------------
@@ -434,4 +435,4 @@ void QueuePresent(const vk::Queue& queue,
 
 }  // namespace vkw
 
-#endif // end of include guard
+#endif  // end of include guard

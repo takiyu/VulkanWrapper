@@ -96,7 +96,8 @@ std::vector<char const *> GetEnabledLayers(bool debug_enable) {
     return enabled_layer;
 }
 
-std::vector<char const *> GetEnabledExts(bool debug_enable, bool surface_enable) {
+std::vector<char const *> GetEnabledExts(bool debug_enable,
+                                         bool surface_enable) {
     std::vector<char const *> enabled_exts;
 
     if (surface_enable) {
@@ -105,8 +106,8 @@ std::vector<char const *> GetEnabledExts(bool debug_enable, bool surface_enable)
         enabled_exts.push_back("VK_KHR_surface", "VK_KHR_android_surface");
 #else
         // Add extension names required by GLFW
-        uint32_t n_glfw_exts = 0;
-        const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_exts);
+        uint32_t n_glfw_ext = 0;
+        const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_ext);
         for (uint32_t i = 0; i < n_glfw_exts; i++) {
             enabled_exts.push_back(glfw_exts[i]);
         }
@@ -120,7 +121,8 @@ std::vector<char const *> GetEnabledExts(bool debug_enable, bool surface_enable)
         enabled_exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
     }
-    return enabled_exts;;
+    return enabled_exts;
+    ;
 }
 
 static VkBool32 DebugMessengerCallback(
@@ -174,7 +176,7 @@ static VkBool32 DebugMessengerCallback(
 }
 
 #if !defined(__ANDROID__)
-static void CreateDebugMessenser(const vk::UniqueInstance& instance) {
+static void CreateDebugMessenser(const vk::UniqueInstance &instance) {
     // Create debug messenger
     vk::UniqueDebugUtilsMessengerEXT debug_messenger =
             instance->createDebugUtilsMessengerEXTUnique(
@@ -452,7 +454,8 @@ UniqueGLFWWindow InitGLFWWindow(const std::string &win_name, uint32_t win_w,
 vk::UniqueInstance CreateInstance(const std::string &app_name,
                                   uint32_t app_version,
                                   const std::string &engine_name,
-                                  uint32_t engine_version, bool debug_enable, bool surface_enable) {
+                                  uint32_t engine_version, bool debug_enable,
+                                  bool surface_enable) {
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
@@ -462,8 +465,8 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
     // Decide Vulkan layer and extensions
-    const auto& enabled_layer = GetEnabledLayers(debug_enable);
-    const auto& enabled_exts = GetEnabledExts(debug_enable, surface_enable);
+    const auto &enabled_layer = GetEnabledLayers(debug_enable);
+    const auto &enabled_exts = GetEnabledExts(debug_enable, surface_enable);
 
     // Create instance
     vk::ApplicationInfo app_info = {app_name.c_str(), app_version,
@@ -471,8 +474,10 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
                                     VK_API_VERSION_1_1};
     vk::UniqueInstance instance = vk::createInstanceUnique(
             {vk::InstanceCreateFlags(), &app_info,
-             static_cast<uint32_t>(enabled_layer.size()), DataSafety(enabled_layer),
-             static_cast<uint32_t>(enabled_exts.size()), DataSafety(enabled_exts)});
+             static_cast<uint32_t>(enabled_layer.size()),
+             DataSafety(enabled_layer),
+             static_cast<uint32_t>(enabled_exts.size()),
+             DataSafety(enabled_exts)});
 
     // Initialize dispatcher with Instance to get all the other function ptrs.
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
@@ -503,7 +508,7 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 #if defined(__ANDROID__)
 // Android version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
-                                   struct ANativeWindow* window) {
+                                   struct ANativeWindow *window) {
     // Create Android surface
     return instance->createAndroidSurfaceKHRUnique(
             {vk::AndroidSurfaceCreateFlagsKHR(), window});
@@ -644,7 +649,7 @@ vk::Result WaitForFences(const vk::UniqueDevice &device,
 
     // Wait during `timeout` nano-seconds
     auto ret = device->waitForFences(n_fences, fences_raw.data(), wait_all,
-                                 timeout);
+                                     timeout);
 
     // Reset fences
     if (reset) {
