@@ -4,9 +4,9 @@
 #include "warning_suppressor.h"
 
 // Vulkan flags
-#ifdef __ANDROID__
+#if defined(__ANDROID__)
 #define VK_USE_PLATFORM_ANDROID_KHR
-#endif  // __ANDROID__
+#endif
 
 // -----------------------------------------------------------------------------
 // ------------------------- Begin third party include -------------------------
@@ -18,10 +18,10 @@ BEGIN_VKW_SUPPRESS_WARNING
 #include <vulkan/vulkan.hpp>
 
 // GLFW for desktop
-#ifndef __ANDROID__
+#if !defined(__ANDROID__)
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#endif  // __ANDROID__
+#endif
 END_VKW_SUPPRESS_WARNING
 // -----------------------------------------------------------------------------
 // -------------------------- End third party include --------------------------
@@ -37,7 +37,7 @@ const uint64_t NO_TIMEOUT = std::numeric_limits<uint64_t>::max();
 // -----------------------------------------------------------------------------
 // -------------------------- GLFW (Only for desktop) --------------------------
 // -----------------------------------------------------------------------------
-#ifndef __ANDROID__
+#if !defined(__ANDROID__)
 struct GLFWWindowDeleter {
     void operator()(GLFWwindow* ptr);
 };
@@ -45,7 +45,7 @@ using UniqueGLFWWindow = std::unique_ptr<GLFWwindow, GLFWWindowDeleter>;
 
 UniqueGLFWWindow InitGLFWWindow(const std::string& win_name, uint32_t win_w,
                                 uint32_t win_h);
-#endif  // __ANDROID__
+#endif
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Instance ----------------------------------
@@ -54,7 +54,7 @@ vk::UniqueInstance CreateInstance(const std::string& app_name,
                                   uint32_t app_version,
                                   const std::string& engine_name,
                                   uint32_t engine_version,
-                                  bool debug_enable = true);
+                                  bool debug_enable = true, bool surface_enable=true);
 
 // -----------------------------------------------------------------------------
 // ------------------------------ PhysicalDevice -------------------------------
@@ -65,14 +65,15 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
-#ifdef __ANDROID__
+#if defined(__ANDROID__)
 // Android version
-vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance);
+vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
+                                   struct ANativeWindow* window);
 #else
 // Desktop version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
                                    const UniqueGLFWWindow& window);
-#endif  // __ANDROID__
+#endif
 
 vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
                             const vk::UniqueSurfaceKHR& surface);

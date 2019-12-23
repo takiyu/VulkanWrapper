@@ -153,7 +153,8 @@ if (VKW_BUILD_EXAMPLES)
         # --------------------------------- PC ---------------------------------
         # ----------------------------------------------------------------------
         find_library(log-lib log)
-        list(APPEND VKW_LIBRARY ${log-lib})
+        find_library(android-lib android)
+        list(APPEND VKW_LIBRARY ${log-lib} ${android-lib})
 
         # Android example
         add_library(native-lib SHARED

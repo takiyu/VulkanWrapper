@@ -84,6 +84,45 @@ std::vector<std::string> Split(const std::string &str, char del = '\n') {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+std::vector<char const *> GetEnabledLayers(bool debug_enable) {
+    std::vector<char const *> enabled_layer;
+    if (debug_enable) {
+#if defined(__ANDROID__)
+        // TODO: Debug for Android
+#else
+        enabled_layer.push_back("VK_LAYER_KHRONOS_validation");
+#endif
+    }
+    return enabled_layer;
+}
+
+std::vector<char const *> GetEnabledExts(bool debug_enable, bool surface_enable) {
+    std::vector<char const *> enabled_exts;
+
+    if (surface_enable) {
+#if defined(__ANDROID__)
+        // Add android surface extensions
+        enabled_exts.push_back("VK_KHR_surface", "VK_KHR_android_surface");
+#else
+        // Add extension names required by GLFW
+        uint32_t n_glfw_exts = 0;
+        const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_exts);
+        for (uint32_t i = 0; i < n_glfw_exts; i++) {
+            enabled_exts.push_back(glfw_exts[i]);
+        }
+#endif
+    }
+
+    if (debug_enable) {
+#if defined(__ANDROID__)
+        // TODO: Debug for Android
+#else
+        enabled_exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif
+    }
+    return enabled_exts;;
+}
+
 static VkBool32 DebugMessengerCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT msg_severity,
         VkDebugUtilsMessageTypeFlagsEXT msg_types,
@@ -133,6 +172,21 @@ static VkBool32 DebugMessengerCallback(
     std::cerr << "-----------------------------------------------" << std::endl;
     return VK_TRUE;
 }
+
+#if !defined(__ANDROID__)
+static void CreateDebugMessenser(const vk::UniqueInstance& instance) {
+    // Create debug messenger
+    vk::UniqueDebugUtilsMessengerEXT debug_messenger =
+            instance->createDebugUtilsMessengerEXTUnique(
+                    {{},
+                     {vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                      vk::DebugUtilsMessageSeverityFlagBitsEXT::eError},
+                     {vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                      vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+                      vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
+                     &DebugMessengerCallback});
+}
+#endif
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -368,7 +422,7 @@ std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
 // -----------------------------------------------------------------------------
 // -------------------------- GLFW (Only for desktop) --------------------------
 // -----------------------------------------------------------------------------
-#ifndef __ANDROID__
+#if !defined(__ANDROID__)
 void GLFWWindowDeleter::operator()(GLFWwindow *ptr) {
     glfwDestroyWindow(ptr);
 }
@@ -390,7 +444,7 @@ UniqueGLFWWindow InitGLFWWindow(const std::string &win_name, uint32_t win_w,
     }
     return window;
 }
-#endif  // __ANDROID__
+#endif
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Instance ----------------------------------
@@ -398,7 +452,7 @@ UniqueGLFWWindow InitGLFWWindow(const std::string &win_name, uint32_t win_w,
 vk::UniqueInstance CreateInstance(const std::string &app_name,
                                   uint32_t app_version,
                                   const std::string &engine_name,
-                                  uint32_t engine_version, bool debug_enable) {
+                                  uint32_t engine_version, bool debug_enable, bool surface_enable) {
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
@@ -407,19 +461,9 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
                             "vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-    // Create a Vulkan instance
-    std::vector<char const *> enabled_layer = {"VK_LAYER_KHRONOS_validation"};
-    std::vector<char const *> enabled_exts = {
-            VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
-
-#ifndef __ANDROID__
-    // Add extension names required by GLFW
-    uint32_t n_glfw_exts = 0;
-    const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_exts);
-    for (uint32_t i = 0; i < n_glfw_exts; i++) {
-        enabled_exts.push_back(glfw_exts[i]);
-    }
-#endif  // __ANDROID__
+    // Decide Vulkan layer and extensions
+    const auto& enabled_layer = GetEnabledLayers(debug_enable);
+    const auto& enabled_exts = GetEnabledExts(debug_enable, surface_enable);
 
     // Create instance
     vk::ApplicationInfo app_info = {app_name.c_str(), app_version,
@@ -427,27 +471,19 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
                                     VK_API_VERSION_1_1};
     vk::UniqueInstance instance = vk::createInstanceUnique(
             {vk::InstanceCreateFlags(), &app_info,
-             static_cast<uint32_t>(enabled_layer.size()), enabled_layer.data(),
-             static_cast<uint32_t>(enabled_exts.size()), enabled_exts.data()});
+             static_cast<uint32_t>(enabled_layer.size()), DataSafety(enabled_layer),
+             static_cast<uint32_t>(enabled_exts.size()), DataSafety(enabled_exts)});
 
     // Initialize dispatcher with Instance to get all the other function ptrs.
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
 
+    // Create debug messenger
     if (debug_enable) {
-#ifdef __ANDROID__
+#if defined(__ANDROID__)
         // TODO: Debug messenger for Android
 #else
-        // Create debug messenger
-        vk::UniqueDebugUtilsMessengerEXT debug_messenger =
-                instance->createDebugUtilsMessengerEXTUnique(
-                        {{},
-                         {vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                          vk::DebugUtilsMessageSeverityFlagBitsEXT::eError},
-                         {vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                          vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
-                          vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
-                         &DebugMessengerCallback});
-#endif  // __ANDROID__
+        CreateDebugMessenser(instance);
+#endif
     }
 
     return instance;
@@ -464,13 +500,13 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
-#ifdef __ANDROID__
+#if defined(__ANDROID__)
 // Android version
-vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance) {
+vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
+                                   struct ANativeWindow* window) {
     // Create Android surface
-    struct ANativeWindow *window = nullptr;  // TODO
-    return instance->createAndroidSurfaceKHRUnique({vk::AndroidSurfaceCreateFlagsKHR(),
-                                             window});
+    return instance->createAndroidSurfaceKHRUnique(
+            {vk::AndroidSurfaceCreateFlagsKHR(), window});
 }
 
 #else
@@ -490,7 +526,7 @@ vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
     Deleter deleter(*instance, nullptr, VULKAN_HPP_DEFAULT_DISPATCHER);
     return vk::UniqueSurfaceKHR(s_raw, deleter);
 }
-#endif  // __ANDROID__
+#endif
 
 vk::Format GetSurfaceFormat(const vk::PhysicalDevice &physical_device,
                             const vk::UniqueSurfaceKHR &surface) {
