@@ -103,7 +103,8 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
     if (surface_enable) {
 #if defined(__ANDROID__)
         // Add android surface extensions
-        enabled_exts.push_back("VK_KHR_surface", "VK_KHR_android_surface");
+        enabled_exts.push_back("VK_KHR_surface");
+        enabled_exts.push_back("VK_KHR_android_surface");
 #else
         // Add extension names required by GLFW
         uint32_t n_glfw_ext = 0;
