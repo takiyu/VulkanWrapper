@@ -3,26 +3,41 @@
 
 #include "warning_suppressor.h"
 
-VKW_SUPPRESS_WARNING_PUSH
+// Vulkan flags
+#ifdef __ANDROID__
+#define VK_USE_PLATFORM_ANDROID_KHR
+#endif  // __ANDROID__
+
+// -----------------------------------------------------------------------------
+// ------------------------- Begin third party include -------------------------
+// -----------------------------------------------------------------------------
+BEGIN_VKW_SUPPRESS_WARNING
 // Vulkan-Hpp
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 1
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan.hpp>
-// GLFW for Desktop
-#ifndef VK_USE_PLATFORM_ANDROID_KHR
+
+// GLFW for desktop
+#ifndef __ANDROID__
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#endif
-VKW_SUPPRESS_WARNING_POP
+#endif  // __ANDROID__
+END_VKW_SUPPRESS_WARNING
+// -----------------------------------------------------------------------------
+// -------------------------- End third party include --------------------------
+// -----------------------------------------------------------------------------
 
 namespace vkw {
 
+// -----------------------------------------------------------------------------
 // --------------------------------- Constants ---------------------------------
+// -----------------------------------------------------------------------------
 const uint64_t NO_TIMEOUT = std::numeric_limits<uint64_t>::max();
 
 // -----------------------------------------------------------------------------
-// ----------------------------------- GLFW ------------------------------------
+// -------------------------- GLFW (Only for desktop) --------------------------
 // -----------------------------------------------------------------------------
+#ifndef __ANDROID__
 struct GLFWWindowDeleter {
     void operator()(GLFWwindow* ptr);
 };
@@ -30,6 +45,7 @@ using UniqueGLFWWindow = std::unique_ptr<GLFWwindow, GLFWWindowDeleter>;
 
 UniqueGLFWWindow InitGLFWWindow(const std::string& win_name, uint32_t win_w,
                                 uint32_t win_h);
+#endif  // __ANDROID__
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Instance ----------------------------------
@@ -49,8 +65,14 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
+#ifdef __ANDROID__
+// Android version
+vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance);
+#else
+// Desktop version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
                                    const UniqueGLFWWindow& window);
+#endif  // __ANDROID__
 
 vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
                             const vk::UniqueSurfaceKHR& surface);
@@ -411,4 +433,4 @@ void QueuePresent(const vk::Queue& queue,
 
 }  // namespace vkw
 
-#endif /* end of include guard */
+#endif // end of include guard

@@ -2,14 +2,14 @@
 #define WARNING_SUPPRESSOR_191222
 
 // -----------------------------------------------------------------------------
-// ------------- Warning suppression for third party include (push) ------------
+// ------------ Warning suppression for third party include (begin) ------------
 // -----------------------------------------------------------------------------
 #if defined __clang__
-#define VKW_SUPPRESS_WARNING_PUSH \
+#define BEGIN_VKW_SUPPRESS_WARNING \
     _Pragma("clang diagnostic push") \
     _Pragma("clang diagnostic ignored \"-Weverything\"")
 #elif defined __GNUC__
-#define VKW_SUPPRESS_WARNING_PUSH \
+#define BEGIN_VKW_SUPPRESS_WARNING \
     _Pragma("GCC diagnostic push") \
     _Pragma("GCC diagnostic ignored \"-Wsign-conversion\"") \
     _Pragma("GCC diagnostic ignored \"-Wold-style-cast\"") \
@@ -22,27 +22,27 @@
     _Pragma("GCC diagnostic ignored \"-Wunused-parameter\"") \
     _Pragma("GCC diagnostic ignored \"-Winit-list-lifetime\"")
 #elif defined _MSC_VER
-    // TODO: MSVC here
+#define BEGIN_VKW_SUPPRESS_WARNING  // TODO: MSVC here
 #else
-#define VKW_SUPPRESS_WARNING_PUSH  // empty
+#define BEGIN_VKW_SUPPRESS_WARNING  // empty
 #endif
 
 // -----------------------------------------------------------------------------
-// ------------- Warning suppression for third party include (pop) -------------
+// ------------- Warning suppression for third party include (end) -------------
 // -----------------------------------------------------------------------------
 #ifdef __clang__
-#define VKW_SUPPRESS_WARNING_POP \
+#define END_VKW_SUPPRESS_WARNING \
     _Pragma("clang diagnostic pop")
 #elif __GNUC__
-#define VKW_SUPPRESS_WARNING_POP \
+#define END_VKW_SUPPRESS_WARNING \
     _Pragma("GCC diagnostic pop")
 #elif _MSC_VER
-    // TODO: MSVC here
+#define END_VKW_SUPPRESS_WARNING  // TODO: MSVC here
 #else
-#define VKW_SUPPRESS_WARNING_POP  // empty
+#define END_VKW_SUPPRESS_WARNING  // empty
 #endif
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-#endif /* end of include guard */
+#endif // end of include guard

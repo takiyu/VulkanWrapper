@@ -7,7 +7,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "vkw.h"
+#include <vkw/vkw.h>
 
 // vertex shader with (P)osition and (C)olor in and (C)olor out
 const std::string VERT_SOURCE = R"(

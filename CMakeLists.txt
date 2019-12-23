@@ -1,6 +1,21 @@
 cmake_minimum_required(VERSION 3.8.2)
 
 # ------------------------------------------------------------------------------
+# -------------------------------- Check parent --------------------------------
+# ------------------------------------------------------------------------------
+get_directory_property(HAS_PARENT PARENT_DIRECTORY)
+if(HAS_PARENT)
+    message(STATUS "Build VKW as subdirectory mode")
+else()
+    message(STATUS "Build VKW as independent mode")
+endif()
+
+# ------------------------------------------------------------------------------
+# ----------------------------------- Options ----------------------------------
+# ------------------------------------------------------------------------------
+set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
+
+# ------------------------------------------------------------------------------
 # ----------------------------------- Common -----------------------------------
 # ------------------------------------------------------------------------------
 project(vulkan_practice CXX C)
@@ -79,42 +94,77 @@ endfunction(setup_target_simple)
 if (0)
     # Vulkan (Static)
     find_package(Vulkan REQUIRED)
-    list(APPEND VKPR_INCLUDE ${Vulkan_INCLUDE_DIRS})
-    list(APPEND VKPR_LIBRARY ${Vulkan_LIBRARY})
+    list(APPEND VKW_INCLUDE ${Vulkan_INCLUDE_DIRS})
+    list(APPEND VKW_LIBRARY ${Vulkan_LIBRARY})
 else()
     # Vulkan (Dynamic)
-    list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
+    list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
 endif()
-
-# GLFW3
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
-set(GLFW_INSTALL OFF CACHE BOOL "")
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw)
-list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw/include)
-list(APPEND VKPR_LIBRARY glfw)
 
 # GLSLang
 set(ENABLE_GLSLANG_BINARIES ON CACHE BOOL "")
 set(ENABLE_SPVREMAPPER OFF CACHE BOOL "")
 set(ENABLE_HLSL OFF CACHE BOOL "")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
-list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
-list(APPEND VKPR_LIBRARY glslang SPIRV glslang-default-resource-limits)
+list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
+list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits OGLCompiler)
 
 # GLM
-list(APPEND VKPR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
+list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
 
+# GLFW3
+if (NOT ANDROID)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
+    set(GLFW_INSTALL OFF CACHE BOOL "")
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw)
+    list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw/include)
+    list(APPEND VKW_LIBRARY glfw)
+endif()
 
 # ------------------------------------------------------------------------------
 # ----------------------------- Internal Libraries -----------------------------
 # ------------------------------------------------------------------------------
 
-# GUI Editor
-add_executable(main
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+# VKW
+list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_library(vkw
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vkw.cpp
 )
-setup_target(main "${VKPR_INCLUDE}" "${VKPR_LIBRARY}")
+setup_target(vkw "${VKW_INCLUDE}" "${VKW_LIBRARY}")
+list(APPEND VKW_LIBRARY vkw)
+
+# ------------------------------------------------------------------------------
+# ----------------------------- Pass to the parent -----------------------------
+# ------------------------------------------------------------------------------
+if(HAS_PARENT)
+    set(VKW_INCLUDE ${VKW_INCLUDE} PARENT_SCOPE)
+    set(VKW_LIBRARY ${VKW_LIBRARY} PARENT_SCOPE)
+endif()
+
+# ------------------------------------------------------------------------------
+# ---------------------------------- Examples ----------------------------------
+# ------------------------------------------------------------------------------
+if (VKW_BUILD_EXAMPLES)
+    if (ANDROID)
+        # ----------------------------------------------------------------------
+        # --------------------------------- PC ---------------------------------
+        # ----------------------------------------------------------------------
+        find_library(log-lib log)
+        list(APPEND VKW_LIBRARY ${log-lib})
+
+        # Android example
+        add_library(native-lib SHARED
+            ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/cpp/native-lib.cpp)
+        setup_target(native-lib "${VKW_INCLUDE}" "${VKW_LIBRARY}")
+    else()
+        # ----------------------------------------------------------------------
+        # ------------------------------ Android -------------------------------
+        # ----------------------------------------------------------------------
+        # PC example
+        add_executable(main ${CMAKE_CURRENT_SOURCE_DIR}/pc/main.cpp)
+        setup_target(main "${VKW_INCLUDE}" "${VKW_LIBRARY}")
+    endif()
+endif()

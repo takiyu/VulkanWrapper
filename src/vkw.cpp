@@ -1,13 +1,15 @@
-#include "vkw.h"
+#include <vkw/vkw.h>
 
-#include <bits/stdint-uintn.h>
-
-VKW_SUPPRESS_WARNING_PUSH
+// -----------------------------------------------------------------------------
+// ------------------------- Begin third party include -------------------------
+// -----------------------------------------------------------------------------
+BEGIN_VKW_SUPPRESS_WARNING
 #include <SPIRV/GlslangToSpv.h>
 #include <StandAlone/ResourceLimits.h>
-
-#include <vulkan/vulkan.hpp>
-VKW_SUPPRESS_WARNING_POP
+END_VKW_SUPPRESS_WARNING
+// -----------------------------------------------------------------------------
+// -------------------------- End third party include --------------------------
+// -----------------------------------------------------------------------------
 
 #include <iostream>
 #include <sstream>
@@ -364,8 +366,9 @@ std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
 }  // namespace
 
 // -----------------------------------------------------------------------------
-// ----------------------------------- GLFW ------------------------------------
+// -------------------------- GLFW (Only for desktop) --------------------------
 // -----------------------------------------------------------------------------
+#ifndef __ANDROID__
 void GLFWWindowDeleter::operator()(GLFWwindow *ptr) {
     glfwDestroyWindow(ptr);
 }
@@ -387,6 +390,7 @@ UniqueGLFWWindow InitGLFWWindow(const std::string &win_name, uint32_t win_w,
     }
     return window;
 }
+#endif  // __ANDROID__
 
 // -----------------------------------------------------------------------------
 // --------------------------------- Instance ----------------------------------
@@ -395,10 +399,6 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
                                   uint32_t app_version,
                                   const std::string &engine_name,
                                   uint32_t engine_version, bool debug_enable) {
-    // Print extension names required by GLFW
-    uint32_t n_glfw_exts = 0;
-    const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_exts);
-
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
@@ -411,9 +411,17 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
     std::vector<char const *> enabled_layer = {"VK_LAYER_KHRONOS_validation"};
     std::vector<char const *> enabled_exts = {
             VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+
+#ifndef __ANDROID__
+    // Add extension names required by GLFW
+    uint32_t n_glfw_exts = 0;
+    const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_exts);
     for (uint32_t i = 0; i < n_glfw_exts; i++) {
         enabled_exts.push_back(glfw_exts[i]);
     }
+#endif  // __ANDROID__
+
+    // Create instance
     vk::ApplicationInfo app_info = {app_name.c_str(), app_version,
                                     engine_name.c_str(), engine_version,
                                     VK_API_VERSION_1_1};
@@ -426,6 +434,9 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
 
     if (debug_enable) {
+#ifdef __ANDROID__
+        // TODO: Debug messenger for Android
+#else
         // Create debug messenger
         vk::UniqueDebugUtilsMessengerEXT debug_messenger =
                 instance->createDebugUtilsMessengerEXTUnique(
@@ -436,6 +447,7 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
                           vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
                           vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
                          &DebugMessengerCallback});
+#endif  // __ANDROID__
     }
 
     return instance;
@@ -452,15 +464,19 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
-                                   const UniqueGLFWWindow &window) {
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#ifdef __ANDROID__
+// Android version
+vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance) {
     // Create Android surface
     struct ANativeWindow *window = nullptr;  // TODO
-    return instance->createAndroidSurfaceKHR(vk::AndroidSurfaceCreateFlagsKHR(),
-                                             window)
+    return instance->createAndroidSurfaceKHRUnique({vk::AndroidSurfaceCreateFlagsKHR(),
+                                             window});
+}
 
 #else
+// Desktop version
+vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
+                                   const UniqueGLFWWindow &window) {
     // Create a window surface (GLFW)
     VkSurfaceKHR s_raw = nullptr;
     VkResult err =
@@ -473,8 +489,8 @@ vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
             vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
     Deleter deleter(*instance, nullptr, VULKAN_HPP_DEFAULT_DISPATCHER);
     return vk::UniqueSurfaceKHR(s_raw, deleter);
-#endif
 }
+#endif  // __ANDROID__
 
 vk::Format GetSurfaceFormat(const vk::PhysicalDevice &physical_device,
                             const vk::UniqueSurfaceKHR &surface) {
