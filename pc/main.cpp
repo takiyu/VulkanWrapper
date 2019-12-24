@@ -1,3 +1,5 @@
+#include <vkw/vkw.h>
+
 #include <cstdlib>
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
@@ -6,8 +8,6 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
-
-#include <vkw/vkw.h>
 
 // vertex shader with (P)osition and (C)olor in and (C)olor out
 const std::string VERT_SOURCE = R"(
