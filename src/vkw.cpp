@@ -6,6 +6,9 @@
 BEGIN_VKW_SUPPRESS_WARNING
 #include <SPIRV/GlslangToSpv.h>
 #include <StandAlone/ResourceLimits.h>
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
 END_VKW_SUPPRESS_WARNING
 // -----------------------------------------------------------------------------
 // -------------------------- End third party include --------------------------
@@ -81,6 +84,16 @@ std::vector<std::string> Split(const std::string &str, char del = '\n') {
     return result;
 }
 
+#if defined(__ANDROID__)
+void Print(const std::string& str) {
+    __android_log_print(ANDROID_LOG_INFO, "VKW", "\n%s", str.c_str());
+}
+#else
+void Print(const std::string& str) {
+    std::cout << str;
+}
+#endif
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -109,7 +122,7 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
         // Add extension names required by GLFW
         uint32_t n_glfw_ext = 0;
         const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_ext);
-        for (uint32_t i = 0; i < n_glfw_exts; i++) {
+        for (uint32_t i = 0; i < n_glfw_ext; i++) {
             enabled_exts.push_back(glfw_exts[i]);
         }
 #endif
@@ -118,12 +131,12 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
     if (debug_enable) {
 #if defined(__ANDROID__)
         // TODO: Debug for Android
+        enabled_exts.push_back("VK_EXT_debug_report");
 #else
         enabled_exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
     }
     return enabled_exts;
-    ;
 }
 
 static VkBool32 DebugMessengerCallback(
@@ -423,6 +436,58 @@ std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
 }  // namespace
 
 // -----------------------------------------------------------------------------
+// -------------------------------- Info Prints --------------------------------
+// -----------------------------------------------------------------------------
+void PrintInstanceLayerProps() {
+    // Create information string
+    std::stringstream ss;
+    ss << "* InstanceLayerProperties" << std::endl;
+    const auto &props = vk::enumerateInstanceLayerProperties();
+    for (uint32_t i = 0; i < props.size(); i++) {
+        const auto prop = props[i];
+        ss << "  " << i << ": " << prop.layerName
+           << " (spec_version: " << prop.specVersion << ")"
+           << " (impl_version: " << prop.implementationVersion << ")";
+        ss << std::endl;
+        ss << "    " << prop.description;
+        ss << std::endl;
+    }
+    // Print
+    Print(ss.str());
+}
+
+void PrintInstanceExtensionProps() {
+    // Create information string
+    std::stringstream ss;
+    ss << "* InstanceExtensionProperties" << std::endl;
+    const auto &props = vk::enumerateInstanceExtensionProperties();
+    for (uint32_t i = 0; i < props.size(); i++) {
+        const auto prop = props[i];
+        ss << "  " << i << ": " << prop.extensionName
+           << " (spec_version: " << prop.specVersion << ")";
+        ss << std::endl;
+    }
+    // Print
+    Print(ss.str());
+}
+
+void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
+    // Create information string
+    std::stringstream ss;
+    ss << "* QueueFamilyProperties" << std::endl;
+    const auto &props = physical_device.getQueueFamilyProperties();
+    for (uint32_t i = 0; i < props.size(); i++) {
+        const auto prop = props[i];
+        const auto &flags_str = vk::to_string(prop.queueFlags);
+        const auto &max_queue_cnt = prop.queueCount;
+        ss << "  " << i << ": " << flags_str
+           << "  (max_queue_cnt:" << max_queue_cnt << ")" << std::endl;
+    }
+    // Print
+    Print(ss.str());
+}
+
+// -----------------------------------------------------------------------------
 // ---------------------- ANativeWindow (Only for android) ---------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
@@ -562,19 +627,6 @@ vk::Format GetSurfaceFormat(const vk::PhysicalDevice &physical_device,
 // -----------------------------------------------------------------------------
 // -------------------------------- Queue Family -------------------------------
 // -----------------------------------------------------------------------------
-void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
-    const auto &props = physical_device.getQueueFamilyProperties();
-
-    std::cout << "QueueFamilyProperties" << std::endl;
-    for (uint32_t i = 0; i < props.size(); i++) {
-        const auto prop = props[i];
-        const auto &flags_str = vk::to_string(prop.queueFlags);
-        const auto &max_queue_cnt = prop.queueCount;
-        std::cout << "  " << i << ": " << flags_str
-                  << "  (max_queue_cnt:" << max_queue_cnt << ")" << std::endl;
-    }
-}
-
 std::vector<uint32_t> GetQueueFamilyIdxs(
         const vk::PhysicalDevice &physical_device,
         const vk::QueueFlags &queue_flags) {

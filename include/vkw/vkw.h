@@ -39,6 +39,13 @@ namespace vkw {
 const uint64_t NO_TIMEOUT = std::numeric_limits<uint64_t>::max();
 
 // -----------------------------------------------------------------------------
+// -------------------------------- Info Prints --------------------------------
+// -----------------------------------------------------------------------------
+void PrintInstanceLayerProps();
+void PrintInstanceExtensionProps();
+void PrintQueueFamilyProps(const vk::PhysicalDevice& physical_device);
+
+// -----------------------------------------------------------------------------
 // ---------------------- ANativeWindow (Only for android) ---------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
@@ -98,8 +105,6 @@ vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
 // -----------------------------------------------------------------------------
 // -------------------------------- Queue Family -------------------------------
 // -----------------------------------------------------------------------------
-void PrintQueueFamilyProps(const vk::PhysicalDevice& physical_device);
-
 std::vector<uint32_t> GetQueueFamilyIdxs(
         const vk::PhysicalDevice& physical_device,
         const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics);

@@ -116,6 +116,8 @@ int main(int argc, char const *argv[]) {
     auto physical_device = vkw::GetPhysicalDevices(instance).front();
     const auto surface_format = vkw::GetSurfaceFormat(physical_device, surface);
 
+    vkw::PrintInstanceLayerProps();
+    vkw::PrintInstanceExtensionProps();
     vkw::PrintQueueFamilyProps(physical_device);
 
     uint32_t queue_family_idx =
