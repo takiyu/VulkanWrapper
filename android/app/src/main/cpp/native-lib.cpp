@@ -1,6 +1,4 @@
 #include <jni.h>
-#include <android/native_window.h> // requires ndk r5 or newer
-#include <android/native_window_jni.h> // requires ndk r5 or newer
 
 #include <vkw/vkw.h>
 
@@ -105,18 +103,17 @@ const std::vector<Vertex> CUBE_VERTICES = {
         {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
 };
 
-static ANativeWindow *window = nullptr;
+vkw::UniqueANativeWindow window;
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv, jclass jclazz,
                                                                     jobject jsurface) {
     if (jsurface != 0) {
-        window = ANativeWindow_fromSurface(jenv, jsurface);
+        window = vkw::InitANativeWindow(jenv, jsurface);
 
     } else {
-        ANativeWindow_release(window);
-        window = nullptr;
+        window.reset();
         return;
     }
 

@@ -423,6 +423,20 @@ std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
 }  // namespace
 
 // -----------------------------------------------------------------------------
+// ---------------------- ANativeWindow (Only for android) ---------------------
+// -----------------------------------------------------------------------------
+#if defined(__ANDROID__)
+void ANativeWinDeleter::operator()(ANativeWindow *ptr) {
+    ANativeWindow_release(ptr);
+}
+
+UniqueANativeWindow InitANativeWindow(JNIEnv *jenv, jobject jsurface) {
+    ANativeWindow* window = ANativeWindow_fromSurface(jenv, jsurface);
+    return UniqueANativeWindow(window);
+}
+#endif
+
+// -----------------------------------------------------------------------------
 // -------------------------- GLFW (Only for desktop) --------------------------
 // -----------------------------------------------------------------------------
 #if !defined(__ANDROID__)
@@ -509,10 +523,10 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 #if defined(__ANDROID__)
 // Android version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
-                                   struct ANativeWindow *window) {
+                                   const UniqueANativeWindow& window) {
     // Create Android surface
     return instance->createAndroidSurfaceKHRUnique(
-            {vk::AndroidSurfaceCreateFlagsKHR(), window});
+            {vk::AndroidSurfaceCreateFlagsKHR(), window.get()});
 }
 
 #else

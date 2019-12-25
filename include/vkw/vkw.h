@@ -3,8 +3,8 @@
 
 #include "warning_suppressor.h"
 
-// Vulkan flags
-#if defined(__ANDROID__)
+// Set Vulkan flag for Android
+#if defined(__ANDROID__) && !defined(VK_USE_PLATFORM_ANDROID_KHR)
 #define VK_USE_PLATFORM_ANDROID_KHR
 #endif
 
@@ -17,8 +17,12 @@ BEGIN_VKW_SUPPRESS_WARNING
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan.hpp>
 
+#if defined(__ANDROID__)
+// ANativeWindow for android
+#include <android/native_window.h>
+#include <android/native_window_jni.h>
+#else
 // GLFW for desktop
-#if !defined(__ANDROID__)
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #endif
@@ -33,6 +37,18 @@ namespace vkw {
 // --------------------------------- Constants ---------------------------------
 // -----------------------------------------------------------------------------
 const uint64_t NO_TIMEOUT = std::numeric_limits<uint64_t>::max();
+
+// -----------------------------------------------------------------------------
+// ---------------------- ANativeWindow (Only for android) ---------------------
+// -----------------------------------------------------------------------------
+#if defined(__ANDROID__)
+struct ANativeWinDeleter {
+    void operator()(ANativeWindow* ptr);
+};
+using UniqueANativeWindow = std::unique_ptr<ANativeWindow, ANativeWinDeleter>;
+
+UniqueANativeWindow InitANativeWindow(JNIEnv *jenv, jobject jsurface);
+#endif
 
 // -----------------------------------------------------------------------------
 // -------------------------- GLFW (Only for desktop) --------------------------
@@ -69,7 +85,7 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 #if defined(__ANDROID__)
 // Android version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
-                                   struct ANativeWindow* window);
+                                   const UniqueANativeWindow& window);
 #else
 // Desktop version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
