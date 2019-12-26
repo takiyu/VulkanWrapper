@@ -37,7 +37,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-//         nativeSetSurface(null);
+        nativeSetSurface(null);
     }
 
     public static native void nativeSetSurface(Surface surface);

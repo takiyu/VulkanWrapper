@@ -106,6 +106,15 @@ std::vector<std::string> Split(const std::string &str, char del = '\n') {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+bool IsVkDebugUtilsAvailable() {
+    for (auto &&prop : vk::enumerateInstanceExtensionProperties()) {
+        if (prop.extensionName == VK_EXT_DEBUG_UTILS_EXTENSION_NAME) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::vector<char const *> GetEnabledLayers(bool debug_enable) {
     std::vector<char const *> enabled_layer;
     if (debug_enable) {
@@ -142,38 +151,19 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
     }
 
     if (debug_enable) {
-#if defined(__ANDROID__)
-        enabled_exts.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-#else
-        enabled_exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#endif
+        // If available, use `debug utils`. `debug report` is alternative choice
+        if (IsVkDebugUtilsAvailable()) {
+            enabled_exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        } else {
+            enabled_exts.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+        }
     }
     return enabled_exts;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
-        VkDebugReportFlagsEXT msg_flags, VkDebugReportObjectTypeEXT obj_type,
-        uint64_t src_object, size_t location, int32_t msg_code,
-        const char *layer_prefix, const char *message, void *) {
-    (void)src_object;
-    (void)location;
-
-    // Create message string
-    std::stringstream ss;
-    ss << vk::to_string(vk::DebugReportFlagBitsEXT(msg_flags));
-    ss << std::endl;
-    ss << "  Layer: " << layer_prefix << "]";
-    ss << ", Code: " << msg_code;
-    ss << ", Object: " << vk::to_string(vk::DebugReportObjectTypeEXT(obj_type));
-    ss << std::endl;
-    ss << "  Message: " << message;
-
-    // Print error
-    PrintErr(ss.str());
-
-    return VK_TRUE;
-}
-
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 static VKAPI_ATTR VkBool32 DebugMessengerCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT msg_severity,
         VkDebugUtilsMessageTypeFlagsEXT msg_types,
@@ -229,29 +219,51 @@ static VKAPI_ATTR VkBool32 DebugMessengerCallback(
     return VK_TRUE;
 }
 
-static void CreateDebugReport(const vk::UniqueInstance &instance) {
-    // Create debug report (only warning and error)
-    static vk::UniqueDebugReportCallbackEXT debug_report;
-    debug_report =
-            instance->createDebugReportCallbackEXTUnique(
-                    {
-vk::DebugReportFlagBitsEXT::eWarning |
-vk::DebugReportFlagBitsEXT::ePerformanceWarning |
-vk::DebugReportFlagBitsEXT::eError
-                    , &DebugReportCallback});
+static VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
+        VkDebugReportFlagsEXT msg_flags, VkDebugReportObjectTypeEXT obj_type,
+        uint64_t src_object, size_t location, int32_t msg_code,
+        const char *layer_prefix, const char *message, void *) {
+    (void)src_object;
+    (void)location;
+
+    // Create message string
+    std::stringstream ss;
+    ss << vk::to_string(vk::DebugReportFlagBitsEXT(msg_flags));
+    ss << std::endl;
+    ss << "  Layer: " << layer_prefix << "]";
+    ss << ", Code: " << msg_code;
+    ss << ", Object: " << vk::to_string(vk::DebugReportObjectTypeEXT(obj_type));
+    ss << std::endl;
+    ss << "  Message: " << message;
+
+    // Print error
+    PrintErr(ss.str());
+
+    return VK_TRUE;
 }
 
-static void CreateDebugMessenser(const vk::UniqueInstance &instance) {
-    // Create debug messenger (only warning and error)
-    vk::UniqueDebugUtilsMessengerEXT debug_messenger =
-            instance->createDebugUtilsMessengerEXTUnique(
-                    {{},
-                     {vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                      vk::DebugUtilsMessageSeverityFlagBitsEXT::eError},
-                     {vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                      vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
-                      vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
-                     &DebugMessengerCallback});
+static void RegisterDebugCalback(const vk::UniqueInstance &instance) {
+    // If available, use `debug utils`. `debug report` is alternative choice
+    if (IsVkDebugUtilsAvailable()) {
+        // Create debug messenger (only warning and error)
+        vk::UniqueDebugUtilsMessengerEXT debug_messenger =
+                instance->createDebugUtilsMessengerEXTUnique(
+                        {{},
+                         {vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                          vk::DebugUtilsMessageSeverityFlagBitsEXT::eError},
+                         {vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                          vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+                          vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
+                         &DebugMessengerCallback});
+    } else {
+        // Create debug report (only warning and error)
+        vk::UniqueDebugReportCallbackEXT debug_report =
+                instance->createDebugReportCallbackEXTUnique(
+                        {{vk::DebugReportFlagBitsEXT::eWarning |
+                          vk::DebugReportFlagBitsEXT::eError |
+                          vk::DebugReportFlagBitsEXT::ePerformanceWarning},
+                         &DebugReportCallback});
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -612,13 +624,9 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
     // Initialize dispatcher with Instance to get all the other function ptrs.
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
 
-    // Create debug messenger
+    // Create debug messenger or debug report
     if (debug_enable) {
-#if defined(__ANDROID__)
-        CreateDebugReport(instance);
-#else
-        CreateDebugMessenser(instance);
-#endif
+        RegisterDebugCalback(instance);
     }
 
     return instance;
