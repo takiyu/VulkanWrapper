@@ -107,10 +107,18 @@ set(ENABLE_SPVREMAPPER OFF CACHE BOOL "")
 set(ENABLE_HLSL OFF CACHE BOOL "")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
-list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits OGLCompiler)
+list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
+                        OGLCompiler)
 
 # GLM
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
+
+# Validation Layer
+if (ANDROID)
+    # Copy library files. Linking is not needed because VulkanHpp loads them dynamically.
+    file(COPY ${ANDROID_NDK}/sources/third_party/vulkan/src/build-android/jniLibs/${ANDROID_ABI}
+         DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/)
+endif()
 
 # GLFW3
 if (NOT ANDROID)

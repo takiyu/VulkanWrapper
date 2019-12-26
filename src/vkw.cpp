@@ -28,6 +28,25 @@ namespace {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+#if defined(__ANDROID__)
+// Android print
+void PrintInfo(const std::string &str) {
+    __android_log_print(ANDROID_LOG_INFO, "VKW", "%s", str.c_str());
+}
+void PrintErr(const std::string &str) {
+    __android_log_print(ANDROID_LOG_ERROR, "VKW", "%s", str.c_str());
+}
+#else
+// Standard print
+void PrintInfo(const std::string &str) {
+    std::cout << str;
+}
+void PrintErr(const std::string &str) {
+    std::cerr << str;
+}
+#endif
+
 template <typename T>
 inline T Clamp(const T &x, const T &min_v, const T &max_v) {
     return std::min(std::max(x, min_v), max_v);
@@ -84,16 +103,6 @@ std::vector<std::string> Split(const std::string &str, char del = '\n') {
     return result;
 }
 
-#if defined(__ANDROID__)
-void Print(const std::string& str) {
-    __android_log_print(ANDROID_LOG_INFO, "VKW", "\n%s", str.c_str());
-}
-#else
-void Print(const std::string& str) {
-    std::cout << str;
-}
-#endif
-
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -101,7 +110,11 @@ std::vector<char const *> GetEnabledLayers(bool debug_enable) {
     std::vector<char const *> enabled_layer;
     if (debug_enable) {
 #if defined(__ANDROID__)
-        // TODO: Debug for Android
+        enabled_layer.push_back("VK_LAYER_LUNARG_parameter_validation");
+        enabled_layer.push_back("VK_LAYER_GOOGLE_unique_objects");
+        enabled_layer.push_back("VK_LAYER_GOOGLE_threading");
+        enabled_layer.push_back("VK_LAYER_LUNARG_object_tracker");
+        enabled_layer.push_back("VK_LAYER_LUNARG_core_validation");
 #else
         enabled_layer.push_back("VK_LAYER_KHRONOS_validation");
 #endif
@@ -130,8 +143,7 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
 
     if (debug_enable) {
 #if defined(__ANDROID__)
-        // TODO: Debug for Android
-        enabled_exts.push_back("VK_EXT_debug_report");
+        enabled_exts.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 #else
         enabled_exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
@@ -139,7 +151,30 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
     return enabled_exts;
 }
 
-static VkBool32 DebugMessengerCallback(
+static VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
+        VkDebugReportFlagsEXT msg_flags, VkDebugReportObjectTypeEXT obj_type,
+        uint64_t src_object, size_t location, int32_t msg_code,
+        const char *layer_prefix, const char *message, void *) {
+    (void)src_object;
+    (void)location;
+
+    // Create message string
+    std::stringstream ss;
+    ss << vk::to_string(vk::DebugReportFlagBitsEXT(msg_flags));
+    ss << std::endl;
+    ss << "  Layer: " << layer_prefix << "]";
+    ss << ", Code: " << msg_code;
+    ss << ", Object: " << vk::to_string(vk::DebugReportObjectTypeEXT(obj_type));
+    ss << std::endl;
+    ss << "  Message: " << message;
+
+    // Print error
+    PrintErr(ss.str());
+
+    return VK_TRUE;
+}
+
+static VKAPI_ATTR VkBool32 DebugMessengerCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT msg_severity,
         VkDebugUtilsMessageTypeFlagsEXT msg_types,
         VkDebugUtilsMessengerCallbackDataEXT const *callback, void *) {
@@ -150,48 +185,64 @@ static VkBool32 DebugMessengerCallback(
     const std::string &type_str = vk::to_string(
             static_cast<vk::DebugUtilsMessageTypeFlagsEXT>(msg_types));
 
-    // Print messages
-    std::cerr << "-----------------------------------------------" << std::endl;
-    std::cerr << severity_str << ": " << type_str << ":" << std::endl;
-    std::cerr << "  Message ID Name (number) = <" << callback->pMessageIdName
-              << "> (" << callback->messageIdNumber << ")" << std::endl;
-    std::cerr << "  Message = \"" << callback->pMessage << "\"" << std::endl;
+    // Create message string
+    std::stringstream ss;
+    ss << "-----------------------------------------------" << std::endl;
+    ss << severity_str << ": " << type_str << ":" << std::endl;
+    ss << "  Message ID Name (number) = <" << callback->pMessageIdName << "> ("
+       << callback->messageIdNumber << ")" << std::endl;
+    ss << "  Message = \"" << callback->pMessage << "\"" << std::endl;
     if (0 < callback->queueLabelCount) {
-        std::cerr << "  Queue Labels:" << std::endl;
+        ss << "  Queue Labels:" << std::endl;
         for (uint8_t i = 0; i < callback->queueLabelCount; i++) {
             const auto &name = callback->pQueueLabels[i].pLabelName;
-            std::cerr << "    " << i << ": " << name << std::endl;
+            ss << "    " << i << ": " << name << std::endl;
         }
     }
     if (0 < callback->cmdBufLabelCount) {
-        std::cerr << "  CommandBuffer Labels:" << std::endl;
+        ss << "  CommandBuffer Labels:" << std::endl;
         for (uint8_t i = 0; i < callback->cmdBufLabelCount; i++) {
             const auto &name = callback->pCmdBufLabels[i].pLabelName;
-            std::cerr << "    " << i << ": " << name << std::endl;
+            ss << "    " << i << ": " << name << std::endl;
         }
     }
     if (0 < callback->objectCount) {
-        std::cerr << "  Objects:" << std::endl;
+        ss << "  Objects:" << std::endl;
         for (uint8_t i = 0; i < callback->objectCount; i++) {
             const auto &type = vk::to_string(static_cast<vk::ObjectType>(
                     callback->pObjects[i].objectType));
             const auto &handle = callback->pObjects[i].objectHandle;
-            std::cerr << "    " << static_cast<int>(i) << ":" << std::endl;
-            std::cerr << "      objectType   = " << type << std::endl;
-            std::cerr << "      objectHandle = " << handle << std::endl;
+            ss << "    " << static_cast<int>(i) << ":" << std::endl;
+            ss << "      objectType   = " << type << std::endl;
+            ss << "      objectHandle = " << handle << std::endl;
             if (callback->pObjects[i].pObjectName) {
                 const auto &on = callback->pObjects[i].pObjectName;
-                std::cerr << "      objectName   = <" << on << ">" << std::endl;
+                ss << "      objectName   = <" << on << ">" << std::endl;
             }
         }
     }
-    std::cerr << "-----------------------------------------------" << std::endl;
+    ss << "-----------------------------------------------" << std::endl;
+
+    // Print error
+    PrintErr(ss.str());
+
     return VK_TRUE;
 }
 
-#if !defined(__ANDROID__)
+static void CreateDebugReport(const vk::UniqueInstance &instance) {
+    // Create debug report (only warning and error)
+    static vk::UniqueDebugReportCallbackEXT debug_report;
+    debug_report =
+            instance->createDebugReportCallbackEXTUnique(
+                    {
+vk::DebugReportFlagBitsEXT::eWarning |
+vk::DebugReportFlagBitsEXT::ePerformanceWarning |
+vk::DebugReportFlagBitsEXT::eError
+                    , &DebugReportCallback});
+}
+
 static void CreateDebugMessenser(const vk::UniqueInstance &instance) {
-    // Create debug messenger
+    // Create debug messenger (only warning and error)
     vk::UniqueDebugUtilsMessengerEXT debug_messenger =
             instance->createDebugUtilsMessengerEXTUnique(
                     {{},
@@ -202,7 +253,6 @@ static void CreateDebugMessenser(const vk::UniqueInstance &instance) {
                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
                      &DebugMessengerCallback});
 }
-#endif
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -453,7 +503,7 @@ void PrintInstanceLayerProps() {
         ss << std::endl;
     }
     // Print
-    Print(ss.str());
+    PrintInfo(ss.str());
 }
 
 void PrintInstanceExtensionProps() {
@@ -468,7 +518,7 @@ void PrintInstanceExtensionProps() {
         ss << std::endl;
     }
     // Print
-    Print(ss.str());
+    PrintInfo(ss.str());
 }
 
 void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
@@ -484,7 +534,7 @@ void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
            << "  (max_queue_cnt:" << max_queue_cnt << ")" << std::endl;
     }
     // Print
-    Print(ss.str());
+    PrintInfo(ss.str());
 }
 
 // -----------------------------------------------------------------------------
@@ -496,7 +546,7 @@ void ANativeWinDeleter::operator()(ANativeWindow *ptr) {
 }
 
 UniqueANativeWindow InitANativeWindow(JNIEnv *jenv, jobject jsurface) {
-    ANativeWindow* window = ANativeWindow_fromSurface(jenv, jsurface);
+    ANativeWindow *window = ANativeWindow_fromSurface(jenv, jsurface);
     return UniqueANativeWindow(window);
 }
 #endif
@@ -565,7 +615,7 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
     // Create debug messenger
     if (debug_enable) {
 #if defined(__ANDROID__)
-        // TODO: Debug messenger for Android
+        CreateDebugReport(instance);
 #else
         CreateDebugMessenser(instance);
 #endif
@@ -588,7 +638,7 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 #if defined(__ANDROID__)
 // Android version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
-                                   const UniqueANativeWindow& window) {
+                                   const UniqueANativeWindow &window) {
     // Create Android surface
     return instance->createAndroidSurfaceKHRUnique(
             {vk::AndroidSurfaceCreateFlagsKHR(), window.get()});

@@ -54,7 +54,7 @@ struct ANativeWinDeleter {
 };
 using UniqueANativeWindow = std::unique_ptr<ANativeWindow, ANativeWinDeleter>;
 
-UniqueANativeWindow InitANativeWindow(JNIEnv *jenv, jobject jsurface);
+UniqueANativeWindow InitANativeWindow(JNIEnv* jenv, jobject jsurface);
 #endif
 
 // -----------------------------------------------------------------------------
