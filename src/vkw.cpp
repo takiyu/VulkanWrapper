@@ -17,6 +17,7 @@ END_VKW_SUPPRESS_WARNING
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <set>
 
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -31,19 +32,19 @@ namespace {
 
 #if defined(__ANDROID__)
 // Android print
-void PrintInfo(const std::string &str) {
+static void PrintInfo(const std::string &str) {
     __android_log_print(ANDROID_LOG_INFO, "VKW", "%s", str.c_str());
 }
-void PrintErr(const std::string &str) {
+static void PrintErr(const std::string &str) {
     __android_log_print(ANDROID_LOG_ERROR, "VKW", "%s", str.c_str());
 }
 #else
 // Standard print
-void PrintInfo(const std::string &str) {
-    std::cout << str;
+static void PrintInfo(const std::string &str) {
+    std::cout << str << std::endl;
 }
-void PrintErr(const std::string &str) {
-    std::cerr << str;
+static void PrintErr(const std::string &str) {
+    std::cerr << str << std::endl;
 }
 #endif
 
@@ -82,7 +83,7 @@ T *DataSafety(std::vector<T> &vec) {
     }
 }
 
-std::vector<std::string> Split(const std::string &str, char del = '\n') {
+static std::vector<std::string> Split(const std::string &str, char del = '\n') {
     std::vector<std::string> result;
     std::string::size_type first_pos = 0, last_pos = 0;
     while (first_pos < str.size()) {
@@ -106,7 +107,7 @@ std::vector<std::string> Split(const std::string &str, char del = '\n') {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-bool IsVkDebugUtilsAvailable() {
+static bool IsVkDebugUtilsAvailable() {
     for (auto &&prop : vk::enumerateInstanceExtensionProperties()) {
         if (prop.extensionName == VK_EXT_DEBUG_UTILS_EXTENSION_NAME) {
             return true;
@@ -115,23 +116,39 @@ bool IsVkDebugUtilsAvailable() {
     return false;
 }
 
-std::vector<char const *> GetEnabledLayers(bool debug_enable) {
-    std::vector<char const *> enabled_layer;
+static std::vector<char const *> GetEnabledLayers(bool debug_enable) {
+    std::vector<char const *> names;
+
     if (debug_enable) {
 #if defined(__ANDROID__)
-        enabled_layer.push_back("VK_LAYER_LUNARG_parameter_validation");
-        enabled_layer.push_back("VK_LAYER_GOOGLE_unique_objects");
-        enabled_layer.push_back("VK_LAYER_GOOGLE_threading");
-        enabled_layer.push_back("VK_LAYER_LUNARG_object_tracker");
-        enabled_layer.push_back("VK_LAYER_LUNARG_core_validation");
+        names.push_back("VK_LAYER_LUNARG_parameter_validation");
+        names.push_back("VK_LAYER_GOOGLE_unique_objects");
+        names.push_back("VK_LAYER_GOOGLE_threading");
+        names.push_back("VK_LAYER_LUNARG_object_tracker");
+        names.push_back("VK_LAYER_LUNARG_core_validation");
 #else
-        enabled_layer.push_back("VK_LAYER_KHRONOS_validation");
+        names.push_back("VK_LAYER_KHRONOS_validation");
 #endif
     }
-    return enabled_layer;
+
+    // Check layer name validities
+    std::set<std::string> valid_names;
+    for (auto&& prop : vk::enumerateInstanceLayerProperties()) {
+        valid_names.insert(prop.layerName);
+    }
+    std::vector<char const *> ret_names;
+    for (auto&& name : names) {
+        if (valid_names.count(name)) {
+            ret_names.push_back(name);
+        } else {
+            PrintErr("[Error] Layer '" + std::string(name) + "' is invalid");
+        }
+    }
+
+    return ret_names;
 }
 
-std::vector<char const *> GetEnabledExts(bool debug_enable,
+static std::vector<char const *> GetEnabledExts(bool debug_enable,
                                          bool surface_enable) {
     std::vector<char const *> enabled_exts;
 
@@ -151,7 +168,7 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
     }
 
     if (debug_enable) {
-        // If available, use `debug utils`. `debug report` is alternative choice
+        // If available, use `debug utils`
         if (IsVkDebugUtilsAvailable()) {
             enabled_exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         } else {
@@ -211,7 +228,7 @@ static VKAPI_ATTR VkBool32 DebugMessengerCallback(
             }
         }
     }
-    ss << "-----------------------------------------------" << std::endl;
+    ss << "-----------------------------------------------";
 
     // Print error
     PrintErr(ss.str());
@@ -243,7 +260,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
 }
 
 static void RegisterDebugCalback(const vk::UniqueInstance &instance) {
-    // If available, use `debug utils`. `debug report` is alternative choice
+    // If available, use `debug utils`
     if (IsVkDebugUtilsAvailable()) {
         // Create debug messenger (only warning and error)
         vk::UniqueDebugUtilsMessengerEXT debug_messenger =
