@@ -140,6 +140,7 @@ endif()
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(vkw
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vkw.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vkw_base.cpp
 )
 setup_target(vkw "${VKW_INCLUDE}" "${VKW_LIBRARY}")
 list(APPEND VKW_LIBRARY vkw)

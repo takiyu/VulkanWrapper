@@ -104,33 +104,27 @@ int main(int argc, char const *argv[]) {
 
     const std::string app_name = "app name";
     const int app_version = 1;
-    const std::string engine_name = "engine name";
-    const int engine_version = 1;
     uint32_t win_w = 600;
     uint32_t win_h = 600;
+    const uint32_t n_queues = 2;
+    const bool debug_enable = true;
 
-    auto window = vkw::InitGLFWWindow(app_name, win_w, win_h);
-    auto instance = vkw::CreateInstance(app_name, app_version, engine_name,
-                                        engine_version);
-    auto surface = vkw::CreateSurface(instance, window);
-    auto physical_device = vkw::GetPhysicalDevices(instance).front();
-    const auto surface_format = vkw::GetSurfaceFormat(physical_device, surface);
+    auto context = vkw::GraphicsContext::Create();
+    context->init(app_name, app_version, win_w, win_h, n_queues, debug_enable);
+
+    const auto& window = context->getGLFWWindow();
+    const auto& instance = context->getInstance();
+    const auto& physical_device = context->getPhysicalDevice();
+    const auto& device = context->getDevice();
+    const auto& surface = context->getSurface();
+    const auto& swapchain_pack = context->getSwapchainPack();
+    const auto& queues = context->getQueues();
+    const auto& queue_family_idx = context->getQueueFamilyIdx();
+    const auto& surface_format = context->getSurfaceFormat();
 
     vkw::PrintInstanceLayerProps();
     vkw::PrintInstanceExtensionProps();
     vkw::PrintQueueFamilyProps(physical_device);
-
-    uint32_t queue_family_idx =
-            vkw::GetGraphicPresentQueueFamilyIdx(physical_device, surface);
-
-    const uint32_t n_queues = 2;
-    auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
-                                    true);
-    auto queue = vkw::GetQueue(device, queue_family_idx, 0);
-    auto queue2 = vkw::GetQueue(device, queue_family_idx, 1);
-
-    auto swapchain_pack = vkw::CreateSwapchainPack(physical_device, device,
-                                                   surface, win_w, win_h);
 
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
@@ -276,12 +270,12 @@ int main(int argc, char const *argv[]) {
 
         auto draw_fence = vkw::CreateFence(device);
 
-        vkw::QueueSubmit(queue, cmd_buf, draw_fence,
+        vkw::QueueSubmit(queues[0], cmd_buf, draw_fence,
                          {{img_acquired_semaphore,
                            vk::PipelineStageFlagBits::eColorAttachmentOutput}},
                          {});
 
-        vkw::QueuePresent(queue2, swapchain_pack, curr_img_idx);
+        vkw::QueuePresent(queues[1], swapchain_pack, curr_img_idx);
 
         vkw::WaitForFences(device, {draw_fence});
 

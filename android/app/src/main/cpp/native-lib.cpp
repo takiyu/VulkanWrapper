@@ -103,50 +103,40 @@ const std::vector<Vertex> CUBE_VERTICES = {
         {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
 };
 
-vkw::UniqueANativeWindow window;
+vkw::GraphicsContextPtr context = vkw::GraphicsContext::Create();
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv, jclass jclazz,
                                                                     jobject jsurface) {
-    if (jsurface != 0) {
-        window = vkw::InitANativeWindow(jenv, jsurface);
-
-    } else {
-        window.reset();
+    if (jsurface == 0) {
+//         window.reset();
         return;
     }
 
-    std::thread thread([&]() {
     const std::string app_name = "app name";
     const int app_version = 1;
-    const std::string engine_name = "engine name";
-    const int engine_version = 1;
     uint32_t win_w = 600;
     uint32_t win_h = 600;
+    const uint32_t n_queues = 2;
+    const bool debug_enable = true;
+    context->init(app_name, app_version, jenv, jsurface, n_queues, debug_enable);
 
-    auto instance = vkw::CreateInstance(app_name, app_version, engine_name,
-                                     engine_version);
-    auto surface = vkw::CreateSurface(instance, window);
 
-    auto physical_device = vkw::GetPhysicalDevices(instance).front();
-    const auto surface_format = vkw::GetSurfaceFormat(physical_device, surface);
+    std::thread thread([&]() {
+    const auto& window = context->getANativeWindow();
+    const auto& instance = context->getInstance();
+    const auto& physical_device = context->getPhysicalDevice();
+    const auto& device = context->getDevice();
+    const auto& surface = context->getSurface();
+    const auto& swapchain_pack = context->getSwapchainPack();
+    const auto& queues = context->getQueues();
+    const auto& queue_family_idx = context->getQueueFamilyIdx();
+    const auto& surface_format = context->getSurfaceFormat();
 
     vkw::PrintInstanceLayerProps();
     vkw::PrintInstanceExtensionProps();
     vkw::PrintQueueFamilyProps(physical_device);
-
-    uint32_t queue_family_idx =
-            vkw::GetGraphicPresentQueueFamilyIdx(physical_device, surface);
-
-    const uint32_t n_queues = 2;
-    auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
-                                    true);
-    auto queue = vkw::GetQueue(device, queue_family_idx, 0);
-    auto queue2 = vkw::GetQueue(device, queue_family_idx, 1);
-
-    auto swapchain_pack = vkw::CreateSwapchainPack(physical_device, device,
-                                                   surface, win_w, win_h);
 
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
@@ -293,12 +283,12 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv
 
             auto draw_fence = vkw::CreateFence(device);
 
-            vkw::QueueSubmit(queue, cmd_buf, draw_fence,
+            vkw::QueueSubmit(queues[0], cmd_buf, draw_fence,
                              {{img_acquired_semaphore,
                                vk::PipelineStageFlagBits::eColorAttachmentOutput}},
                              {});
 
-            vkw::QueuePresent(queue2, swapchain_pack, curr_img_idx);
+            vkw::QueuePresent(queues[1], swapchain_pack, curr_img_idx);
 
             vkw::WaitForFences(device, {draw_fence});
         }
