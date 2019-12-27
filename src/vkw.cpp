@@ -87,8 +87,8 @@ auto InitWithDisplay(const std::string& app_name, uint32_t app_version,
             queue_family_idx, physical_device, n_queues, display_enable);
 
     // Create swapchain
-    vkw::SwapchainPackPtr swapchain_pack = vkw::CreateSwapchainPack(
-            physical_device, device, surface);
+    vkw::SwapchainPackPtr swapchain_pack =
+            vkw::CreateSwapchainPack(physical_device, device, surface);
 
     // Get queues
     std::vector<vk::Queue> queues;
@@ -111,23 +111,19 @@ auto InitWithDisplay(const std::string& app_name, uint32_t app_version,
 // -----------------------------------------------------------------------------
 // ------------------------------ Graphics Context -----------------------------
 // -----------------------------------------------------------------------------
-GraphicsContextPtr GraphicsContext::Create() {
-    return GraphicsContextPtr(new GraphicsContext);
-}
-
-GraphicsContext::GraphicsContext() {}
-
-void GraphicsContext::init(const std::string& app_name, uint32_t app_version,
-                           uint32_t n_queues, bool debug_enable) {
+GraphicsContext::GraphicsContext(const std::string& app_name,
+                                 uint32_t app_version, uint32_t n_queues,
+                                 bool debug_enable) {
     // Initialize with display environment
     std::tie(m_instance, m_physical_device, m_device, m_queues,
              m_queue_family_idx) =
             InitWithoutDisplay(app_name, app_version, n_queues, debug_enable);
 }
 
-void GraphicsContext::init(const std::string& app_name, uint32_t app_version,
-                           uint32_t n_queues, const vkw::WindowPtr& window,
-                           bool debug_enable) {
+GraphicsContext::GraphicsContext(const std::string& app_name,
+                                 uint32_t app_version, uint32_t n_queues,
+                                 const vkw::WindowPtr& window,
+                                 bool debug_enable) {
     // Set dependent variable
     m_window = window;
 

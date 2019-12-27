@@ -111,8 +111,8 @@ int main(int argc, char const* argv[]) {
 
     vkw::WindowPtr window = vkw::InitGLFWWindow(app_name, win_w, win_h);
 
-    auto context = vkw::GraphicsContext::Create();
-    context->init(app_name, app_version, n_queues, window, debug_enable);
+    auto context = vkw::GraphicsContext::Create(app_name, app_version, n_queues,
+                                                window, debug_enable);
 
     const auto& physical_device = context->getPhysicalDevice();
     const auto& device = context->getDevice();

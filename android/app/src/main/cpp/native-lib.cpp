@@ -123,8 +123,8 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv
 
     std::thread thread([&]() {
 
-    auto context = vkw::GraphicsContext::Create();
-    context->init(app_name, app_version, n_queues, window, debug_enable);
+    auto context = vkw::GraphicsContext::Create(app_name, app_version, n_queues,
+                                                window, debug_enable);
 
     const auto& instance = context->getInstance();
     const auto& physical_device = context->getPhysicalDevice();

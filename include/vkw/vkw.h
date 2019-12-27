@@ -12,15 +12,10 @@ class GraphicsContext;
 using GraphicsContextPtr = std::shared_ptr<GraphicsContext>;
 class GraphicsContext {
 public:
-    static GraphicsContextPtr Create();
-
-    // Initialize without surface
-    void init(const std::string& app_name, uint32_t app_version,
-              uint32_t n_queues, bool debug_enable = true);
-    // Initialize with surface
-    void init(const std::string& app_name, uint32_t app_version,
-              uint32_t n_queues, const vkw::WindowPtr& window,
-              bool debug_enable = true);
+    template <typename... Args>
+    static auto Create(const Args&... args) {
+        return GraphicsContextPtr(new GraphicsContext(args...));
+    }
 
     const WindowPtr& getWindow() const;
     const vk::UniqueInstance& getInstance() const;
@@ -34,7 +29,13 @@ public:
     vk::Format getSurfaceFormat() const;
 
 private:
-    GraphicsContext();
+    // Initialize without surface
+    GraphicsContext(const std::string& app_name, uint32_t app_version,
+                    uint32_t n_queues, bool debug_enable = true);
+    // Initialize with surface
+    GraphicsContext(const std::string& app_name, uint32_t app_version,
+                    uint32_t n_queues, const vkw::WindowPtr& window,
+                    bool debug_enable = true);
 
     vkw::WindowPtr m_window;
     vk::UniqueInstance m_instance;
@@ -51,6 +52,12 @@ private:
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
+class Image;
+using ImagePtr = std::shared_ptr<Image>;
+class Image {
+public:
+private:
+};
 
 }  // namespace vkw
 
