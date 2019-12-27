@@ -99,7 +99,7 @@ const std::vector<Vertex> CUBE_VERTICES = {
         {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
 };
 
-int main(int argc, char const *argv[]) {
+int main(int argc, char const* argv[]) {
     (void)argc, (void)argv;
 
     const std::string app_name = "app name";
@@ -211,7 +211,7 @@ int main(int argc, char const *argv[]) {
     const uint32_t n_cmd_bufs = 1;
     auto cmd_bufs_pack =
             vkw::CreateCommandBuffersPack(device, queue_family_idx, n_cmd_bufs);
-    auto &cmd_buf = cmd_bufs_pack->cmd_bufs[0];
+    auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
     const glm::mat4 model_mat = glm::mat4(1.0f);

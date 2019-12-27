@@ -22,7 +22,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mSurfaceView = (SurfaceView)findViewById(R.id.surfaceview);
+        mSurfaceView = (SurfaceView) findViewById(R.id.surfaceview);
         mSurfaceView.getHolder().addCallback(this);
     }
 
