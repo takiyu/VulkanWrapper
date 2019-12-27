@@ -41,35 +41,27 @@ const uint64_t NO_TIMEOUT = std::numeric_limits<uint64_t>::max();
 // -----------------------------------------------------------------------------
 // -------------------------------- Info Prints --------------------------------
 // -----------------------------------------------------------------------------
-void PrintInfo(const std::string &str);
-void PrintErr(const std::string &str);
+void PrintInfo(const std::string& str);
+void PrintErr(const std::string& str);
 void PrintInstanceLayerProps();
 void PrintInstanceExtensionProps();
 void PrintQueueFamilyProps(const vk::PhysicalDevice& physical_device);
 
 // -----------------------------------------------------------------------------
-// ---------------------- ANativeWindow (Only for android) ---------------------
+// ----------------------------------- Window ----------------------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
-struct ANativeWinDeleter {
-    void operator()(ANativeWindow* ptr);
-};
-using UniqueANativeWindow = std::unique_ptr<ANativeWindow, ANativeWinDeleter>;
+// ------------------------- ANativeWindow for Android -------------------------
+using ANativeWindowPtr = std::shared_ptr<ANativeWindow>;
+using WindowPtr = ANativeWindowPtr;
+WindowPtr InitANativeWindow(JNIEnv* jenv, jobject jsurface);
 
-UniqueANativeWindow InitANativeWindow(JNIEnv* jenv, jobject jsurface);
-#endif
-
-// -----------------------------------------------------------------------------
-// -------------------------- GLFW (Only for desktop) --------------------------
-// -----------------------------------------------------------------------------
-#if !defined(__ANDROID__)
-struct GLFWWindowDeleter {
-    void operator()(GLFWwindow* ptr);
-};
-using UniqueGLFWWindow = std::unique_ptr<GLFWwindow, GLFWWindowDeleter>;
-
-UniqueGLFWWindow InitGLFWWindow(const std::string& win_name, uint32_t win_w,
-                                uint32_t win_h);
+#else
+// --------------------------- GLFWWindow for Desktop --------------------------
+using GLFWWindowPtr = std::shared_ptr<GLFWwindow>;
+using WindowPtr = GLFWWindowPtr;
+WindowPtr InitGLFWWindow(const std::string& win_name, uint32_t win_w,
+                         uint32_t win_h);
 #endif
 
 // -----------------------------------------------------------------------------
@@ -91,15 +83,8 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
-#if defined(__ANDROID__)
-// Android version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
-                                   const UniqueANativeWindow& window);
-#else
-// Desktop version
-vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
-                                   const UniqueGLFWWindow& window);
-#endif
+                                   const WindowPtr& window);
 
 vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
                             const vk::UniqueSurfaceKHR& surface);
@@ -152,7 +137,6 @@ using SwapchainPackPtr = std::shared_ptr<SwapchainPack>;
 SwapchainPackPtr CreateSwapchainPack(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueDevice& device, const vk::UniqueSurfaceKHR& surface,
-        uint32_t win_w = 0, uint32_t win_h = 0,
         const vk::Format& surface_format = vk::Format::eUndefined,
         const vk::ImageUsageFlags& usage =
                 vk::ImageUsageFlagBits::eColorAttachment);

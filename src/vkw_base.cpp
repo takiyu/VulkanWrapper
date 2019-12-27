@@ -15,9 +15,9 @@ END_VKW_SUPPRESS_WARNING
 // -----------------------------------------------------------------------------
 
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
-#include <set>
 
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -89,8 +89,9 @@ static std::vector<std::string> Split(const std::string &str, char del = '\n') {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 static bool IsVkDebugUtilsAvailable() {
+    const std::string DEBUG_UTIL_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
     for (auto &&prop : vk::enumerateInstanceExtensionProperties()) {
-        if (prop.extensionName == VK_EXT_DEBUG_UTILS_EXTENSION_NAME) {
+        if (prop.extensionName == DEBUG_UTIL_NAME) {
             return true;
         }
     }
@@ -114,11 +115,11 @@ static std::vector<char const *> GetEnabledLayers(bool debug_enable) {
 
     // Check layer name validities
     std::set<std::string> valid_names;
-    for (auto&& prop : vk::enumerateInstanceLayerProperties()) {
+    for (auto &&prop : vk::enumerateInstanceLayerProperties()) {
         valid_names.insert(prop.layerName);
     }
     std::vector<char const *> ret_names;
-    for (auto&& name : names) {
+    for (auto &&name : names) {
         if (valid_names.count(name)) {
             ret_names.push_back(name);
         } else {
@@ -130,7 +131,7 @@ static std::vector<char const *> GetEnabledLayers(bool debug_enable) {
 }
 
 static std::vector<char const *> GetEnabledExts(bool debug_enable,
-                                         bool surface_enable) {
+                                                bool surface_enable) {
     std::vector<char const *> enabled_exts;
 
     if (surface_enable) {
@@ -268,8 +269,7 @@ static void RegisterDebugCalback(const vk::UniqueInstance &instance) {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
-                                 const vk::UniqueSurfaceKHR &surface,
-                                 uint32_t win_w, uint32_t win_h) {
+                                 const vk::UniqueSurfaceKHR &surface) {
     // Get all capabilities
     const vk::SurfaceCapabilitiesKHR &surface_capas =
             physical_device.getSurfaceCapabilitiesKHR(surface.get());
@@ -278,6 +278,8 @@ static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
     VkExtent2D swapchain_extent = surface_capas.currentExtent;
     if (swapchain_extent.width == std::numeric_limits<uint32_t>::max()) {
         // If the surface size is undefined, setting screen size is requested.
+        const uint32_t win_w = 256;
+        const uint32_t win_h = 256;
         const auto &min_ex = surface_capas.minImageExtent;
         const auto &max_ex = surface_capas.maxImageExtent;
         swapchain_extent.width = Clamp(win_w, min_ex.width, max_ex.width);
@@ -567,43 +569,45 @@ void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
 }
 
 // -----------------------------------------------------------------------------
-// ---------------------- ANativeWindow (Only for android) ---------------------
+// ----------------------------------- Window ----------------------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
-void ANativeWinDeleter::operator()(ANativeWindow *ptr) {
+// ------------------------- ANativeWindow for Android -------------------------
+static void WindowDeleter(ANativeWindow *ptr) {
     ANativeWindow_release(ptr);
 }
 
-UniqueANativeWindow InitANativeWindow(JNIEnv *jenv, jobject jsurface) {
-    ANativeWindow *window = ANativeWindow_fromSurface(jenv, jsurface);
-    return UniqueANativeWindow(window);
+WindowPtr InitANativeWindow(JNIEnv *jenv, jobject jsurface) {
+    ANativeWindow *ptr = ANativeWindow_fromSurface(jenv, jsurface);
+    return WindowPtr(ptr, WindowDeleter);
 }
-#endif
 
-// -----------------------------------------------------------------------------
-// -------------------------- GLFW (Only for desktop) --------------------------
-// -----------------------------------------------------------------------------
-#if !defined(__ANDROID__)
-void GLFWWindowDeleter::operator()(GLFWwindow *ptr) {
+#else
+// --------------------------- GLFWWindow for Desktop --------------------------
+static void WindowDeleter(GLFWwindow *ptr) {
     glfwDestroyWindow(ptr);
 }
 
-UniqueGLFWWindow InitGLFWWindow(const std::string &win_name, uint32_t win_w,
-                                uint32_t win_h) {
+WindowPtr InitGLFWWindow(const std::string &win_name, uint32_t win_w,
+                         uint32_t win_h) {
     // Initialize GLFW
-    glfwInit();
-    atexit([]() { glfwTerminate(); });
+    static bool is_inited = false;
+    if (!is_inited) {
+        is_inited = true;
+        glfwInit();
+        atexit([]() { glfwTerminate(); });
+    }
 
     // Create GLFW window
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    UniqueGLFWWindow window(
+    GLFWwindow *ptr =
             glfwCreateWindow(static_cast<int>(win_w), static_cast<int>(win_h),
-                             win_name.c_str(), nullptr, nullptr));
+                             win_name.c_str(), nullptr, nullptr);
     if (!glfwVulkanSupported()) {
         throw std::runtime_error("No Vulkan support");
     }
-    return window;
+    return WindowPtr(ptr, WindowDeleter);
 }
 #endif
 
@@ -663,7 +667,7 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 #if defined(__ANDROID__)
 // Android version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
-                                   const UniqueANativeWindow &window) {
+                                   const WindowPtr &window) {
     // Create Android surface
     return instance->createAndroidSurfaceKHRUnique(
             {vk::AndroidSurfaceCreateFlagsKHR(), window.get()});
@@ -672,7 +676,7 @@ vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
 #else
 // Desktop version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
-                                   const UniqueGLFWWindow &window) {
+                                   const WindowPtr &window) {
     // Create a window surface (GLFW)
     VkSurfaceKHR s_raw = nullptr;
     VkResult err =
@@ -817,7 +821,6 @@ SemaphorePtr CreateSemaphore(const vk::UniqueDevice &device) {
 SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
                                      const vk::UniqueDevice &device,
                                      const vk::UniqueSurfaceKHR &surface,
-                                     uint32_t win_w, uint32_t win_h,
                                      const vk::Format &surface_format_,
                                      const vk::ImageUsageFlags &usage) {
     // Set swapchain present mode
@@ -829,7 +832,7 @@ SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
                                   surface_format_;
 
     // Select properties from capabilities
-    auto props = SelectSwapchainProps(physical_device, surface, win_w, win_h);
+    auto props = SelectSwapchainProps(physical_device, surface);
     const auto &swapchain_extent = std::get<0>(props);
     const auto &pre_trans = std::get<1>(props);
     const auto &composite_alpha = std::get<2>(props);

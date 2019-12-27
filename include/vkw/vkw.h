@@ -17,21 +17,12 @@ public:
     // Initialize without surface
     void init(const std::string& app_name, uint32_t app_version,
               uint32_t n_queues, bool debug_enable = true);
-#if defined(__ANDROID__)
-    // Initialize with Android surface
-    void init(const std::string& app_name, uint32_t app_version, JNIEnv* jenv,
-              jobject jsurface, uint32_t n_queues, bool debug_enable = true);
-#else
-    // Initialize with GLFW surface
-    void init(const std::string& app_name, uint32_t app_version, uint32_t win_w,
-              uint32_t win_h, uint32_t n_queues, bool debug_enable = true);
-#endif
+    // Initialize with surface
+    void init(const std::string& app_name, uint32_t app_version,
+              uint32_t n_queues, const vkw::WindowPtr& window,
+              bool debug_enable = true);
 
-#if defined(__ANDROID__)
-    const UniqueANativeWindow& getANativeWindow() const;
-#else
-    const UniqueGLFWWindow& getGLFWWindow() const;
-#endif
+    const WindowPtr& getWindow() const;
     const vk::UniqueInstance& getInstance() const;
     const vk::PhysicalDevice& getPhysicalDevice() const;
     const vk::UniqueDevice& getDevice() const;
@@ -45,21 +36,21 @@ public:
 private:
     GraphicsContext();
 
-#if defined(__ANDROID__)
-    UniqueANativeWindow m_anative_window;
-#else
-    UniqueGLFWWindow m_glfw_window;
-#endif
+    vkw::WindowPtr m_window;
     vk::UniqueInstance m_instance;
     vk::PhysicalDevice m_physical_device;
     vk::UniqueDevice m_device;
     vk::UniqueSurfaceKHR m_surface;
-    SwapchainPackPtr m_swapchain_pack;
+    vkw::SwapchainPackPtr m_swapchain_pack;
     std::vector<vk::Queue> m_queues;
 
     uint32_t m_queue_family_idx;
     vk::Format m_surface_format;
 };
+
+// -----------------------------------------------------------------------------
+// ----------------------------------- Image -----------------------------------
+// -----------------------------------------------------------------------------
 
 }  // namespace vkw
 

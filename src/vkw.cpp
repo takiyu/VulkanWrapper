@@ -8,6 +8,9 @@ namespace vkw {
 
 namespace {
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 const std::string ENGINE_NAME = "VKW";
 const uint32_t ENGINE_VERSION = 0;
 
@@ -62,8 +65,7 @@ auto InitWithoutDisplay(const std::string& app_name, uint32_t app_version,
 
 template <typename T>
 auto InitWithDisplay(const std::string& app_name, uint32_t app_version,
-                     uint32_t n_queues, bool debug_enable, const T& window,
-                     uint32_t win_w, uint32_t win_h) {
+                     uint32_t n_queues, bool debug_enable, const T& window) {
     const bool display_enable = true;
 
     // Create instance
@@ -86,7 +88,7 @@ auto InitWithDisplay(const std::string& app_name, uint32_t app_version,
 
     // Create swapchain
     vkw::SwapchainPackPtr swapchain_pack = vkw::CreateSwapchainPack(
-            physical_device, device, surface, win_w, win_h);
+            physical_device, device, surface);
 
     // Get queues
     std::vector<vk::Queue> queues;
@@ -100,6 +102,9 @@ auto InitWithDisplay(const std::string& app_name, uint32_t app_version,
                            std::move(swapchain_pack), std::move(queues),
                            queue_family_idx, surface_format);
 }
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 }  // namespace
 
@@ -120,45 +125,22 @@ void GraphicsContext::init(const std::string& app_name, uint32_t app_version,
             InitWithoutDisplay(app_name, app_version, n_queues, debug_enable);
 }
 
-#if defined(__ANDROID__)
 void GraphicsContext::init(const std::string& app_name, uint32_t app_version,
-                           JNIEnv* jenv, jobject jsurface, uint32_t n_queues,
+                           uint32_t n_queues, const vkw::WindowPtr& window,
                            bool debug_enable) {
-    // Create window
-    m_anative_window = vkw::InitANativeWindow(jenv, jsurface);
-    // Dummy window size
-    const uint32_t win_w = 256, win_h = 256;
+    // Set dependent variable
+    m_window = window;
+
     // Initialize with display environment
     std::tie(m_instance, m_physical_device, m_device, m_surface,
              m_swapchain_pack, m_queues, m_queue_family_idx, m_surface_format) =
             InitWithDisplay(app_name, app_version, n_queues, debug_enable,
-                            m_anative_window, win_w, win_h);
+                            window);
 }
 
-#else
-void GraphicsContext::init(const std::string& app_name, uint32_t app_version,
-                           uint32_t win_w, uint32_t win_h, uint32_t n_queues,
-                           bool debug_enable) {
-    // Create window
-    m_glfw_window = vkw::InitGLFWWindow(app_name, win_w, win_h);
-    // Initialize with display environment
-    std::tie(m_instance, m_physical_device, m_device, m_surface,
-             m_swapchain_pack, m_queues, m_queue_family_idx, m_surface_format) =
-            InitWithDisplay(app_name, app_version, n_queues, debug_enable,
-                            m_glfw_window, win_w, win_h);
+const WindowPtr& GraphicsContext::getWindow() const {
+    return m_window;
 }
-#endif
-
-#if defined(__ANDROID__)
-const UniqueANativeWindow& GraphicsContext::getANativeWindow() const {
-    return m_anative_window;
-}
-
-#else
-const UniqueGLFWWindow& GraphicsContext::getGLFWWindow() const {
-    return m_glfw_window;
-}
-#endif
 
 const vk::UniqueInstance& GraphicsContext::getInstance() const {
     return m_instance;
@@ -191,5 +173,9 @@ uint32_t GraphicsContext::getQueueFamilyIdx() const {
 vk::Format GraphicsContext::getSurfaceFormat() const {
     return m_surface_format;
 }
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 }  // namespace vkw

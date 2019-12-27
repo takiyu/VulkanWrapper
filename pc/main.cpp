@@ -109,14 +109,13 @@ int main(int argc, char const* argv[]) {
     const uint32_t n_queues = 2;
     const bool debug_enable = true;
 
-    auto context = vkw::GraphicsContext::Create();
-    context->init(app_name, app_version, win_w, win_h, n_queues, debug_enable);
+    vkw::WindowPtr window = vkw::InitGLFWWindow(app_name, win_w, win_h);
 
-    const auto& window = context->getGLFWWindow();
-    const auto& instance = context->getInstance();
+    auto context = vkw::GraphicsContext::Create();
+    context->init(app_name, app_version, n_queues, window, debug_enable);
+
     const auto& physical_device = context->getPhysicalDevice();
     const auto& device = context->getDevice();
-    const auto& surface = context->getSurface();
     const auto& swapchain_pack = context->getSwapchainPack();
     const auto& queues = context->getQueues();
     const auto& queue_family_idx = context->getQueueFamilyIdx();

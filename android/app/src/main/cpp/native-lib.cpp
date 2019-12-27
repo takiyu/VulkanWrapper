@@ -103,7 +103,7 @@ const std::vector<Vertex> CUBE_VERTICES = {
         {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
 };
 
-vkw::GraphicsContextPtr context = vkw::GraphicsContext::Create();
+vkw::WindowPtr window;
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -116,15 +116,16 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv
 
     const std::string app_name = "app name";
     const int app_version = 1;
-    uint32_t win_w = 600;
-    uint32_t win_h = 600;
     const uint32_t n_queues = 2;
     const bool debug_enable = true;
-    context->init(app_name, app_version, jenv, jsurface, n_queues, debug_enable);
 
+    window = vkw::InitANativeWindow(jenv, jsurface);
 
     std::thread thread([&]() {
-    const auto& window = context->getANativeWindow();
+
+    auto context = vkw::GraphicsContext::Create();
+    context->init(app_name, app_version, n_queues, window, debug_enable);
+
     const auto& instance = context->getInstance();
     const auto& physical_device = context->getPhysicalDevice();
     const auto& device = context->getDevice();
