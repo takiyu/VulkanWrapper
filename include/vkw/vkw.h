@@ -9,6 +9,8 @@ class GraphicsContext;
 using GraphicsContextPtr = std::shared_ptr<GraphicsContext>;
 class Image;
 using ImagePtr = std::shared_ptr<Image>;
+class Texture;
+using TexturePtr = std::shared_ptr<Texture>;
 class Buffer;
 using BufferPtr = std::shared_ptr<Buffer>;
 
@@ -73,7 +75,7 @@ private:
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
-class Image {
+class Image : public std::enable_shared_from_this<Image> {
 public:
     friend class GraphicsContext;
 
@@ -91,11 +93,35 @@ public:
         sendToDevice(&v, sizeof(T));
     }
 
+    TexturePtr createTexture(
+        const vk::Filter& mag_filter = vk::Filter::eLinear,
+        const vk::Filter& min_filter = vk::Filter::eLinear,
+        const vk::SamplerMipmapMode& mipmap = vk::SamplerMipmapMode::eLinear,
+        const vk::SamplerAddressMode& addr_u = vk::SamplerAddressMode::eRepeat,
+        const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
+        const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat);
+
 private:
     Image();
 
     vkw::GraphicsContextPtr m_context;
     vkw::ImagePackPtr m_img_pack;
+};
+
+// -----------------------------------------------------------------------------
+// ---------------------------------- Texture ----------------------------------
+// -----------------------------------------------------------------------------
+class Texture {
+public:
+    friend class Image;
+
+    const vkw::TexturePackPtr& getTexturePack() const;
+
+private:
+    Texture();
+
+    vkw::ImagePtr m_img;
+    vkw::TexturePackPtr m_tex_pack;
 };
 
 // -----------------------------------------------------------------------------

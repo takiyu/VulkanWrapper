@@ -128,13 +128,12 @@ int main(int argc, char const* argv[]) {
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img = context->createImage(
             depth_format, swapchain_pack->size,
-                               vk::ImageUsageFlagBits::eDepthStencilAttachment,
-                               vk::MemoryPropertyFlagBits::eDeviceLocal,
-                               vk::ImageAspectFlagBits::eDepth, true, false);
+            vk::ImageUsageFlagBits::eDepthStencilAttachment,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            vk::ImageAspectFlagBits::eDepth, true, false);
 
     auto uniform_buf = context->createBuffer(
-            sizeof(glm::mat4),
-            vk::BufferUsageFlagBits::eUniformBuffer,
+            sizeof(glm::mat4), vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
 
@@ -143,8 +142,7 @@ int main(int argc, char const* argv[]) {
             device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
                       vk::ShaderStageFlagBits::eVertex}});
 #else
-    auto tex_pack = vkw::CreateTexture(
-            vkw::CreateImage(physical_device, device), device);
+    auto tex = context->createImage()->createTexture();
     auto desc_set_pack = vkw::CreateDescriptorSet(
             device, {{vk::DescriptorType::eUniformBuffer, 1,
                       vk::ShaderStageFlagBits::eVertex},
@@ -156,7 +154,7 @@ int main(int argc, char const* argv[]) {
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
                          {uniform_buf->getBufferPack()});
 #if 0
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack});
+    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack->getTexturePack()});
 #endif
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 

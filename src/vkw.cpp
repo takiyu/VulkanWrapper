@@ -187,6 +187,32 @@ const vkw::ImagePackPtr& Image::getImagePack() const {
     return m_img_pack;
 }
 
+TexturePtr Image::createTexture(const vk::Filter& mag_filter,
+                                const vk::Filter& min_filter,
+                                const vk::SamplerMipmapMode& mipmap,
+                                const vk::SamplerAddressMode& addr_u,
+                                const vk::SamplerAddressMode& addr_v,
+                                const vk::SamplerAddressMode& addr_w) {
+    // Create result instance
+    auto tex = TexturePtr(new Texture);
+    // Set dependent variable
+    tex->m_img = shared_from_this();
+    // Create buffer pack
+    tex->m_tex_pack = vkw::CreateTexturePack(m_img_pack, m_context->getDevice(),
+                                             mag_filter, min_filter, mipmap,
+                                             addr_u, addr_v, addr_w);
+    return tex;
+}
+
+// -----------------------------------------------------------------------------
+// ---------------------------------- Texture ----------------------------------
+// -----------------------------------------------------------------------------
+Texture::Texture() {}
+
+const vkw::TexturePackPtr& Texture::getTexturePack() const {
+    return m_tex_pack;
+}
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
