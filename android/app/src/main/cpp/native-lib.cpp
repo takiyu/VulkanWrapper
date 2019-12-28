@@ -1,8 +1,6 @@
 #include <jni.h>
-
 #include <vkw/vkw.h>
 
-#include <string>
 #include <cstdlib>
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
@@ -11,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <thread>
 
 // vertex shader with (P)osition and (C)olor in and (C)olor out
@@ -105,12 +104,11 @@ const std::vector<Vertex> CUBE_VERTICES = {
 
 vkw::WindowPtr window;
 
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv, jclass jclazz,
-                                                                    jobject jsurface) {
+extern "C" JNIEXPORT void JNICALL
+Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(
+        JNIEnv* jenv, jclass jclazz, jobject jsurface) {
     if (jsurface == 0) {
-//         window.reset();
+        //         window.reset();
         return;
     }
 
@@ -122,122 +120,122 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv
     window = vkw::InitANativeWindow(jenv, jsurface);
 
     std::thread thread([&]() {
+        auto context = vkw::GraphicsContext::Create(
+                app_name, app_version, n_queues, window, debug_enable);
 
-    auto context = vkw::GraphicsContext::Create(app_name, app_version, n_queues,
-                                                window, debug_enable);
+        const auto& instance = context->getInstance();
+        const auto& physical_device = context->getPhysicalDevice();
+        const auto& device = context->getDevice();
+        const auto& surface = context->getSurface();
+        const auto& swapchain_pack = context->getSwapchainPack();
+        const auto& queues = context->getQueues();
+        const auto& queue_family_idx = context->getQueueFamilyIdx();
+        const auto& surface_format = context->getSurfaceFormat();
 
-    const auto& instance = context->getInstance();
-    const auto& physical_device = context->getPhysicalDevice();
-    const auto& device = context->getDevice();
-    const auto& surface = context->getSurface();
-    const auto& swapchain_pack = context->getSwapchainPack();
-    const auto& queues = context->getQueues();
-    const auto& queue_family_idx = context->getQueueFamilyIdx();
-    const auto& surface_format = context->getSurfaceFormat();
+        vkw::PrintInstanceLayerProps();
+        vkw::PrintInstanceExtensionProps();
+        vkw::PrintQueueFamilyProps(physical_device);
 
-    vkw::PrintInstanceLayerProps();
-    vkw::PrintInstanceExtensionProps();
-    vkw::PrintQueueFamilyProps(physical_device);
+        const auto depth_format = vk::Format::eD16Unorm;
+        auto depth_img_pack = vkw::CreateImagePack(
+                physical_device, device, depth_format, swapchain_pack->size,
+                vk::ImageUsageFlagBits::eDepthStencilAttachment,
+                vk::MemoryPropertyFlagBits::eDeviceLocal,
+                vk::ImageAspectFlagBits::eDepth, true, false);
 
-    const auto depth_format = vk::Format::eD16Unorm;
-    auto depth_img_pack = vkw::CreateImagePack(
-            physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            vk::ImageAspectFlagBits::eDepth, true, false);
-
-    auto uniform_buf_pack = vkw::CreateBufferPack(
-            physical_device, device, sizeof(glm::mat4),
-            vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent);
+        auto uniform_buf_pack = vkw::CreateBufferPack(
+                physical_device, device, sizeof(glm::mat4),
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible |
+                        vk::MemoryPropertyFlagBits::eHostCoherent);
 
 #if 1
-    auto desc_set_pack = vkw::CreateDescriptorSetPack(
-            device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
-                      vk::ShaderStageFlagBits::eVertex}});
+        auto desc_set_pack = vkw::CreateDescriptorSetPack(
+                device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
+                          vk::ShaderStageFlagBits::eVertex}});
 #else
-    auto tex_pack = vkw::CreateTexture(
-            vkw::CreateImage(physical_device, device), device);
-    auto desc_set_pack = vkw::CreateDescriptorSet(
-            device, {{vk::DescriptorType::eUniformBuffer, 1,
-                      vk::ShaderStageFlagBits::eVertex},
-                     {vk::DescriptorType::eCombinedImageSampler, 1,
-                      vk::ShaderStageFlagBits::eVertex}});
+        auto tex_pack = vkw::CreateTexture(
+                vkw::CreateImage(physical_device, device), device);
+        auto desc_set_pack = vkw::CreateDescriptorSet(
+                device, {{vk::DescriptorType::eUniformBuffer, 1,
+                          vk::ShaderStageFlagBits::eVertex},
+                         {vk::DescriptorType::eCombinedImageSampler, 1,
+                          vk::ShaderStageFlagBits::eVertex}});
 #endif
 
-    auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
-                         {uniform_buf_pack});
+        auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
+        vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
+                             {uniform_buf_pack});
 #if 0
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack});
 #endif
-    vkw::UpdateDescriptorSets(device, write_desc_set_pack);
+        vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
-    auto render_pass_pack = vkw::CreateRenderPassPack();
-    vkw::AddAttachientDesc(
-            render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
-    vkw::AddAttachientDesc(render_pass_pack, depth_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        auto render_pass_pack = vkw::CreateRenderPassPack();
+        vkw::AddAttachientDesc(
+                render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
+                vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+        vkw::AddAttachientDesc(render_pass_pack, depth_format,
+                               vk::AttachmentLoadOp::eClear,
+                               vk::AttachmentStoreOp::eDontCare,
+                               vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-    vkw::AddSubpassDesc(render_pass_pack,
-                        {
-                                // No input attachments
-                        },
-                        {
-                                {0, vk::ImageLayout::eColorAttachmentOptimal},
-                        },
-                        {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
-    vkw::UpdateRenderPass(device, render_pass_pack);
+        vkw::AddSubpassDesc(
+                render_pass_pack,
+                {
+                        // No input attachments
+                },
+                {
+                        {0, vk::ImageLayout::eColorAttachmentOptimal},
+                },
+                {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+        vkw::UpdateRenderPass(device, render_pass_pack);
 
-    auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
-                                                      {nullptr, depth_img_pack},
-                                                      0, swapchain_pack);
+        auto frame_buffer_packs = vkw::CreateFrameBuffers(
+                device, render_pass_pack, {nullptr, depth_img_pack}, 0,
+                swapchain_pack);
 
-    vkw::GLSLCompiler glsl_compiler;
-    auto vert_shader_module_pack = glsl_compiler.compileFromString(
-            device, VERT_SOURCE, vk::ShaderStageFlagBits::eVertex);
-    auto frag_shader_module_pack = glsl_compiler.compileFromString(
-            device, FRAG_SOURCE, vk::ShaderStageFlagBits::eFragment);
+        vkw::GLSLCompiler glsl_compiler;
+        auto vert_shader_module_pack = glsl_compiler.compileFromString(
+                device, VERT_SOURCE, vk::ShaderStageFlagBits::eVertex);
+        auto frag_shader_module_pack = glsl_compiler.compileFromString(
+                device, FRAG_SOURCE, vk::ShaderStageFlagBits::eFragment);
 
-    const size_t vertex_buf_size = CUBE_VERTICES.size() * sizeof(Vertex);
-    auto vertex_buf_pack = vkw::CreateBufferPack(
-            physical_device, device, vertex_buf_size,
-            vk::BufferUsageFlagBits::eVertexBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent);
-    vkw::SendToDevice(device, vertex_buf_pack, CUBE_VERTICES.data(),
-                      vertex_buf_size);
+        const size_t vertex_buf_size = CUBE_VERTICES.size() * sizeof(Vertex);
+        auto vertex_buf_pack = vkw::CreateBufferPack(
+                physical_device, device, vertex_buf_size,
+                vk::BufferUsageFlagBits::eVertexBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible |
+                        vk::MemoryPropertyFlagBits::eHostCoherent);
+        vkw::SendToDevice(device, vertex_buf_pack, CUBE_VERTICES.data(),
+                          vertex_buf_size);
 
-    vkw::PipelineInfo pipeline_info;
-    pipeline_info.color_blend_infos.resize(1);
-    auto pipeline_pack = vkw::CreatePipeline(
-            device, {vert_shader_module_pack, frag_shader_module_pack},
-            {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
-            {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
-             {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
-            pipeline_info, {desc_set_pack}, render_pass_pack);
+        vkw::PipelineInfo pipeline_info;
+        pipeline_info.color_blend_infos.resize(1);
+        auto pipeline_pack = vkw::CreatePipeline(
+                device, {vert_shader_module_pack, frag_shader_module_pack},
+                {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
+                {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
+                 {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
+                pipeline_info, {desc_set_pack}, render_pass_pack);
 
-    const uint32_t n_cmd_bufs = 1;
-    auto cmd_bufs_pack =
-            vkw::CreateCommandBuffersPack(device, queue_family_idx, n_cmd_bufs);
-    auto &cmd_buf = cmd_bufs_pack->cmd_bufs[0];
+        const uint32_t n_cmd_bufs = 1;
+        auto cmd_bufs_pack = vkw::CreateCommandBuffersPack(
+                device, queue_family_idx, n_cmd_bufs);
+        auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
-    // ------------------
-    const glm::mat4 model_mat = glm::mat4(1.0f);
-    const glm::mat4 view_mat = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f),
-                                           glm::vec3(0.0f, 0.0f, 0.0f),
-                                           glm::vec3(0.0f, -1.0f, 0.0f));
-    const glm::mat4 proj_mat =
-            glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-    // vulkan clip space has inverted y and half z !
-    const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
-                                0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
-                                0.0f, 0.0f, 0.5f, 1.0f};
-    glm::mat4 rot_mat(1.f);
+        // ------------------
+        const glm::mat4 model_mat = glm::mat4(1.0f);
+        const glm::mat4 view_mat = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f),
+                                               glm::vec3(0.0f, 0.0f, 0.0f),
+                                               glm::vec3(0.0f, -1.0f, 0.0f));
+        const glm::mat4 proj_mat =
+                glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+        // vulkan clip space has inverted y and half z !
+        const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
+                                    0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
+                                    0.0f, 0.0f, 0.5f, 1.0f};
+        glm::mat4 rot_mat(1.f);
 
         while (true) {
             rot_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 0.f)) * rot_mat;
@@ -284,10 +282,11 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv
 
             auto draw_fence = vkw::CreateFence(device);
 
-            vkw::QueueSubmit(queues[0], cmd_buf, draw_fence,
-                             {{img_acquired_semaphore,
-                               vk::PipelineStageFlagBits::eColorAttachmentOutput}},
-                             {});
+            vkw::QueueSubmit(
+                    queues[0], cmd_buf, draw_fence,
+                    {{img_acquired_semaphore,
+                      vk::PipelineStageFlagBits::eColorAttachmentOutput}},
+                    {});
 
             vkw::QueuePresent(queues[1], swapchain_pack, curr_img_idx);
 
@@ -296,5 +295,4 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(JNIEnv *jenv
     });
 
     thread.detach();
-
 }

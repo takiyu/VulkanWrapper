@@ -29,79 +29,6 @@ vk::PhysicalDevice GetFirstPhysicalDevice(const vk::UniqueInstance& instance) {
     }
     return physical_devices.front();
 }
-
-auto InitWithoutDisplay(const std::string& app_name, uint32_t app_version,
-                        uint32_t n_queues, bool debug_enable) {
-    const bool display_enable = false;
-
-    // Create instance
-    vk::UniqueInstance instance =
-            vkw::CreateInstance(app_name, app_version, ENGINE_NAME,
-                                ENGINE_VERSION, debug_enable, display_enable);
-    // Get a physical_device
-    vk::PhysicalDevice physical_device = GetFirstPhysicalDevice(instance);
-
-    // Select queue family
-    auto queue_family_idxs = GetQueueFamilyIdxs(physical_device);
-    if (queue_family_idxs.empty()) {
-        throw std::runtime_error("No sufficient queue for graphics");
-    }
-    const uint32_t queue_family_idx = queue_family_idxs.front();
-    // Create device
-    vk::UniqueDevice device = vkw::CreateDevice(
-            queue_family_idx, physical_device, n_queues, display_enable);
-
-    // Get queues
-    std::vector<vk::Queue> queues;
-    queues.reserve(n_queues);
-    for (uint32_t i = 0; i < n_queues; i++) {
-        queues.push_back(vkw::GetQueue(device, queue_family_idx, i));
-    }
-
-    return std::make_tuple(std::move(instance), physical_device,
-                           std::move(device), std::move(queues),
-                           queue_family_idx);
-}
-
-template <typename T>
-auto InitWithDisplay(const std::string& app_name, uint32_t app_version,
-                     uint32_t n_queues, bool debug_enable, const T& window) {
-    const bool display_enable = true;
-
-    // Create instance
-    vk::UniqueInstance instance =
-            vkw::CreateInstance(app_name, app_version, ENGINE_NAME,
-                                ENGINE_VERSION, debug_enable, display_enable);
-    // Get a physical_device
-    vk::PhysicalDevice physical_device = GetFirstPhysicalDevice(instance);
-
-    // Create surface
-    vk::UniqueSurfaceKHR surface = vkw::CreateSurface(instance, window);
-    vk::Format surface_format = vkw::GetSurfaceFormat(physical_device, surface);
-
-    // Select queue family
-    const uint32_t queue_family_idx =
-            vkw::GetGraphicPresentQueueFamilyIdx(physical_device, surface);
-    // Create device
-    vk::UniqueDevice device = vkw::CreateDevice(
-            queue_family_idx, physical_device, n_queues, display_enable);
-
-    // Create swapchain
-    vkw::SwapchainPackPtr swapchain_pack =
-            vkw::CreateSwapchainPack(physical_device, device, surface);
-
-    // Get queues
-    std::vector<vk::Queue> queues;
-    queues.reserve(n_queues);
-    for (uint32_t i = 0; i < n_queues; i++) {
-        queues.push_back(vkw::GetQueue(device, queue_family_idx, i));
-    }
-
-    return std::make_tuple(std::move(instance), physical_device,
-                           std::move(device), std::move(surface),
-                           std::move(swapchain_pack), std::move(queues),
-                           queue_family_idx, surface_format);
-}
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -115,23 +42,71 @@ GraphicsContext::GraphicsContext(const std::string& app_name,
                                  uint32_t app_version, uint32_t n_queues,
                                  bool debug_enable) {
     // Initialize with display environment
-    std::tie(m_instance, m_physical_device, m_device, m_queues,
-             m_queue_family_idx) =
-            InitWithoutDisplay(app_name, app_version, n_queues, debug_enable);
+    const bool display_enable = false;
+
+    // Create instance
+    m_instance =
+            vkw::CreateInstance(app_name, app_version, ENGINE_NAME,
+                                ENGINE_VERSION, debug_enable, display_enable);
+    // Get a physical_device
+    m_physical_device = GetFirstPhysicalDevice(m_instance);
+
+    // Select queue family
+    auto queue_family_idxs = GetQueueFamilyIdxs(m_physical_device);
+    if (queue_family_idxs.empty()) {
+        throw std::runtime_error("No sufficient queue for graphics");
+    }
+    m_queue_family_idx = queue_family_idxs.front();
+    // Create device
+    m_device = vkw::CreateDevice(m_queue_family_idx, m_physical_device,
+                                 n_queues, display_enable);
+
+    // Get queues
+    m_queues.clear();
+    m_queues.reserve(n_queues);
+    for (uint32_t i = 0; i < n_queues; i++) {
+        m_queues.push_back(vkw::GetQueue(m_device, m_queue_family_idx, i));
+    }
 }
 
 GraphicsContext::GraphicsContext(const std::string& app_name,
                                  uint32_t app_version, uint32_t n_queues,
                                  const vkw::WindowPtr& window,
                                  bool debug_enable) {
+    // Initialize with display environment
+    const bool display_enable = true;
+
     // Set dependent variable
     m_window = window;
 
-    // Initialize with display environment
-    std::tie(m_instance, m_physical_device, m_device, m_surface,
-             m_swapchain_pack, m_queues, m_queue_family_idx, m_surface_format) =
-            InitWithDisplay(app_name, app_version, n_queues, debug_enable,
-                            window);
+    // Create instance
+    m_instance =
+            vkw::CreateInstance(app_name, app_version, ENGINE_NAME,
+                                ENGINE_VERSION, debug_enable, display_enable);
+    // Get a physical_device
+    m_physical_device = GetFirstPhysicalDevice(m_instance);
+
+    // Create surface
+    m_surface = vkw::CreateSurface(m_instance, m_window);
+    m_surface_format = vkw::GetSurfaceFormat(m_physical_device, m_surface);
+
+    // Select queue family
+    m_queue_family_idx =
+            vkw::GetGraphicPresentQueueFamilyIdx(m_physical_device, m_surface);
+    // Create device
+    m_device = vkw::CreateDevice(m_queue_family_idx, m_physical_device,
+                                 n_queues, display_enable);
+
+    // Create swapchain
+    m_swapchain_pack =
+            vkw::CreateSwapchainPack(m_physical_device, m_device, m_surface);
+
+    // Get queues
+    m_queues.clear();
+    m_queues.reserve(n_queues);
+    for (uint32_t i = 0; i < n_queues; i++) {
+        m_queues.push_back(vkw::GetQueue(m_device, m_queue_family_idx, i));
+    }
 }
 
 const WindowPtr& GraphicsContext::getWindow() const {
@@ -168,6 +143,31 @@ uint32_t GraphicsContext::getQueueFamilyIdx() const {
 
 vk::Format GraphicsContext::getSurfaceFormat() const {
     return m_surface_format;
+}
+
+// -----------------------------------------------------------------------------
+// ----------------------------------- Image -----------------------------------
+// -----------------------------------------------------------------------------
+Image::Image(const GraphicsContextPtr& context, const vk::Format& format,
+             const vk::Extent2D& size, const vk::ImageUsageFlags& usage,
+             const vk::MemoryPropertyFlags& memory_props,
+             const vk::ImageAspectFlags& aspects, bool is_staging,
+             bool is_shared) {
+    // Set dependent variable
+    m_context = context;
+
+    // Create image pack
+    m_img_pack = vkw::CreateImagePack(
+            m_context->getPhysicalDevice(), m_context->getDevice(), format,
+            size, usage, memory_props, aspects, is_staging, is_shared);
+}
+
+void Image::sendToDevice(const void* data, uint64_t n_bytes) {
+    SendToDevice(m_context->getDevice(), m_img_pack, data, n_bytes);
+}
+
+const vkw::ImagePackPtr& Image::getImagePack() const {
+    return m_img_pack;
 }
 
 // -----------------------------------------------------------------------------

@@ -56,8 +56,40 @@ class Image;
 using ImagePtr = std::shared_ptr<Image>;
 class Image {
 public:
+    template <typename... Args>
+    static auto Create(const Args&... args) {
+        return ImagePtr(new Image(args...));
+    }
+
+    template <typename T>
+    void sendToDevice(const std::vector<T>& data);
+    void sendToDevice(const void* data, uint64_t n_bytes);
+
+    const vkw::ImagePackPtr& getImagePack() const;
+
 private:
+    Image(const GraphicsContextPtr& context,
+          const vk::Format& format = vk::Format::eR8G8B8A8Uint,
+          const vk::Extent2D& size = {256, 256},
+          const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
+          const vk::MemoryPropertyFlags& memory_props =
+                  vk::MemoryPropertyFlagBits::eDeviceLocal,
+          const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
+          bool is_staging = false, bool is_shared = false);
+
+    vkw::GraphicsContextPtr m_context;
+    vkw::ImagePackPtr m_img_pack;
 };
+
+// ------------------------------- Implementation ------------------------------
+template <typename T>
+void Image::sendToDevice(const std::vector<T>& data) {
+    sendToDevice(data.data(), data.size() * sizeof(T));
+}
+
+// -----------------------------------------------------------------------------
+// ----------------------------------- Buffer ----------------------------------
+// -----------------------------------------------------------------------------
 
 }  // namespace vkw
 

@@ -103,7 +103,7 @@ int main(int argc, char const* argv[]) {
     (void)argc, (void)argv;
 
     const std::string app_name = "app name";
-    const int app_version = 1;
+    const uint32_t app_version = 1;
     uint32_t win_w = 600;
     uint32_t win_h = 600;
     const uint32_t n_queues = 2;
@@ -126,11 +126,11 @@ int main(int argc, char const* argv[]) {
     vkw::PrintQueueFamilyProps(physical_device);
 
     const auto depth_format = vk::Format::eD16Unorm;
-    auto depth_img_pack = vkw::CreateImagePack(
-            physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            vk::ImageAspectFlagBits::eDepth, true, false);
+    auto depth_img =
+            vkw::Image::Create(context, depth_format, swapchain_pack->size,
+                               vk::ImageUsageFlagBits::eDepthStencilAttachment,
+                               vk::MemoryPropertyFlagBits::eDeviceLocal,
+                               vk::ImageAspectFlagBits::eDepth, true, false);
 
     auto uniform_buf_pack = vkw::CreateBufferPack(
             physical_device, device, sizeof(glm::mat4),
@@ -179,9 +179,9 @@ int main(int argc, char const* argv[]) {
                         {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
     vkw::UpdateRenderPass(device, render_pass_pack);
 
-    auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
-                                                      {nullptr, depth_img_pack},
-                                                      0, swapchain_pack);
+    auto frame_buffer_packs = vkw::CreateFrameBuffers(
+            device, render_pass_pack, {nullptr, depth_img->getImagePack()}, 0,
+            swapchain_pack);
 
     vkw::GLSLCompiler glsl_compiler;
     auto vert_shader_module_pack = glsl_compiler.compileFromString(
