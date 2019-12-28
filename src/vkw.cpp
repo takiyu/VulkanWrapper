@@ -145,22 +145,39 @@ vk::Format GraphicsContext::getSurfaceFormat() const {
     return m_surface_format;
 }
 
+ImagePtr GraphicsContext::createImage(
+        const vk::Format& format, const vk::Extent2D& size,
+        const vk::ImageUsageFlags& usage,
+        const vk::MemoryPropertyFlags& memory_props,
+        const vk::ImageAspectFlags& aspects, bool is_staging, bool is_shared) {
+    // Create result instance
+    auto img = ImagePtr(new Image);
+    // Set dependent variable
+    img->m_context = shared_from_this();
+    // Create image pack
+    img->m_img_pack = vkw::CreateImagePack(m_physical_device, m_device, format,
+                                           size, usage, memory_props, aspects,
+                                           is_staging, is_shared);
+    return img;
+}
+
+BufferPtr GraphicsContext::createBuffer(
+        const vk::DeviceSize& size, const vk::BufferUsageFlags& usage,
+        const vk::MemoryPropertyFlags& memory_props) {
+    // Create result instance
+    auto buf = BufferPtr(new Buffer);
+    // Set dependent variable
+    buf->m_context = shared_from_this();
+    // Create buffer pack
+    buf->m_buf_pack = vkw::CreateBufferPack(m_physical_device, m_device, size,
+                                            usage, memory_props);
+    return buf;
+}
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
-Image::Image(const GraphicsContextPtr& context, const vk::Format& format,
-             const vk::Extent2D& size, const vk::ImageUsageFlags& usage,
-             const vk::MemoryPropertyFlags& memory_props,
-             const vk::ImageAspectFlags& aspects, bool is_staging,
-             bool is_shared) {
-    // Set dependent variable
-    m_context = context;
-
-    // Create image pack
-    m_img_pack = vkw::CreateImagePack(
-            m_context->getPhysicalDevice(), m_context->getDevice(), format,
-            size, usage, memory_props, aspects, is_staging, is_shared);
-}
+Image::Image() {}
 
 void Image::sendToDevice(const void* data, uint64_t n_bytes) {
     SendToDevice(m_context->getDevice(), m_img_pack, data, n_bytes);
@@ -168,6 +185,19 @@ void Image::sendToDevice(const void* data, uint64_t n_bytes) {
 
 const vkw::ImagePackPtr& Image::getImagePack() const {
     return m_img_pack;
+}
+
+// -----------------------------------------------------------------------------
+// ----------------------------------- Buffer ----------------------------------
+// -----------------------------------------------------------------------------
+Buffer::Buffer() {}
+
+void Buffer::sendToDevice(const void* data, uint64_t n_bytes) {
+    SendToDevice(m_context->getDevice(), m_buf_pack, data, n_bytes);
+}
+
+const vkw::BufferPackPtr& Buffer::getBufferPack() const {
+    return m_buf_pack;
 }
 
 // -----------------------------------------------------------------------------

@@ -126,14 +126,14 @@ int main(int argc, char const* argv[]) {
     vkw::PrintQueueFamilyProps(physical_device);
 
     const auto depth_format = vk::Format::eD16Unorm;
-    auto depth_img =
-            vkw::Image::Create(context, depth_format, swapchain_pack->size,
+    auto depth_img = context->createImage(
+            depth_format, swapchain_pack->size,
                                vk::ImageUsageFlagBits::eDepthStencilAttachment,
                                vk::MemoryPropertyFlagBits::eDeviceLocal,
                                vk::ImageAspectFlagBits::eDepth, true, false);
 
-    auto uniform_buf_pack = vkw::CreateBufferPack(
-            physical_device, device, sizeof(glm::mat4),
+    auto uniform_buf = context->createBuffer(
+            sizeof(glm::mat4),
             vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
@@ -154,7 +154,7 @@ int main(int argc, char const* argv[]) {
 
     auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
-                         {uniform_buf_pack});
+                         {uniform_buf->getBufferPack()});
 #if 0
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack});
 #endif
@@ -228,8 +228,7 @@ int main(int argc, char const* argv[]) {
         rot_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 0.f)) * rot_mat;
         glm::mat4 mvpc_mat =
                 clip_mat * proj_mat * view_mat * rot_mat * model_mat;
-        vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
-                          sizeof(mvpc_mat));
+        uniform_buf->sendToDevice(mvpc_mat);
 
         vkw::ResetCommand(cmd_buf);
 

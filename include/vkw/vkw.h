@@ -5,12 +5,17 @@
 
 namespace vkw {
 
+class GraphicsContext;
+using GraphicsContextPtr = std::shared_ptr<GraphicsContext>;
+class Image;
+using ImagePtr = std::shared_ptr<Image>;
+class Buffer;
+using BufferPtr = std::shared_ptr<Buffer>;
+
 // -----------------------------------------------------------------------------
 // ------------------------------ Graphics Context -----------------------------
 // -----------------------------------------------------------------------------
-class GraphicsContext;
-using GraphicsContextPtr = std::shared_ptr<GraphicsContext>;
-class GraphicsContext {
+class GraphicsContext : public std::enable_shared_from_this<GraphicsContext> {
 public:
     template <typename... Args>
     static auto Create(const Args&... args) {
@@ -27,6 +32,22 @@ public:
 
     uint32_t getQueueFamilyIdx() const;
     vk::Format getSurfaceFormat() const;
+
+    ImagePtr createImage(
+            const vk::Format& format = vk::Format::eR8G8B8A8Uint,
+            const vk::Extent2D& size = {256, 256},
+            const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
+            const vk::MemoryPropertyFlags& memory_props =
+                    vk::MemoryPropertyFlagBits::eDeviceLocal,
+            const vk::ImageAspectFlags& aspects =
+                    vk::ImageAspectFlagBits::eColor,
+            bool is_staging = false, bool is_shared = false);
+
+    BufferPtr createBuffer(const vk::DeviceSize& size = 256,
+                           const vk::BufferUsageFlags& usage =
+                                   vk::BufferUsageFlagBits::eVertexBuffer,
+                           const vk::MemoryPropertyFlags& memory_props =
+                                   vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 private:
     // Initialize without surface
@@ -52,44 +73,58 @@ private:
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
-class Image;
-using ImagePtr = std::shared_ptr<Image>;
 class Image {
 public:
-    template <typename... Args>
-    static auto Create(const Args&... args) {
-        return ImagePtr(new Image(args...));
-    }
-
-    template <typename T>
-    void sendToDevice(const std::vector<T>& data);
-    void sendToDevice(const void* data, uint64_t n_bytes);
+    friend class GraphicsContext;
 
     const vkw::ImagePackPtr& getImagePack() const;
 
+    void sendToDevice(const void* data, uint64_t n_bytes);
+
+    template <typename T>
+    void sendToDevice(const std::vector<T>& vec) {
+        sendToDevice(vec.data(), vec.size() * sizeof(T));
+    }
+
+    template <typename T>
+    void sendToDevice(const T& v) {
+        sendToDevice(&v, sizeof(T));
+    }
+
 private:
-    Image(const GraphicsContextPtr& context,
-          const vk::Format& format = vk::Format::eR8G8B8A8Uint,
-          const vk::Extent2D& size = {256, 256},
-          const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
-          const vk::MemoryPropertyFlags& memory_props =
-                  vk::MemoryPropertyFlagBits::eDeviceLocal,
-          const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
-          bool is_staging = false, bool is_shared = false);
+    Image();
 
     vkw::GraphicsContextPtr m_context;
     vkw::ImagePackPtr m_img_pack;
 };
 
-// ------------------------------- Implementation ------------------------------
-template <typename T>
-void Image::sendToDevice(const std::vector<T>& data) {
-    sendToDevice(data.data(), data.size() * sizeof(T));
-}
-
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
+class Buffer {
+public:
+    friend class GraphicsContext;
+
+    const vkw::BufferPackPtr& getBufferPack() const;
+
+    void sendToDevice(const void* data, uint64_t n_bytes);
+
+    template <typename T>
+    void sendToDevice(const std::vector<T>& vec) {
+        sendToDevice(vec.data(), vec.size() * sizeof(T));
+    }
+
+    template <typename T>
+    void sendToDevice(const T& v) {
+        sendToDevice(&v, sizeof(T));
+    }
+
+private:
+    Buffer();
+
+    vkw::GraphicsContextPtr m_context;
+    vkw::BufferPackPtr m_buf_pack;
+};
 
 }  // namespace vkw
 
