@@ -3,4 +3,7 @@
 *.swn
 *.swm
 
+.metadata
+.ccls-cache
+
 build

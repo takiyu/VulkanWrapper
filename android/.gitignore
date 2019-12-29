@@ -12,3 +12,6 @@
 /captures
 .externalNativeBuild
 .cxx
+/app/workspace
+/app/.project
+/app/.settings

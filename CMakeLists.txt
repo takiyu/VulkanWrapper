@@ -159,6 +159,9 @@ endif()
 # ---------------------------------- Examples ----------------------------------
 # ------------------------------------------------------------------------------
 if (VKW_BUILD_EXAMPLES)
+    set(EXAMPLE_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/example/01_rotate_box/app.cpp)
+
     if (ANDROID)
         # ----------------------------------------------------------------------
         # --------------------------------- PC ---------------------------------
@@ -169,6 +172,7 @@ if (VKW_BUILD_EXAMPLES)
 
         # Android example
         add_library(native-lib SHARED
+            ${EXAMPLE_SOURCES}
             ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/cpp/native-lib.cpp)
         setup_target(native-lib "${VKW_INCLUDE}" "${VKW_LIBRARY}")
     else()
@@ -176,7 +180,9 @@ if (VKW_BUILD_EXAMPLES)
         # ------------------------------ Android -------------------------------
         # ----------------------------------------------------------------------
         # PC example
-        add_executable(main ${CMAKE_CURRENT_SOURCE_DIR}/pc/main.cpp)
+        add_executable(main
+            ${EXAMPLE_SOURCES}
+            ${CMAKE_CURRENT_SOURCE_DIR}/pc/main.cpp)
         setup_target(main "${VKW_INCLUDE}" "${VKW_LIBRARY}")
     endif()
 endif()
