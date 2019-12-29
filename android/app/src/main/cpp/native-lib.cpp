@@ -114,23 +114,45 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(
 
     const std::string app_name = "app name";
     const int app_version = 1;
+    const std::string ENGINE_NAME = "VKW";
+    const uint32_t ENGINE_VERSION = 0;
     const uint32_t n_queues = 2;
     const bool debug_enable = true;
 
     window = vkw::InitANativeWindow(jenv, jsurface);
 
     std::thread thread([&]() {
-        auto context = vkw::GraphicsContext::Create(
-                app_name, app_version, n_queues, window, debug_enable);
+        // Initialize with display environment
+        const bool display_enable = true;
 
-        const auto& instance = context->getInstance();
-        const auto& physical_device = context->getPhysicalDevice();
-        const auto& device = context->getDevice();
-        const auto& surface = context->getSurface();
-        const auto& swapchain_pack = context->getSwapchainPack();
-        const auto& queues = context->getQueues();
-        const auto& queue_family_idx = context->getQueueFamilyIdx();
-        const auto& surface_format = context->getSurfaceFormat();
+        // Create instance
+        auto instance = vkw::CreateInstance(app_name, app_version, ENGINE_NAME,
+                                            ENGINE_VERSION, debug_enable,
+                                            display_enable);
+        // Get a physical_device
+        auto physical_device = vkw::GetFirstPhysicalDevice(instance);
+
+        // Create surface
+        auto surface = vkw::CreateSurface(instance, window);
+        auto surface_format = vkw::GetSurfaceFormat(physical_device, surface);
+
+        // Select queue family
+        uint32_t queue_family_idx =
+                vkw::GetGraphicPresentQueueFamilyIdx(physical_device, surface);
+        // Create device
+        auto device = vkw::CreateDevice(queue_family_idx, physical_device,
+                                        n_queues, display_enable);
+
+        // Create swapchain
+        auto swapchain_pack =
+                vkw::CreateSwapchainPack(physical_device, device, surface);
+
+        // Get queues
+        std::vector<vk::Queue> queues;
+        queues.reserve(n_queues);
+        for (uint32_t i = 0; i < n_queues; i++) {
+            queues.push_back(vkw::GetQueue(device, queue_family_idx, i));
+        }
 
         vkw::PrintInstanceLayerProps();
         vkw::PrintInstanceExtensionProps();

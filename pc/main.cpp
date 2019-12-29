@@ -104,36 +104,61 @@ int main(int argc, char const* argv[]) {
 
     const std::string app_name = "app name";
     const uint32_t app_version = 1;
+    const std::string ENGINE_NAME = "VKW";
+    const uint32_t ENGINE_VERSION = 0;
     uint32_t win_w = 600;
     uint32_t win_h = 600;
     const uint32_t n_queues = 2;
     const bool debug_enable = true;
 
-    vkw::WindowPtr window = vkw::InitGLFWWindow(app_name, win_w, win_h);
+    auto window = vkw::InitGLFWWindow(app_name, win_w, win_h);
 
-    auto context = vkw::GraphicsContext::Create(app_name, app_version, n_queues,
-                                                window, debug_enable);
+    // Initialize with display environment
+    const bool display_enable = true;
 
-    const auto& physical_device = context->getPhysicalDevice();
-    const auto& device = context->getDevice();
-    const auto& swapchain_pack = context->getSwapchainPack();
-    const auto& queues = context->getQueues();
-    const auto& queue_family_idx = context->getQueueFamilyIdx();
-    const auto& surface_format = context->getSurfaceFormat();
+    // Create instance
+    auto instance =
+            vkw::CreateInstance(app_name, app_version, ENGINE_NAME,
+                                ENGINE_VERSION, debug_enable, display_enable);
+    // Get a physical_device
+    auto physical_device = vkw::GetFirstPhysicalDevice(instance);
+
+    // Create surface
+    auto surface = vkw::CreateSurface(instance, window);
+    auto surface_format = vkw::GetSurfaceFormat(physical_device, surface);
+
+    // Select queue family
+    uint32_t queue_family_idx =
+            vkw::GetGraphicPresentQueueFamilyIdx(physical_device, surface);
+    // Create device
+    auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
+                                    display_enable);
+
+    // Create swapchain
+    auto swapchain_pack =
+            vkw::CreateSwapchainPack(physical_device, device, surface);
+
+    // Get queues
+    std::vector<vk::Queue> queues;
+    queues.reserve(n_queues);
+    for (uint32_t i = 0; i < n_queues; i++) {
+        queues.push_back(vkw::GetQueue(device, queue_family_idx, i));
+    }
 
     vkw::PrintInstanceLayerProps();
     vkw::PrintInstanceExtensionProps();
     vkw::PrintQueueFamilyProps(physical_device);
 
     const auto depth_format = vk::Format::eD16Unorm;
-    auto depth_img = context->createImage(
-            depth_format, swapchain_pack->size,
+    auto depth_img_pack = vkw::CreateImagePack(
+            physical_device, device, depth_format, swapchain_pack->size,
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
             vk::MemoryPropertyFlagBits::eDeviceLocal,
             vk::ImageAspectFlagBits::eDepth, true, false);
 
-    auto uniform_buf = context->createBuffer(
-            sizeof(glm::mat4), vk::BufferUsageFlagBits::eUniformBuffer,
+    auto uniform_buf_pack = vkw::CreateBufferPack(
+            physical_device, device, sizeof(glm::mat4),
+            vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
 
@@ -142,7 +167,8 @@ int main(int argc, char const* argv[]) {
             device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
                       vk::ShaderStageFlagBits::eVertex}});
 #else
-    auto tex = context->createImage()->createTexture();
+    auto tex = vkw::CreateTexturePack(
+            vkw::CreateImagePack(physical_device, device), device);
     auto desc_set_pack = vkw::CreateDescriptorSet(
             device, {{vk::DescriptorType::eUniformBuffer, 1,
                       vk::ShaderStageFlagBits::eVertex},
@@ -152,7 +178,7 @@ int main(int argc, char const* argv[]) {
 
     auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
-                         {uniform_buf->getBufferPack()});
+                         {uniform_buf_pack});
 #if 0
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack->getTexturePack()});
 #endif
@@ -177,9 +203,9 @@ int main(int argc, char const* argv[]) {
                         {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
     vkw::UpdateRenderPass(device, render_pass_pack);
 
-    auto frame_buffer_packs = vkw::CreateFrameBuffers(
-            device, render_pass_pack, {nullptr, depth_img->getImagePack()}, 0,
-            swapchain_pack);
+    auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
+                                                      {nullptr, depth_img_pack},
+                                                      0, swapchain_pack);
 
     vkw::GLSLCompiler glsl_compiler;
     auto vert_shader_module_pack = glsl_compiler.compileFromString(
@@ -226,7 +252,8 @@ int main(int argc, char const* argv[]) {
         rot_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 0.f)) * rot_mat;
         glm::mat4 mvpc_mat =
                 clip_mat * proj_mat * view_mat * rot_mat * model_mat;
-        uniform_buf->sendToDevice(&mvpc_mat[0], sizeof(mvpc_mat));
+        vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
+                          sizeof(mvpc_mat));
 
         vkw::ResetCommand(cmd_buf);
 
