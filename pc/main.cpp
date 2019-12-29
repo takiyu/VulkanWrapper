@@ -303,6 +303,7 @@ int main(int argc, char const* argv[]) {
         vkw::WaitForFences(device, {draw_fence});
 
         glfwPollEvents();
+        vkw::PrintFps();
     }
 
     std::cout << "exit" << std::endl;

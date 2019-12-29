@@ -18,6 +18,7 @@ END_VKW_SUPPRESS_WARNING
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <chrono>
 
 // Storage for dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -566,6 +567,36 @@ void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
     }
     // Print
     PrintInfo(ss.str());
+}
+
+// -----------------------------------------------------------------------------
+// -------------------------------- FPS counter --------------------------------
+// -----------------------------------------------------------------------------
+void DefaultFpsFunc(float fps) {
+    std::stringstream ss;
+    ss << "Fps: " << fps;
+    PrintInfo(ss.str());
+}
+
+void PrintFps(std::function<void(float)> print_func, int show_interval) {
+    static int count = -2;  // Some starting offset
+    static auto start_clk = std::chrono::system_clock::now();
+
+    // Count up
+    count++;
+    // Print per interval
+    if (count % show_interval == show_interval - 1) {
+        // Compute fps
+        auto end_clk = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed = end_clk - start_clk;
+        const float fps = static_cast<float>(show_interval) /
+                          static_cast<float>(elapsed.count());
+        // Print
+        print_func(fps);
+        // Shift clock
+        count = 0;
+        start_clk = end_clk;
+    }
 }
 
 // -----------------------------------------------------------------------------

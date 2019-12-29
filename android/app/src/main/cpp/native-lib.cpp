@@ -313,6 +313,8 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(
             vkw::QueuePresent(queues[1], swapchain_pack, curr_img_idx);
 
             vkw::WaitForFences(device, {draw_fence});
+
+            vkw::PrintFps();
         }
     });
 

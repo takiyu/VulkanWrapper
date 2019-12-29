@@ -31,6 +31,8 @@ END_VKW_SUPPRESS_WARNING
 // -------------------------- End third party include --------------------------
 // -----------------------------------------------------------------------------
 
+#include <functional>
+
 namespace vkw {
 
 // -----------------------------------------------------------------------------
@@ -46,6 +48,14 @@ void PrintErr(const std::string& str);
 void PrintInstanceLayerProps();
 void PrintInstanceExtensionProps();
 void PrintQueueFamilyProps(const vk::PhysicalDevice& physical_device);
+
+// -----------------------------------------------------------------------------
+// -------------------------------- FPS counter --------------------------------
+// -----------------------------------------------------------------------------
+void DefaultFpsFunc(float fps);
+
+void PrintFps(std::function<void(float)> print_func = DefaultFpsFunc,
+              int show_interval = 60);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Window ----------------------------------
