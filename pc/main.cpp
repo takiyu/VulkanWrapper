@@ -226,7 +226,7 @@ int main(int argc, char const* argv[]) {
         rot_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 0.f)) * rot_mat;
         glm::mat4 mvpc_mat =
                 clip_mat * proj_mat * view_mat * rot_mat * model_mat;
-        uniform_buf->sendToDevice(mvpc_mat);
+        uniform_buf->sendToDevice(&mvpc_mat[0], sizeof(mvpc_mat));
 
         vkw::ResetCommand(cmd_buf);
 

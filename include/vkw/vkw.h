@@ -88,18 +88,16 @@ public:
         sendToDevice(vec.data(), vec.size() * sizeof(T));
     }
 
-    template <typename T>
-    void sendToDevice(const T& v) {
-        sendToDevice(&v, sizeof(T));
-    }
-
-    TexturePtr createTexture(
-        const vk::Filter& mag_filter = vk::Filter::eLinear,
-        const vk::Filter& min_filter = vk::Filter::eLinear,
-        const vk::SamplerMipmapMode& mipmap = vk::SamplerMipmapMode::eLinear,
-        const vk::SamplerAddressMode& addr_u = vk::SamplerAddressMode::eRepeat,
-        const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
-        const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat);
+    TexturePtr createTexture(const vk::Filter& mag_filter = vk::Filter::eLinear,
+                             const vk::Filter& min_filter = vk::Filter::eLinear,
+                             const vk::SamplerMipmapMode& mipmap =
+                                     vk::SamplerMipmapMode::eLinear,
+                             const vk::SamplerAddressMode& addr_u =
+                                     vk::SamplerAddressMode::eRepeat,
+                             const vk::SamplerAddressMode& addr_v =
+                                     vk::SamplerAddressMode::eRepeat,
+                             const vk::SamplerAddressMode& addr_w =
+                                     vk::SamplerAddressMode::eRepeat);
 
 private:
     Image();
@@ -138,11 +136,6 @@ public:
     template <typename T>
     void sendToDevice(const std::vector<T>& vec) {
         sendToDevice(vec.data(), vec.size() * sizeof(T));
-    }
-
-    template <typename T>
-    void sendToDevice(const T& v) {
-        sendToDevice(&v, sizeof(T));
     }
 
 private:
