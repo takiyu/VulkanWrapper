@@ -93,6 +93,7 @@ endfunction(setup_target_simple)
 # ------------------------------------------------------------------------------
 # --------------------------- Third Party Libraries ----------------------------
 # ------------------------------------------------------------------------------
+list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 
 if (0)
     # Vulkan (Static)
@@ -135,6 +136,14 @@ if (NOT ANDROID)
     list(APPEND VKW_LIBRARY glfw)
 endif()
 
+# TinyObjLoader
+if (VKW_BUILD_EXAMPLES)
+    add_library(tinyobjloader
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyobjloader/tiny_obj_loader.cc
+    )
+    list(APPEND VKW_LIBRARY tinyobjloader)
+endif()
+
 # ------------------------------------------------------------------------------
 # ----------------------------- Internal Libraries -----------------------------
 # ------------------------------------------------------------------------------
@@ -159,8 +168,11 @@ endif()
 # ---------------------------------- Examples ----------------------------------
 # ------------------------------------------------------------------------------
 if (VKW_BUILD_EXAMPLES)
+    # Example application sources
     set(EXAMPLE_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/01_rotate_box/app.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/example/01_rotate_box/app.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/example/02_load_obj/app.cpp
+    )
 
     if (ANDROID)
         # ----------------------------------------------------------------------
