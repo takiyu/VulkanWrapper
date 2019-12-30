@@ -124,7 +124,8 @@ void RunExampleApp02(const vkw::WindowPtr& window,
 #else
     const std::string& OBJ_FILENAME = "../data/earth/earth.obj";
 #endif
-    Mesh mesh = LoadObj(OBJ_FILENAME, 0.001f);
+    const float OBJ_SCALE = 1.f / 300.f;
+    Mesh mesh = LoadObj(OBJ_FILENAME, OBJ_SCALE);
 
     // Initialize with display environment
     const bool display_enable = true;
@@ -249,24 +250,23 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
-    const glm::mat4 model_mat = glm::scale(glm::vec3(1.0f));
-    const glm::mat4 view_mat = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
-                                           glm::vec3(0.0f, 0.0f, -10.0f),
+    glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));
+    const glm::mat4 view_mat = glm::lookAt(glm::vec3(0.0f, 0.0f, -10.0f),
+                                           glm::vec3(0.0f, 0.0f, 0.0f),
                                            glm::vec3(0.0f, 1.0f, 0.0f));
     const float aspect = static_cast<float>(swapchain_pack->size.width) /
                          static_cast<float>(swapchain_pack->size.height);
     const glm::mat4 proj_mat =
-            glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+            glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
     // vulkan clip space has inverted y and half z !
-    const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
-                                0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
+    const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f,
+                                0.0f, -1.0f, 0.0f, 0.0f,
+                                0.0f, 0.0f, 0.5f, 0.0f,
                                 0.0f, 0.0f, 0.5f, 1.0f};
-    glm::mat4 rot_mat(1.f);
 
     while (true) {
-        rot_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 1.f)) * rot_mat;
-        glm::mat4 mvpc_mat =
-                clip_mat * proj_mat * view_mat * rot_mat * model_mat;
+        model_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 1.f)) * model_mat;
+        glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
         vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
                           sizeof(mvpc_mat));
 
@@ -279,7 +279,7 @@ void RunExampleApp02(const vkw::WindowPtr& window,
 
         vkw::BeginCommand(cmd_buf);
 
-        const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 0.2f};
+        const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};
         vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
                                 frame_buffer_packs[curr_img_idx],
                                 {
