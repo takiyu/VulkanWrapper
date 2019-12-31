@@ -3,11 +3,13 @@
 #include <vkw/warning_suppressor.h>
 
 BEGIN_VKW_SUPPRESS_WARNING
+#include <stb/stb_image.h>
+#include <tinyobjloader/tiny_obj_loader.h>
+
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
-#include <tinyobjloader/tiny_obj_loader.h>
 END_VKW_SUPPRESS_WARNING
 
 #include <iostream>
@@ -45,13 +47,16 @@ const std::string FRAG_SOURCE = R"(
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
+layout (binding = 1) uniform sampler2D tex;
+
 layout (location = 0) in vec3 vtx_normal;
 layout (location = 1) in vec2 vtx_uv;
 
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-    frag_color = vec4(vtx_normal * 0.5 + 0.5, 1.0);
+    frag_color = texture(tex, vtx_uv);
+    //frag_color = vec4(vtx_normal * 0.5 + 0.5, 1.0);
 }
 )";
 
@@ -63,9 +68,39 @@ struct Vertex {
 
 struct Mesh {
     std::vector<Vertex> vertices;
+
+    uint32_t color_tex_w = 0;
+    uint32_t color_tex_h = 0;
+    std::vector<uint8_t> color_tex;  // 4ch
+
+    uint32_t bump_tex_w = 0;
+    uint32_t bump_tex_h = 0;
+    std::vector<uint8_t> bump_tex;  // 1ch
 };
 
+static std::string ExtractDirname(const std::string& path) {
+    return path.substr(0, path.find_last_of('/') + 1);
+}
+
+static std::vector<uint8_t> LoadTexture(const std::string& filename,
+                                        const uint32_t n_ch, uint32_t* w,
+                                        uint32_t* h) {
+    int tmp_w, tmp_h, dummy_c;
+    uint8_t* data = stbi_load(filename.c_str(), &tmp_w, &tmp_h, &dummy_c,
+                              static_cast<int>(n_ch));
+    (*w) = static_cast<uint32_t>(tmp_w);
+    (*h) = static_cast<uint32_t>(tmp_h);
+
+    std::vector<uint8_t> ret_tex(data, data + (*w) * (*h) * n_ch);
+
+    stbi_image_free(data);
+
+    return ret_tex;
+}
+
 static Mesh LoadObj(const std::string& filename, const float scale) {
+    const std::string& dirname = ExtractDirname(filename);
+
     // Load with tiny obj
     tinyobj::ObjReader obj_reader;
     const bool ret = obj_reader.ParseFromFile(filename);
@@ -110,6 +145,21 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
         }
     }
 
+    // Load textures
+    const auto& tiny_mats = obj_reader.GetMaterials();
+    if (!tiny_mats.empty()) {
+        // Supports only 1 materials
+        const tinyobj::material_t tiny_mat = tiny_mats[0];
+        // Load color texture
+        ret_mesh.color_tex =
+                LoadTexture(dirname + tiny_mat.diffuse_texname, 4,
+                            &ret_mesh.color_tex_w, &ret_mesh.color_tex_h);
+        // Load bump texture
+        ret_mesh.bump_tex =
+                LoadTexture(dirname + tiny_mat.bump_texname, 1,
+                            &ret_mesh.bump_tex_w, &ret_mesh.bump_tex_h);
+    }
+
     return ret_mesh;
 }
 
@@ -117,7 +167,6 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
 
 void RunExampleApp02(const vkw::WindowPtr& window,
                      std::function<void()> draw_hook) {
-
     // Load mesh
 #if defined(__ANDROID__)
     const std::string& OBJ_FILENAME = "/sdcard/vulkanwrapper/earth/earth.obj";
@@ -176,15 +225,33 @@ void RunExampleApp02(const vkw::WindowPtr& window,
             vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
 
-    // Create descriptor set for uniform buffer
+    // Create color texture
+    auto color_tex_pack = vkw::CreateTexturePack(
+            vkw::CreateImagePack(physical_device, device,
+//                                  vk::Format::eR8G8B8A8Uint,
+                                 vk::Format::eR32G32B32Sfloat,
+                                 {mesh.color_tex_w, mesh.color_tex_h},
+                                 vk::ImageUsageFlagBits::eSampled,
+                                 vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                 vk::ImageAspectFlagBits::eColor, false, false),
+            device);
+    // Send color texture to GPU
+    vkw::SendToDevice(device, color_tex_pack->img_pack, mesh.color_tex.data(),
+                      mesh.color_tex.size() * sizeof(uint8_t));
+
+    // Create descriptor set for uniform buffer and texture
     auto desc_set_pack = vkw::CreateDescriptorSetPack(
             device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
-                      vk::ShaderStageFlagBits::eVertex}});
+                      vk::ShaderStageFlagBits::eVertex},
+                     {vk::DescriptorType::eCombinedImageSampler, 1,
+                      vk::ShaderStageFlagBits::eFragment}});
 
     // Bind descriptor set with actual buffer
     auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
                          {uniform_buf_pack});
+    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1,
+                         {color_tex_pack});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
     // Create render pass
@@ -250,6 +317,10 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
+
+    // TODO
+
+    // ------------------
     glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));
     const glm::mat4 view_mat = glm::lookAt(glm::vec3(0.0f, 0.0f, -10.0f),
                                            glm::vec3(0.0f, 0.0f, 0.0f),
@@ -259,9 +330,8 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     const glm::mat4 proj_mat =
             glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
     // vulkan clip space has inverted y and half z !
-    const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f,
-                                0.0f, -1.0f, 0.0f, 0.0f,
-                                0.0f, 0.0f, 0.5f, 0.0f,
+    const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
+                                0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
                                 0.0f, 0.0f, 0.5f, 1.0f};
 
     while (true) {
@@ -278,6 +348,10 @@ void RunExampleApp02(const vkw::WindowPtr& window,
                               img_acquired_semaphore, nullptr);
 
         vkw::BeginCommand(cmd_buf);
+
+//     vk::ImageSubresourceRange imageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+//     vk::ImageMemoryBarrier imageMemoryBarrier(vk::AccessFlags{}, vk::AccessFlagBits::eShaderRead, vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, color_tex_pack->img_pack->img.get(), imageSubresourceRange);
+//     cmd_buf->pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr, nullptr, imageMemoryBarrier);
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};
         vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,

@@ -136,12 +136,19 @@ if (NOT ANDROID)
     list(APPEND VKW_LIBRARY glfw)
 endif()
 
-# TinyObjLoader
 if (VKW_BUILD_EXAMPLES)
+    # TinyObjLoader
     add_library(tinyobjloader
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyobjloader/tiny_obj_loader.cc
     )
     list(APPEND VKW_LIBRARY tinyobjloader)
+
+    # STB
+    add_library(stb
+        ${CMAKE_CURRENT_SOURCE_DIR}/example/utils/stb_impl.cpp
+    )
+    setup_target_simple(stb "${VKW_INCLUDE}" "${VKW_LIBRARY}")
+    list(APPEND VKW_LIBRARY stb)
 endif()
 
 # ------------------------------------------------------------------------------
