@@ -166,9 +166,12 @@ vk::Result AcquireNextImage(uint32_t* out_img_idx,
 struct ImagePack {
     vk::UniqueImage img;
     vk::UniqueImageView view;
+    vk::Format format;
     vk::Extent2D size;
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
+    bool is_staging;
+    vk::ImageLayout layout;
 };
 using ImagePackPtr = std::shared_ptr<ImagePack>;
 ImagePackPtr CreateImagePack(
@@ -177,27 +180,11 @@ ImagePackPtr CreateImagePack(
         const vk::Format& format = vk::Format::eR8G8B8A8Uint,
         const vk::Extent2D& size = {256, 256},
         const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
-        const vk::MemoryPropertyFlags& memory_props =
-                vk::MemoryPropertyFlagBits::eDeviceLocal,
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
         bool is_staging = false, bool is_shared = false);
 
 void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
                   const void* data, uint64_t n_bytes);
-
-struct TexturePack {
-    ImagePackPtr img_pack;
-    vk::UniqueSampler sampler;
-};
-using TexturePackPtr = std::shared_ptr<TexturePack>;
-TexturePackPtr CreateTexturePack(
-        const ImagePackPtr& img_pack, const vk::UniqueDevice& device,
-        const vk::Filter& mag_filter = vk::Filter::eLinear,
-        const vk::Filter& min_filter = vk::Filter::eLinear,
-        const vk::SamplerMipmapMode& mipmap = vk::SamplerMipmapMode::eLinear,
-        const vk::SamplerAddressMode& addr_u = vk::SamplerAddressMode::eRepeat,
-        const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
-        const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
@@ -219,6 +206,29 @@ BufferPackPtr CreateBufferPack(
 
 void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
                   const void* data, uint64_t n_bytes);
+
+// -----------------------------------------------------------------------------
+// ---------------------------------- Texture ----------------------------------
+// -----------------------------------------------------------------------------
+struct TexturePack {
+    ImagePackPtr img_pack;
+    vk::UniqueSampler sampler;
+    BufferPackPtr trans_buf_pack;  // for only staging mode
+};
+using TexturePackPtr = std::shared_ptr<TexturePack>;
+TexturePackPtr CreateTexturePack(
+        const ImagePackPtr& img_pack, const vk::PhysicalDevice &physical_device,
+        const vk::UniqueDevice& device,
+        const vk::Filter& mag_filter = vk::Filter::eLinear,
+        const vk::Filter& min_filter = vk::Filter::eLinear,
+        const vk::SamplerMipmapMode& mipmap = vk::SamplerMipmapMode::eLinear,
+        const vk::SamplerAddressMode& addr_u = vk::SamplerAddressMode::eRepeat,
+        const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
+        const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat);
+
+void SendToDevice(const vk::UniqueDevice& device,
+                  const TexturePackPtr& tex_pack, const void* data,
+                  uint64_t n_bytes, const vk::UniqueCommandBuffer& cmd_buf);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- DescriptorSet -------------------------------

@@ -146,7 +146,6 @@ void RunExampleApp01(const vkw::WindowPtr& window,
     auto depth_img_pack = vkw::CreateImagePack(
             physical_device, device, depth_format, swapchain_pack->size,
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
             vk::ImageAspectFlagBits::eDepth, true, false);
 
     auto uniform_buf_pack = vkw::CreateBufferPack(

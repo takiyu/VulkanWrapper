@@ -56,6 +56,7 @@ layout (location = 0) out vec4 frag_color;
 
 void main() {
     frag_color = texture(tex, vtx_uv);
+//     frag_color = vec4(vtx_uv, 0.0, 1.0);
     //frag_color = vec4(vtx_normal * 0.5 + 0.5, 1.0);
 }
 )";
@@ -71,7 +72,7 @@ struct Mesh {
 
     uint32_t color_tex_w = 0;
     uint32_t color_tex_h = 0;
-    std::vector<uint8_t> color_tex;  // 4ch
+    std::vector<float> color_tex;  // 4ch
 
     uint32_t bump_tex_w = 0;
     uint32_t bump_tex_h = 0;
@@ -82,7 +83,7 @@ static std::string ExtractDirname(const std::string& path) {
     return path.substr(0, path.find_last_of('/') + 1);
 }
 
-static std::vector<uint8_t> LoadTexture(const std::string& filename,
+static std::vector<float> LoadTexture(const std::string& filename,
                                         const uint32_t n_ch, uint32_t* w,
                                         uint32_t* h) {
     int tmp_w, tmp_h, dummy_c;
@@ -91,7 +92,12 @@ static std::vector<uint8_t> LoadTexture(const std::string& filename,
     (*w) = static_cast<uint32_t>(tmp_w);
     (*h) = static_cast<uint32_t>(tmp_h);
 
-    std::vector<uint8_t> ret_tex(data, data + (*w) * (*h) * n_ch);
+    std::vector<uint8_t> ret_tex_(data, data + (*w) * (*h) * n_ch);
+
+    std::vector<float> ret_tex;
+    for (auto&& a : ret_tex_) {
+        ret_tex.push_back(a / 255.f);
+    }
 
     stbi_image_free(data);
 
@@ -136,7 +142,7 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
                 ret_vtx.nz = tiny_normals[idx0 + 2];
             }
             if (0 <= tiny_idx.texcoord_index) {
-                auto idx0 = static_cast<uint32_t>(tiny_idx.texcoord_index * 3);
+                auto idx0 = static_cast<uint32_t>(tiny_idx.texcoord_index * 2);
                 ret_vtx.u = tiny_texcoords[idx0 + 0];
                 ret_vtx.v = tiny_texcoords[idx0 + 1];
             }
@@ -155,9 +161,9 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
                 LoadTexture(dirname + tiny_mat.diffuse_texname, 4,
                             &ret_mesh.color_tex_w, &ret_mesh.color_tex_h);
         // Load bump texture
-        ret_mesh.bump_tex =
-                LoadTexture(dirname + tiny_mat.bump_texname, 1,
-                            &ret_mesh.bump_tex_w, &ret_mesh.bump_tex_h);
+//         ret_mesh.bump_tex =
+//                 LoadTexture(dirname + tiny_mat.bump_texname, 1,
+//                             &ret_mesh.bump_tex_w, &ret_mesh.bump_tex_h);
     }
 
     return ret_mesh;
@@ -215,7 +221,6 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     auto depth_img_pack = vkw::CreateImagePack(
             physical_device, device, depth_format, swapchain_pack->size,
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
             vk::ImageAspectFlagBits::eDepth, true, false);
 
     // Create uniform buffer
@@ -228,16 +233,11 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     // Create color texture
     auto color_tex_pack = vkw::CreateTexturePack(
             vkw::CreateImagePack(physical_device, device,
-//                                  vk::Format::eR8G8B8A8Uint,
-                                 vk::Format::eR32G32B32Sfloat,
+                                 vk::Format::eR32G32B32A32Sfloat,
                                  {mesh.color_tex_w, mesh.color_tex_h},
                                  vk::ImageUsageFlagBits::eSampled,
-                                 vk::MemoryPropertyFlagBits::eDeviceLocal,
-                                 vk::ImageAspectFlagBits::eColor, false, false),
-            device);
-    // Send color texture to GPU
-    vkw::SendToDevice(device, color_tex_pack->img_pack, mesh.color_tex.data(),
-                      mesh.color_tex.size() * sizeof(uint8_t));
+                                 vk::ImageAspectFlagBits::eColor, true, false),
+            physical_device, device);
 
     // Create descriptor set for uniform buffer and texture
     auto desc_set_pack = vkw::CreateDescriptorSetPack(
@@ -335,7 +335,7 @@ void RunExampleApp02(const vkw::WindowPtr& window,
                                 0.0f, 0.0f, 0.5f, 1.0f};
 
     while (true) {
-        model_mat = glm::rotate(0.1f, glm::vec3(1.f, 0.f, 1.f)) * model_mat;
+        model_mat = glm::rotate(0.01f, glm::vec3(1.f, 0.f, 1.f)) * model_mat;
         glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
         vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
                           sizeof(mvpc_mat));
@@ -349,9 +349,13 @@ void RunExampleApp02(const vkw::WindowPtr& window,
 
         vkw::BeginCommand(cmd_buf);
 
-//     vk::ImageSubresourceRange imageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
-//     vk::ImageMemoryBarrier imageMemoryBarrier(vk::AccessFlags{}, vk::AccessFlagBits::eShaderRead, vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, color_tex_pack->img_pack->img.get(), imageSubresourceRange);
-//     cmd_buf->pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr, nullptr, imageMemoryBarrier);
+        // Send color texture to GPU
+        static bool is_sent = false;
+        if (!is_sent) {
+            is_sent = true;
+            vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
+                              mesh.color_tex.size() * sizeof(mesh.color_tex[0]), cmd_buf);
+        }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};
         vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
