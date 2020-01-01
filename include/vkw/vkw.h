@@ -161,32 +161,6 @@ vk::Result AcquireNextImage(uint32_t* out_img_idx,
                             uint64_t timeout = NO_TIMEOUT);
 
 // -----------------------------------------------------------------------------
-// ----------------------------------- Image -----------------------------------
-// -----------------------------------------------------------------------------
-struct ImagePack {
-    vk::UniqueImage img;
-    vk::UniqueImageView view;
-    vk::Format format;
-    vk::Extent2D size;
-    vk::UniqueDeviceMemory dev_mem;
-    vk::DeviceSize dev_mem_size;
-    bool is_staging;
-    vk::ImageLayout layout;
-};
-using ImagePackPtr = std::shared_ptr<ImagePack>;
-ImagePackPtr CreateImagePack(
-        const vk::PhysicalDevice& physical_device,
-        const vk::UniqueDevice& device,
-        const vk::Format& format = vk::Format::eR8G8B8A8Uint,
-        const vk::Extent2D& size = {256, 256},
-        const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
-        const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
-        bool is_staging = false, bool is_shared = false);
-
-void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
-                  const void* data, uint64_t n_bytes);
-
-// -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
 struct BufferPack {
@@ -208,17 +182,45 @@ void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
                   const void* data, uint64_t n_bytes);
 
 // -----------------------------------------------------------------------------
+// ----------------------------------- Image -----------------------------------
+// -----------------------------------------------------------------------------
+struct ImagePack {
+    vk::UniqueImage img;
+    vk::UniqueImageView view;
+    vk::Format format;
+    vk::Extent2D size;
+    vk::UniqueDeviceMemory dev_mem;
+    vk::DeviceSize dev_mem_size;
+    bool is_staging;
+    vk::ImageLayout layout;
+
+    BufferPackPtr trans_buf_pack;  // for only staging mode
+};
+using ImagePackPtr = std::shared_ptr<ImagePack>;
+ImagePackPtr CreateImagePack(
+        const vk::PhysicalDevice& physical_device,
+        const vk::UniqueDevice& device,
+        const vk::Format& format = vk::Format::eR8G8B8A8Uint,
+        const vk::Extent2D& size = {256, 256},
+        const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
+        const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
+        bool is_staging = false, bool is_shared = false);
+
+void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
+                  const void* data, uint64_t n_bytes,
+                  const vk::UniqueCommandBuffer& cmd_buf = {}  // needed for staging
+);
+
+// -----------------------------------------------------------------------------
 // ---------------------------------- Texture ----------------------------------
 // -----------------------------------------------------------------------------
 struct TexturePack {
     ImagePackPtr img_pack;
     vk::UniqueSampler sampler;
-    BufferPackPtr trans_buf_pack;  // for only staging mode
 };
 using TexturePackPtr = std::shared_ptr<TexturePack>;
 TexturePackPtr CreateTexturePack(
-        const ImagePackPtr& img_pack, const vk::PhysicalDevice &physical_device,
-        const vk::UniqueDevice& device,
+        const ImagePackPtr& img_pack, const vk::UniqueDevice& device,
         const vk::Filter& mag_filter = vk::Filter::eLinear,
         const vk::Filter& min_filter = vk::Filter::eLinear,
         const vk::SamplerMipmapMode& mipmap = vk::SamplerMipmapMode::eLinear,
@@ -228,7 +230,9 @@ TexturePackPtr CreateTexturePack(
 
 void SendToDevice(const vk::UniqueDevice& device,
                   const TexturePackPtr& tex_pack, const void* data,
-                  uint64_t n_bytes, const vk::UniqueCommandBuffer& cmd_buf);
+                  uint64_t n_bytes,
+                  const vk::UniqueCommandBuffer& cmd_buf = {} // needed for staging
+);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- DescriptorSet -------------------------------
@@ -257,11 +261,11 @@ WriteDescSetPackPtr CreateWriteDescSetPack();
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<TexturePackPtr>& tex_packs);
+                     const std::vector<BufferPackPtr>& buf_packs);
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<BufferPackPtr>& buf_packs);
+                     const std::vector<TexturePackPtr>& tex_packs);
 
 void UpdateDescriptorSets(const vk::UniqueDevice& device,
                           const WriteDescSetPackPtr& write_desc_set_pack);

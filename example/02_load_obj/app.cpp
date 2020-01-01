@@ -84,8 +84,8 @@ static std::string ExtractDirname(const std::string& path) {
 }
 
 static std::vector<float> LoadTexture(const std::string& filename,
-                                        const uint32_t n_ch, uint32_t* w,
-                                        uint32_t* h) {
+                                      const uint32_t n_ch, uint32_t* w,
+                                      uint32_t* h) {
     int tmp_w, tmp_h, dummy_c;
     uint8_t* data = stbi_load(filename.c_str(), &tmp_w, &tmp_h, &dummy_c,
                               static_cast<int>(n_ch));
@@ -161,9 +161,10 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
                 LoadTexture(dirname + tiny_mat.diffuse_texname, 4,
                             &ret_mesh.color_tex_w, &ret_mesh.color_tex_h);
         // Load bump texture
-//         ret_mesh.bump_tex =
-//                 LoadTexture(dirname + tiny_mat.bump_texname, 1,
-//                             &ret_mesh.bump_tex_w, &ret_mesh.bump_tex_h);
+        //         ret_mesh.bump_tex =
+        //                 LoadTexture(dirname + tiny_mat.bump_texname, 1,
+        //                             &ret_mesh.bump_tex_w,
+        //                             &ret_mesh.bump_tex_h);
     }
 
     return ret_mesh;
@@ -231,13 +232,12 @@ void RunExampleApp02(const vkw::WindowPtr& window,
                     vk::MemoryPropertyFlagBits::eHostCoherent);
 
     // Create color texture
-    auto color_tex_pack = vkw::CreateTexturePack(
-            vkw::CreateImagePack(physical_device, device,
-                                 vk::Format::eR32G32B32A32Sfloat,
-                                 {mesh.color_tex_w, mesh.color_tex_h},
-                                 vk::ImageUsageFlagBits::eSampled,
-                                 vk::ImageAspectFlagBits::eColor, true, false),
-            physical_device, device);
+    auto color_img_pack = vkw::CreateImagePack(
+            physical_device, device, vk::Format::eR32G32B32A32Sfloat,
+            {mesh.color_tex_w, mesh.color_tex_h},
+            vk::ImageUsageFlagBits::eSampled, vk::ImageAspectFlagBits::eColor,
+            true, false);
+    auto color_tex_pack = vkw::CreateTexturePack(color_img_pack, device);
 
     // Create descriptor set for uniform buffer and texture
     auto desc_set_pack = vkw::CreateDescriptorSetPack(
@@ -317,10 +317,6 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
-
-    // TODO
-
-    // ------------------
     glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));
     const glm::mat4 view_mat = glm::lookAt(glm::vec3(0.0f, 0.0f, -10.0f),
                                            glm::vec3(0.0f, 0.0f, 0.0f),
@@ -354,7 +350,8 @@ void RunExampleApp02(const vkw::WindowPtr& window,
         if (!is_sent) {
             is_sent = true;
             vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
-                              mesh.color_tex.size() * sizeof(mesh.color_tex[0]), cmd_buf);
+                              mesh.color_tex.size() * sizeof(mesh.color_tex[0]),
+                              cmd_buf);
         }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};

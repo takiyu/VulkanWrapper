@@ -1027,128 +1027,6 @@ vk::Result AcquireNextImage(uint32_t *out_img_idx,
 }
 
 // -----------------------------------------------------------------------------
-// ----------------------------------- Image -----------------------------------
-// -----------------------------------------------------------------------------
-ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
-                             const vk::UniqueDevice &device,
-                             const vk::Format &format, const vk::Extent2D &size,
-                             const vk::ImageUsageFlags &usage_org,
-                             const vk::ImageAspectFlags &aspects,
-                             bool is_staging, bool is_shared) {
-    // Select tiling mode
-    const vk::ImageTiling tiling =
-            is_staging ? vk::ImageTiling::eOptimal : vk::ImageTiling::eLinear;
-    // Select initial layout
-    const vk::ImageLayout initial_layout =
-            is_staging ? vk::ImageLayout::eUndefined :
-                         vk::ImageLayout::ePreinitialized;
-    // Select memory property
-    const vk::MemoryPropertyFlags memory_props =
-            is_staging ? vk::MemoryPropertyFlags{} :
-                         vk::MemoryPropertyFlagBits::eHostCoherent |
-                                 vk::MemoryPropertyFlagBits::eHostVisible;
-    // Add usage
-    const vk::ImageUsageFlags &usage =
-            is_staging ? (usage_org | vk::ImageUsageFlagBits::eTransferDst) :
-                         usage_org;
-
-    // Select sharing mode
-    const vk::SharingMode sharing = is_shared ? vk::SharingMode::eConcurrent :
-                                                vk::SharingMode::eExclusive;
-
-    // Create image
-    auto img = device->createImageUnique(
-            {vk::ImageCreateFlags(), vk::ImageType::e2D, format,
-             vk::Extent3D(size, 1), 1, 1, vk::SampleCountFlagBits::e1, tiling,
-             usage, sharing, 0, nullptr, initial_layout});
-
-    // Allocate memory
-    auto memory_requs = device->getImageMemoryRequirements(*img);
-    auto device_mem =
-            AllocMemory(device, physical_device, memory_requs, memory_props);
-
-    // Bind memory
-    device->bindImageMemory(img.get(), device_mem.get(), 0);
-
-    // Create image view
-    auto img_view = CreateImageView(*img, format, aspects, device);
-
-    // Construct image pack
-    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
-                                      format, size, std::move(device_mem),
-                                      memory_requs.size, is_staging,
-                                      initial_layout});
-}
-
-void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
-                  const void *data, uint64_t n_bytes) {
-    SendToDevice(device, img_pack->dev_mem, img_pack->dev_mem_size, data,
-                 n_bytes);
-}
-
-// -----------------------------------------------------------------------------
-// ---------------------------------- Texture ----------------------------------
-// -----------------------------------------------------------------------------
-TexturePackPtr CreateTexturePack(const ImagePackPtr &img_pack,
-                                 const vk::PhysicalDevice &physical_device,
-                                 const vk::UniqueDevice &device,
-                                 const vk::Filter &mag_filter,
-                                 const vk::Filter &min_filter,
-                                 const vk::SamplerMipmapMode &mipmap,
-                                 const vk::SamplerAddressMode &addr_u,
-                                 const vk::SamplerAddressMode &addr_v,
-                                 const vk::SamplerAddressMode &addr_w) {
-    // Create sampler
-    auto sampler = CreateSampler(device, mag_filter, min_filter, mipmap, addr_u,
-                                 addr_v, addr_w);
-
-    // Create transfer buffer for only staging mode
-    BufferPackPtr trans_buf_pack;
-    if (img_pack->is_staging) {
-        trans_buf_pack = CreateBufferPack(
-                physical_device, device, img_pack->dev_mem_size,
-                vk::BufferUsageFlagBits::eTransferSrc,
-                vk::MemoryPropertyFlagBits::eHostCoherent |
-                        vk::MemoryPropertyFlagBits::eHostVisible);
-    }
-
-    // Construct texture pack
-    return TexturePackPtr(new TexturePack{img_pack, std::move(sampler),
-                                          std::move(trans_buf_pack)});
-}
-
-void SendToDevice(const vk::UniqueDevice &device,
-                  const TexturePackPtr &tex_pack, const void *data,
-                  uint64_t n_bytes, const vk::UniqueCommandBuffer &cmd_buf) {
-    if (tex_pack->img_pack->is_staging) {
-        // Send to buffer
-        SendToDevice(device, tex_pack->trans_buf_pack, data, n_bytes);
-
-        // Transfer from buffer to image
-        SetImageLayout(cmd_buf, tex_pack->img_pack,
-                       vk::ImageLayout::eTransferDstOptimal);
-        auto extent = tex_pack->img_pack->size;
-        vk::BufferImageCopy copy_region(
-                0, extent.width, extent.height,
-                vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0,
-                                           0, 1),
-                vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
-        cmd_buf->copyBufferToImage(tex_pack->trans_buf_pack->buf.get(),
-                                   tex_pack->img_pack->img.get(),
-                                   vk::ImageLayout::eTransferDstOptimal,
-                                   copy_region);
-
-    } else {
-        // Send to device directly
-        SendToDevice(device, tex_pack->img_pack, data, n_bytes);
-    }
-
-    // Set layout for shader read
-    SetImageLayout(cmd_buf, tex_pack->img_pack,
-                   vk::ImageLayout::eShaderReadOnlyOptimal);
-}
-
-// -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
 BufferPackPtr CreateBufferPack(const vk::PhysicalDevice &physical_device,
@@ -1176,6 +1054,132 @@ void SendToDevice(const vk::UniqueDevice &device, const BufferPackPtr &buf_pack,
                   const void *data, uint64_t n_bytes) {
     SendToDevice(device, buf_pack->dev_mem, buf_pack->dev_mem_size, data,
                  n_bytes);
+}
+
+// -----------------------------------------------------------------------------
+// ----------------------------------- Image -----------------------------------
+// -----------------------------------------------------------------------------
+ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
+                             const vk::UniqueDevice &device,
+                             const vk::Format &format, const vk::Extent2D &size,
+                             const vk::ImageUsageFlags &usage_org,
+                             const vk::ImageAspectFlags &aspects,
+                             bool is_staging, bool is_shared) {
+    // Decide modes about staging
+    auto modes = [&]() {
+        if (is_staging) {
+            return std::make_tuple(
+                    vk::ImageTiling::eOptimal, vk::ImageLayout::eUndefined,
+                    vk::MemoryPropertyFlags{},
+                    (usage_org | vk::ImageUsageFlagBits::eTransferDst));
+        } else {
+            return std::make_tuple(
+                    vk::ImageTiling::eLinear, vk::ImageLayout::ePreinitialized,
+                    vk::MemoryPropertyFlagBits::eHostCoherent |
+                            vk::MemoryPropertyFlagBits::eHostVisible,
+                    usage_org);
+        }
+    }();
+    const vk::ImageTiling &tiling = std::get<0>(modes);
+    const vk::ImageLayout &initial_layout = std::get<1>(modes);
+    const vk::MemoryPropertyFlags &memory_props = std::get<2>(modes);
+    const vk::ImageUsageFlags &usage = std::get<3>(modes);
+
+    // Select sharing mode
+    const vk::SharingMode sharing = is_shared ? vk::SharingMode::eConcurrent :
+                                                vk::SharingMode::eExclusive;
+
+    // Create image
+    auto img = device->createImageUnique(
+            {vk::ImageCreateFlags(), vk::ImageType::e2D, format,
+             vk::Extent3D(size, 1), 1, 1, vk::SampleCountFlagBits::e1, tiling,
+             usage, sharing, 0, nullptr, initial_layout});
+
+    // Allocate memory
+    auto memory_requs = device->getImageMemoryRequirements(*img);
+    auto device_mem =
+            AllocMemory(device, physical_device, memory_requs, memory_props);
+    auto dev_mem_size = memory_requs.size;
+
+    // Bind memory
+    device->bindImageMemory(img.get(), device_mem.get(), 0);
+
+    // Create image view
+    auto img_view = CreateImageView(*img, format, aspects, device);
+
+    // Create transfer buffer for only staging mode
+    BufferPackPtr trans_buf_pack;
+    if (is_staging) {
+        trans_buf_pack = CreateBufferPack(
+                physical_device, device, dev_mem_size,
+                vk::BufferUsageFlagBits::eTransferSrc,
+                vk::MemoryPropertyFlagBits::eHostCoherent |
+                        vk::MemoryPropertyFlagBits::eHostVisible);
+    }
+
+    // Construct image pack
+    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
+                                      format, size, std::move(device_mem),
+                                      dev_mem_size, is_staging, initial_layout,
+                                      std::move(trans_buf_pack)});
+}
+
+void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
+                  const void *data, uint64_t n_bytes,
+                  const vk::UniqueCommandBuffer &cmd_buf) {
+    if (img_pack->is_staging) {
+        // Check command buffer existence
+        if (!cmd_buf.get()) {
+            throw std::runtime_error("No command buffer to send staging image");
+        }
+
+        // Send to buffer
+        SendToDevice(device, img_pack->trans_buf_pack, data, n_bytes);
+
+        // Transfer from buffer to image
+        SetImageLayout(cmd_buf, img_pack, vk::ImageLayout::eTransferDstOptimal);
+        const auto &extent = img_pack->size;
+        vk::BufferImageCopy copy_region(
+                0, extent.width, extent.height,
+                vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0,
+                                           0, 1),
+                vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
+        cmd_buf->copyBufferToImage(
+                img_pack->trans_buf_pack->buf.get(), img_pack->img.get(),
+                vk::ImageLayout::eTransferDstOptimal, copy_region);
+    } else {
+        // Send to device directly
+        SendToDevice(device, img_pack->dev_mem, img_pack->dev_mem_size, data,
+                     n_bytes);
+    }
+
+    // Set layout for shader read
+    SetImageLayout(cmd_buf, img_pack, vk::ImageLayout::eShaderReadOnlyOptimal);
+}
+
+// -----------------------------------------------------------------------------
+// ---------------------------------- Texture ----------------------------------
+// -----------------------------------------------------------------------------
+TexturePackPtr CreateTexturePack(const ImagePackPtr &img_pack,
+                                 const vk::UniqueDevice &device,
+                                 const vk::Filter &mag_filter,
+                                 const vk::Filter &min_filter,
+                                 const vk::SamplerMipmapMode &mipmap,
+                                 const vk::SamplerAddressMode &addr_u,
+                                 const vk::SamplerAddressMode &addr_v,
+                                 const vk::SamplerAddressMode &addr_w) {
+    // Create sampler
+    auto sampler = CreateSampler(device, mag_filter, min_filter, mipmap, addr_u,
+                                 addr_v, addr_w);
+
+    // Construct texture pack
+    return TexturePackPtr(new TexturePack{img_pack, std::move(sampler)});
+}
+
+void SendToDevice(const vk::UniqueDevice &device,
+                  const TexturePackPtr &tex_pack, const void *data,
+                  uint64_t n_bytes, const vk::UniqueCommandBuffer &cmd_buf) {
+    SendToDevice(device, tex_pack->img_pack, data, n_bytes, cmd_buf);
 }
 
 // -----------------------------------------------------------------------------
@@ -1229,6 +1233,32 @@ WriteDescSetPackPtr CreateWriteDescSetPack() {
 void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
                      const DescSetPackPtr &desc_set_pack,
                      const uint32_t binding_idx,
+                     const std::vector<BufferPackPtr> &buf_packs) {
+    // Fetch form and check with DescSetInfo
+    const DescSetInfo &desc_set_info =
+            desc_set_pack->desc_set_info[binding_idx];
+    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
+    const uint32_t desc_cnt = std::get<1>(desc_set_info);
+    if (desc_cnt != static_cast<uint32_t>(buf_packs.size())) {
+        throw std::runtime_error("Invalid descriptor count to write buffers");
+    }
+
+    // Create vector of DescriptorBufferInfo in the result pack
+    auto &buf_infos = EmplaceBackEmpty(write_pack->desc_buf_info_vecs);
+    // Create DescriptorBufferInfo
+    for (auto &&buf_pack : buf_packs) {
+        buf_infos.emplace_back(*buf_pack->buf, 0, VK_WHOLE_SIZE);
+    }
+
+    // Create and Add WriteDescriptorSet
+    write_pack->write_desc_sets.emplace_back(
+            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
+            nullptr, buf_infos.data(), nullptr);  // TODO: buffer view
+}
+
+void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
+                     const DescSetPackPtr &desc_set_pack,
+                     const uint32_t binding_idx,
                      const std::vector<TexturePackPtr> &tex_packs) {
     // Fetch form and check with DescSetInfo
     const DescSetInfo &desc_set_info =
@@ -1252,32 +1282,6 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     write_pack->write_desc_sets.emplace_back(
             *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
             img_infos.data(), nullptr, nullptr);
-}
-
-void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
-                     const DescSetPackPtr &desc_set_pack,
-                     const uint32_t binding_idx,
-                     const std::vector<BufferPackPtr> &buf_packs) {
-    // Fetch form and check with DescSetInfo
-    const DescSetInfo &desc_set_info =
-            desc_set_pack->desc_set_info[binding_idx];
-    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
-    const uint32_t desc_cnt = std::get<1>(desc_set_info);
-    if (desc_cnt != static_cast<uint32_t>(buf_packs.size())) {
-        throw std::runtime_error("Invalid descriptor count to write buffers");
-    }
-
-    // Create vector of DescriptorBufferInfo in the result pack
-    auto &buf_infos = EmplaceBackEmpty(write_pack->desc_buf_info_vecs);
-    // Create DescriptorBufferInfo
-    for (auto &&buf_pack : buf_packs) {
-        buf_infos.emplace_back(*buf_pack->buf, 0, VK_WHOLE_SIZE);
-    }
-
-    // Create and Add WriteDescriptorSet
-    write_pack->write_desc_sets.emplace_back(
-            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
-            nullptr, buf_infos.data(), nullptr);  // TODO: buffer view
 }
 
 void UpdateDescriptorSets(const vk::UniqueDevice &device,
