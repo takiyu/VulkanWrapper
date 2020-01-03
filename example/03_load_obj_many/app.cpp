@@ -13,8 +13,8 @@ BEGIN_VKW_SUPPRESS_WARNING
 END_VKW_SUPPRESS_WARNING
 
 #include <iostream>
-#include <sstream>
 #include <random>
+#include <sstream>
 
 // -----------------------------------------------------------------------------
 const std::string VERT_SOURCE = R"(
@@ -99,7 +99,7 @@ static std::vector<float> LoadTextureF32(const std::string& filename,
     const size_t n_pix = (*w) * (*h) * n_ch;
     ret_tex_f32.reserve(n_pix);
     for (size_t idx = 0; idx < n_pix; idx++) {
-        const uint8_t &v = *(data + idx);
+        const uint8_t& v = *(data + idx);
         ret_tex_f32.push_back(v / 255.f);
     }
 
@@ -176,11 +176,11 @@ static Mesh LoadObjMany(const std::string& filename, const float obj_scale,
         // Load color texture
         ret_mesh.color_tex =
                 LoadTextureF32(dirname + tiny_mat.diffuse_texname, 4,
-                            &ret_mesh.color_tex_w, &ret_mesh.color_tex_h);
+                               &ret_mesh.color_tex_w, &ret_mesh.color_tex_h);
         // Load bump texture
         ret_mesh.bump_tex =
                 LoadTextureF32(dirname + tiny_mat.bump_texname, 1,
-                            &ret_mesh.bump_tex_w, &ret_mesh.bump_tex_h);
+                               &ret_mesh.bump_tex_w, &ret_mesh.bump_tex_h);
     }
 
     return ret_mesh;
@@ -198,7 +198,7 @@ void RunExampleApp03(const vkw::WindowPtr& window,
 #endif
     const float OBJ_SCALE = 1.f / 100.f;
     const float SHIFT_SCALE = 100.f;
-    const uint32_t N_OBJECTS = 200;
+    const uint32_t N_OBJECTS = 400;
     Mesh mesh = LoadObjMany(OBJ_FILENAME, OBJ_SCALE, SHIFT_SCALE, N_OBJECTS);
 
     // Initialize with display environment
@@ -335,6 +335,23 @@ void RunExampleApp03(const vkw::WindowPtr& window,
     auto& cmd_bufs = cmd_bufs_pack->cmd_bufs;
 
     // ------------------
+    {
+        // Send color texture to GPU
+        auto& cmd_buf = cmd_bufs[0];
+        vkw::BeginCommand(cmd_buf);
+        vkw::SendToDevice(
+                device, color_tex_pack, mesh.color_tex.data(),
+                mesh.color_tex.size() * sizeof(mesh.color_tex[0]), cmd_buf);
+        vkw::EndCommand(cmd_buf);
+        auto send_fence = vkw::CreateFence(device);
+        vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
+        vkw::WaitForFence(device, send_fence);
+
+        // Sending buffer will not be used anymore.
+        color_tex_pack->img_pack->trans_buf_pack.reset();
+    }
+
+    // ------------------
     glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));
     const glm::mat4 view_mat = glm::lookAt(glm::vec3(0.0f, 0.0f, -100.0f),
                                            glm::vec3(0.0f, 0.0f, 0.0f),
@@ -348,34 +365,38 @@ void RunExampleApp03(const vkw::WindowPtr& window,
                                 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
                                 0.0f, 0.0f, 0.5f, 1.0f};
 
-
     vkw::FencePtr draw_fence;
 
     for (int render_idx = 0; render_idx < 60 * 5; render_idx++) {
         model_mat = glm::rotate(0.01f, glm::vec3(0.f, 1.f, 0.f)) * model_mat;
         glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
         vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
-                      sizeof(mvpc_mat));
+                          sizeof(mvpc_mat));
 
         auto img_acquired_semaphore = vkw::CreateSemaphore(device);
         uint32_t curr_img_idx = 0;
         vkw::AcquireNextImage(&curr_img_idx, device, swapchain_pack,
                               img_acquired_semaphore, nullptr);
 
+#if 1
         auto& cmd_buf = cmd_bufs[curr_img_idx];
-
         if (render_idx < n_cmd_bufs) {
+#elif 1
+        auto& cmd_buf = cmd_bufs[curr_img_idx];
+        {
+#else
+        auto& cmd_buf = cmd_bufs[0];
+        if (draw_fence) {
+            vkw::WaitForFence(device, draw_fence);
+            vkw::ResetFence(device, draw_fence);
+        } else {
+            draw_fence = vkw::CreateFence(device);
+        }
+        {
+#endif
+            // Create command buffer
             vkw::ResetCommand(cmd_buf);
             vkw::BeginCommand(cmd_buf);
-
-            // Send color texture to GPU
-            static bool is_sent = false;
-            if (!is_sent) {
-                is_sent = true;
-                vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
-                                  mesh.color_tex.size() * sizeof(mesh.color_tex[0]),
-                                  cmd_buf);
-            }
 
             const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};
             vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
@@ -405,12 +426,14 @@ void RunExampleApp03(const vkw::WindowPtr& window,
             vkw::EndCommand(cmd_buf);
         }
 
+#if 1
         if (draw_fence) {
             vkw::WaitForFence(device, draw_fence);
             vkw::ResetFence(device, draw_fence);
         } else {
             draw_fence = vkw::CreateFence(device);
         }
+#endif
 
         vkw::QueueSubmit(queues[0], cmd_buf, draw_fence,
                          {{img_acquired_semaphore,
