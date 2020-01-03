@@ -14,6 +14,7 @@ END_VKW_SUPPRESS_WARNING
 
 #include <iostream>
 #include <sstream>
+#include <random>
 
 // -----------------------------------------------------------------------------
 const std::string VERT_SOURCE = R"(
@@ -104,7 +105,8 @@ static std::vector<float> LoadTexture(const std::string& filename,
     return ret_tex;
 }
 
-static Mesh LoadObj(const std::string& filename, const float scale) {
+static Mesh LoadObjMany(const std::string& filename, const float scale,
+                        const uint32_t n_objects) {
     const std::string& dirname = ExtractDirname(filename);
 
     // Load with tiny obj
@@ -122,32 +124,43 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
     const std::vector<tinyobj::real_t>& tiny_normals = tiny_attrib.normals;
     const std::vector<tinyobj::real_t>& tiny_texcoords = tiny_attrib.texcoords;
 
+    // RNG
+    std::random_device rnd;
+    std::mt19937 mt_engine(rnd());
+    std::uniform_int_distribution<> distrib(-100.f, 100.f);
+
     // Parse to mesh structure
     Mesh ret_mesh;
-    for (const tinyobj::shape_t& tiny_shape : tiny_shapes) {
-        const tinyobj::mesh_t& tiny_mesh = tiny_shape.mesh;
-        for (const tinyobj::index_t& tiny_idx : tiny_mesh.indices) {
-            // Parse one vertex
-            Vertex ret_vtx = {};
-            if (0 <= tiny_idx.vertex_index) {
-                auto idx0 = static_cast<uint32_t>(tiny_idx.vertex_index * 3);
-                ret_vtx.x = tiny_vertices[idx0 + 0] * scale;
-                ret_vtx.y = tiny_vertices[idx0 + 1] * scale;
-                ret_vtx.z = tiny_vertices[idx0 + 2] * scale;
+    for (uint32_t obj_idx = 0; obj_idx < n_objects; obj_idx++) {
+        const float sx = distrib(mt_engine);
+        const float sy = distrib(mt_engine);
+        const float sz = distrib(mt_engine);
+
+        for (const tinyobj::shape_t& tiny_shape : tiny_shapes) {
+            const tinyobj::mesh_t& tiny_mesh = tiny_shape.mesh;
+            for (const tinyobj::index_t& tiny_idx : tiny_mesh.indices) {
+                // Parse one vertex
+                Vertex ret_vtx = {};
+                if (0 <= tiny_idx.vertex_index) {
+                    auto i = static_cast<uint32_t>(tiny_idx.vertex_index * 3);
+                    ret_vtx.x = tiny_vertices[i + 0] * scale + sx;
+                    ret_vtx.y = tiny_vertices[i + 1] * scale + sy;
+                    ret_vtx.z = tiny_vertices[i + 2] * scale + sz;
+                }
+                if (0 <= tiny_idx.normal_index) {
+                    auto i = static_cast<uint32_t>(tiny_idx.normal_index * 3);
+                    ret_vtx.nx = tiny_normals[i + 0];
+                    ret_vtx.ny = tiny_normals[i + 1];
+                    ret_vtx.nz = tiny_normals[i + 2];
+                }
+                if (0 <= tiny_idx.texcoord_index) {
+                    auto i = static_cast<uint32_t>(tiny_idx.texcoord_index * 2);
+                    ret_vtx.u = tiny_texcoords[i + 0];
+                    ret_vtx.v = tiny_texcoords[i + 1];
+                }
+                // Register
+                ret_mesh.vertices.push_back(ret_vtx);
             }
-            if (0 <= tiny_idx.normal_index) {
-                auto idx0 = static_cast<uint32_t>(tiny_idx.normal_index * 3);
-                ret_vtx.nx = tiny_normals[idx0 + 0];
-                ret_vtx.ny = tiny_normals[idx0 + 1];
-                ret_vtx.nz = tiny_normals[idx0 + 2];
-            }
-            if (0 <= tiny_idx.texcoord_index) {
-                auto idx0 = static_cast<uint32_t>(tiny_idx.texcoord_index * 2);
-                ret_vtx.u = tiny_texcoords[idx0 + 0];
-                ret_vtx.v = tiny_texcoords[idx0 + 1];
-            }
-            // Register
-            ret_mesh.vertices.push_back(ret_vtx);
         }
     }
 
@@ -172,7 +185,7 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
 
 // -----------------------------------------------------------------------------
 
-void RunExampleApp02(const vkw::WindowPtr& window,
+void RunExampleApp03(const vkw::WindowPtr& window,
                      std::function<void()> draw_hook) {
     // Load mesh
 #if defined(__ANDROID__)
@@ -181,15 +194,15 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     const std::string& OBJ_FILENAME = "../data/earth/earth.obj";
 #endif
     const float OBJ_SCALE = 1.f / 100.f;
-    Mesh mesh = LoadObj(OBJ_FILENAME, OBJ_SCALE);
+    Mesh mesh = LoadObjMany(OBJ_FILENAME, OBJ_SCALE, 200);
 
     // Initialize with display environment
     const bool display_enable = true;
-    const bool debug_enable = true;
-    const uint32_t n_queues = 1;
+    const bool debug_enable = false;
+    const uint32_t n_queues = 2;
 
     // Create instance
-    auto instance = vkw::CreateInstance("VKW Example 02", 1, "VKW", 0,
+    auto instance = vkw::CreateInstance("VKW Example 03", 1, "VKW", 0,
                                         debug_enable, display_enable);
 
     // Get a physical_device
@@ -311,10 +324,10 @@ void RunExampleApp02(const vkw::WindowPtr& window,
              {2, 0, vk::Format::eR32G32Sfloat, sizeof(float) * 6}},
             pipeline_info, {desc_set_pack}, render_pass_pack);
 
-    const uint32_t n_cmd_bufs = 1;
+    uint32_t n_cmd_bufs = static_cast<uint32_t>(frame_buffer_packs.size());
     auto cmd_bufs_pack =
             vkw::CreateCommandBuffersPack(device, queue_family_idx, n_cmd_bufs);
-    auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
+    auto& cmd_bufs = cmd_bufs_pack->cmd_bufs;
 
     // ------------------
     glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));
@@ -324,25 +337,27 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     const float aspect = static_cast<float>(swapchain_pack->size.width) /
                          static_cast<float>(swapchain_pack->size.height);
     const glm::mat4 proj_mat =
-            glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+            glm::perspective(glm::radians(90.0f), aspect, 0.1f, 1000.0f);
     // vulkan clip space has inverted y and half z !
     const glm::mat4 clip_mat = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f,
                                 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
                                 0.0f, 0.0f, 0.5f, 1.0f};
 
-    while (true) {
-        model_mat = glm::rotate(0.01f, glm::vec3(0.f, 1.f, 0.f)) * model_mat;
-        glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
-        vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
-                          sizeof(mvpc_mat));
+//         model_mat = glm::rotate(0.01f, glm::vec3(0.f, 1.f, 0.f)) * model_mat;
+    glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
+    vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
+                      sizeof(mvpc_mat));
 
-        vkw::ResetCommand(cmd_buf);
+    vkw::FencePtr draw_fence;
+    while (true) {
 
         auto img_acquired_semaphore = vkw::CreateSemaphore(device);
         uint32_t curr_img_idx = 0;
         vkw::AcquireNextImage(&curr_img_idx, device, swapchain_pack,
                               img_acquired_semaphore, nullptr);
 
+        auto& cmd_buf = cmd_bufs[curr_img_idx];
+        vkw::ResetCommand(cmd_buf);
         vkw::BeginCommand(cmd_buf);
 
         // Send color texture to GPU
@@ -381,16 +396,18 @@ void RunExampleApp02(const vkw::WindowPtr& window,
 
         vkw::EndCommand(cmd_buf);
 
-        auto draw_fence = vkw::CreateFence(device);
-
         vkw::QueueSubmit(queues[0], cmd_buf, draw_fence,
                          {{img_acquired_semaphore,
                            vk::PipelineStageFlagBits::eColorAttachmentOutput}},
                          {});
 
-        vkw::QueuePresent(queues[0], swapchain_pack, curr_img_idx);
+        if (!draw_fence) {
+            draw_fence = vkw::CreateFence(device);
+        } else {
+            vkw::WaitForFences(device, {draw_fence}, true, false);
+        }
 
-        vkw::WaitForFences(device, {draw_fence});
+        vkw::QueuePresent(queues[0], swapchain_pack, curr_img_idx);
 
         vkw::PrintFps();
 

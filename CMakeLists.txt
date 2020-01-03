@@ -179,6 +179,7 @@ if (VKW_BUILD_EXAMPLES)
     set(EXAMPLE_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/example/01_rotate_box/app.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/example/02_load_obj/app.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/example/03_load_obj_many/app.cpp
     )
 
     if (ANDROID)
