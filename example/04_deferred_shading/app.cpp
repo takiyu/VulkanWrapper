@@ -41,7 +41,6 @@ void main() {
 }
 )";
 
-// fragment shader with (C)olor in and (C)olor out
 const std::string FRAG_SOURCE = R"(
 #version 400
 
@@ -54,11 +53,12 @@ layout (location = 0) in vec3 vtx_normal;
 layout (location = 1) in vec2 vtx_uv;
 
 layout (location = 0) out vec4 frag_color;
+layout (location = 1) out vec4 frag_normal;
 
 void main() {
     frag_color = texture(tex, vec2(1.0 - vtx_uv.x, 1.0 - vtx_uv.y));
 //     frag_color = vec4(vtx_uv, 0.0, 1.0);
-    //frag_color = vec4(vtx_normal * 0.5 + 0.5, 1.0);
+    frag_normal = vec4(vtx_normal * 0.5 + 0.5, 1.0);
 }
 )";
 
@@ -188,7 +188,7 @@ static Mesh LoadObjMany(const std::string& filename, const float obj_scale,
 
 // -----------------------------------------------------------------------------
 
-void RunExampleApp03(const vkw::WindowPtr& window,
+void RunExampleApp04(const vkw::WindowPtr& window,
                      std::function<void()> draw_hook) {
     // Load mesh
 #if defined(__ANDROID__)
@@ -207,7 +207,7 @@ void RunExampleApp03(const vkw::WindowPtr& window,
     const uint32_t n_queues = 2;
 
     // Create instance
-    auto instance = vkw::CreateInstance("VKW Example 03", 1, "VKW", 0,
+    auto instance = vkw::CreateInstance("VKW Example 04", 1, "VKW", 0,
                                         debug_enable, display_enable);
 
     // Get a physical_device
@@ -242,6 +242,14 @@ void RunExampleApp03(const vkw::WindowPtr& window,
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
             vk::ImageAspectFlagBits::eDepth, true, false);
 
+    // Create extra buffer
+//     const auto extra_format = vk::Format::eA8B8G8R8UintPack32;
+    const auto extra_format = surface_format;
+    auto extra_img_pack = vkw::CreateImagePack(
+            physical_device, device, extra_format, swapchain_pack->size,
+            vk::ImageUsageFlagBits::eColorAttachment,
+            vk::ImageAspectFlagBits::eColor, true, false);
+
     // Create uniform buffer
     auto uniform_buf_pack = vkw::CreateBufferPack(
             physical_device, device, sizeof(glm::mat4),
@@ -257,11 +265,19 @@ void RunExampleApp03(const vkw::WindowPtr& window,
             true, false);
     auto color_tex_pack = vkw::CreateTexturePack(color_img_pack, device);
 
+    // Create bump texture
+    auto bump_img_pack = vkw::CreateImagePack(
+            physical_device, device, vk::Format::eR32Sfloat,
+            {mesh.color_tex_w, mesh.color_tex_h},
+            vk::ImageUsageFlagBits::eSampled, vk::ImageAspectFlagBits::eColor,
+            true, false);
+    auto bump_tex_pack = vkw::CreateTexturePack(bump_img_pack, device);
+
     // Create descriptor set for uniform buffer and texture
     auto desc_set_pack = vkw::CreateDescriptorSetPack(
             device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
                       vk::ShaderStageFlagBits::eVertex},
-                     {vk::DescriptorType::eCombinedImageSampler, 1,
+                     {vk::DescriptorType::eCombinedImageSampler, 2,
                       vk::ShaderStageFlagBits::eFragment}});
 
     // Bind descriptor set with actual buffer
@@ -269,15 +285,20 @@ void RunExampleApp03(const vkw::WindowPtr& window,
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
                          {uniform_buf_pack});
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1,
-                         {color_tex_pack});
+                         {color_tex_pack, bump_tex_pack});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
     // Create render pass
     auto render_pass_pack = vkw::CreateRenderPassPack();
-    // Add color attachment
+    // Add color attachment for surface
     vkw::AddAttachientDesc(
             render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
             vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+    // Add color extra attachment
+    vkw::AddAttachientDesc(
+            render_pass_pack, extra_format, vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+//             vk::AttachmentStoreOp::eStore, vk::ImageLayout::eColorAttachmentOptimal);
     // Add depth attachment
     vkw::AddAttachientDesc(render_pass_pack, depth_format,
                            vk::AttachmentLoadOp::eClear,
@@ -290,14 +311,17 @@ void RunExampleApp03(const vkw::WindowPtr& window,
                         },
                         {
                                 {0, vk::ImageLayout::eColorAttachmentOptimal},
+                                {1, vk::ImageLayout::eColorAttachmentOptimal},
                         },
-                        {1, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+                        {2, vk::ImageLayout::eDepthStencilAttachmentOptimal});
     // Create render pass instance
     vkw::UpdateRenderPass(device, render_pass_pack);
 
     // Create frame buffers for swapchain images
     auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
-                                                      {nullptr, depth_img_pack},
+//                                                       {extra_img_pack, nullptr, depth_img_pack},
+//                                                       1, swapchain_pack);
+                                                      {nullptr, extra_img_pack, depth_img_pack},
                                                       0, swapchain_pack);
 
     // Compile shaders
@@ -320,7 +344,7 @@ void RunExampleApp03(const vkw::WindowPtr& window,
 
     // Create pipeline
     vkw::PipelineInfo pipeline_info;
-    pipeline_info.color_blend_infos.resize(1);
+    pipeline_info.color_blend_infos.resize(2);
     auto pipeline_pack = vkw::CreatePipeline(
             device, {vert_shader_module_pack, frag_shader_module_pack},
             {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
@@ -349,6 +373,21 @@ void RunExampleApp03(const vkw::WindowPtr& window,
 
         // Sending buffer will not be used anymore.
         color_tex_pack->img_pack->trans_buf_pack.reset();
+    }
+    {
+        // Send color texture to GPU
+        auto& cmd_buf = cmd_bufs[0];
+        vkw::BeginCommand(cmd_buf);
+        vkw::SendToDevice(
+                device, bump_tex_pack, mesh.bump_tex.data(),
+                mesh.bump_tex.size() * sizeof(mesh.bump_tex[0]), cmd_buf);
+        vkw::EndCommand(cmd_buf);
+        auto send_fence = vkw::CreateFence(device);
+        vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
+        vkw::WaitForFence(device, send_fence);
+
+        // Sending buffer will not be used anymore.
+        bump_tex_pack->img_pack->trans_buf_pack.reset();
     }
 
     // ------------------
@@ -400,6 +439,7 @@ void RunExampleApp03(const vkw::WindowPtr& window,
             vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
                                     frame_buffer_packs[curr_img_idx],
                                     {
+                                            vk::ClearColorValue(clear_color),
                                             vk::ClearColorValue(clear_color),
                                             vk::ClearDepthStencilValue(1.0f, 0),
                                     });
