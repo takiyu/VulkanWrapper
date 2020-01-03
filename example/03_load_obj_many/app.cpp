@@ -77,36 +77,40 @@ struct Mesh {
 
     uint32_t bump_tex_w = 0;
     uint32_t bump_tex_h = 0;
-    std::vector<uint8_t> bump_tex;  // 1ch
+    std::vector<float> bump_tex;  // 1ch
 };
 
 static std::string ExtractDirname(const std::string& path) {
     return path.substr(0, path.find_last_of('/') + 1);
 }
 
-static std::vector<float> LoadTexture(const std::string& filename,
-                                      const uint32_t n_ch, uint32_t* w,
-                                      uint32_t* h) {
+static std::vector<float> LoadTextureF32(const std::string& filename,
+                                         const uint32_t n_ch, uint32_t* w,
+                                         uint32_t* h) {
+    // Load image using STB
     int tmp_w, tmp_h, dummy_c;
     uint8_t* data = stbi_load(filename.c_str(), &tmp_w, &tmp_h, &dummy_c,
                               static_cast<int>(n_ch));
     (*w) = static_cast<uint32_t>(tmp_w);
     (*h) = static_cast<uint32_t>(tmp_h);
 
-    std::vector<uint8_t> ret_tex_(data, data + (*w) * (*h) * n_ch);
-
-    std::vector<float> ret_tex;
-    for (auto&& a : ret_tex_) {
-        ret_tex.push_back(a / 255.f);
+    // Cast to float
+    std::vector<float> ret_tex_f32;
+    const size_t n_pix = (*w) * (*h) * n_ch;
+    ret_tex_f32.reserve(n_pix);
+    for (size_t idx = 0; idx < n_pix; idx++) {
+        const uint8_t &v = *(data + idx);
+        ret_tex_f32.push_back(v / 255.f);
     }
 
+    // Release STB memory
     stbi_image_free(data);
 
-    return ret_tex;
+    return ret_tex_f32;
 }
 
-static Mesh LoadObjMany(const std::string& filename, const float scale,
-                        const uint32_t n_objects) {
+static Mesh LoadObjMany(const std::string& filename, const float obj_scale,
+                        const float shift_scale, const uint32_t n_objects) {
     const std::string& dirname = ExtractDirname(filename);
 
     // Load with tiny obj
@@ -124,10 +128,10 @@ static Mesh LoadObjMany(const std::string& filename, const float scale,
     const std::vector<tinyobj::real_t>& tiny_normals = tiny_attrib.normals;
     const std::vector<tinyobj::real_t>& tiny_texcoords = tiny_attrib.texcoords;
 
-    // RNG
+    // Deterministic random number generator
     std::random_device rnd;
-    std::mt19937 mt_engine(rnd());
-    std::uniform_int_distribution<> distrib(-100.f, 100.f);
+    std::mt19937 mt_engine(0);
+    std::uniform_int_distribution<> distrib(-shift_scale, shift_scale);
 
     // Parse to mesh structure
     Mesh ret_mesh;
@@ -143,9 +147,9 @@ static Mesh LoadObjMany(const std::string& filename, const float scale,
                 Vertex ret_vtx = {};
                 if (0 <= tiny_idx.vertex_index) {
                     auto i = static_cast<uint32_t>(tiny_idx.vertex_index * 3);
-                    ret_vtx.x = tiny_vertices[i + 0] * scale + sx;
-                    ret_vtx.y = tiny_vertices[i + 1] * scale + sy;
-                    ret_vtx.z = tiny_vertices[i + 2] * scale + sz;
+                    ret_vtx.x = tiny_vertices[i + 0] * obj_scale + sx;
+                    ret_vtx.y = tiny_vertices[i + 1] * obj_scale + sy;
+                    ret_vtx.z = tiny_vertices[i + 2] * obj_scale + sz;
                 }
                 if (0 <= tiny_idx.normal_index) {
                     auto i = static_cast<uint32_t>(tiny_idx.normal_index * 3);
@@ -171,13 +175,12 @@ static Mesh LoadObjMany(const std::string& filename, const float scale,
         const tinyobj::material_t tiny_mat = tiny_mats[0];
         // Load color texture
         ret_mesh.color_tex =
-                LoadTexture(dirname + tiny_mat.diffuse_texname, 4,
+                LoadTextureF32(dirname + tiny_mat.diffuse_texname, 4,
                             &ret_mesh.color_tex_w, &ret_mesh.color_tex_h);
         // Load bump texture
-        //         ret_mesh.bump_tex =
-        //                 LoadTexture(dirname + tiny_mat.bump_texname, 1,
-        //                             &ret_mesh.bump_tex_w,
-        //                             &ret_mesh.bump_tex_h);
+        ret_mesh.bump_tex =
+                LoadTextureF32(dirname + tiny_mat.bump_texname, 1,
+                            &ret_mesh.bump_tex_w, &ret_mesh.bump_tex_h);
     }
 
     return ret_mesh;
@@ -194,7 +197,9 @@ void RunExampleApp03(const vkw::WindowPtr& window,
     const std::string& OBJ_FILENAME = "../data/earth/earth.obj";
 #endif
     const float OBJ_SCALE = 1.f / 100.f;
-    Mesh mesh = LoadObjMany(OBJ_FILENAME, OBJ_SCALE, 200);
+    const float SHIFT_SCALE = 100.f;
+    const uint32_t N_OBJECTS = 200;
+    Mesh mesh = LoadObjMany(OBJ_FILENAME, OBJ_SCALE, SHIFT_SCALE, N_OBJECTS);
 
     // Initialize with display environment
     const bool display_enable = true;
@@ -343,13 +348,14 @@ void RunExampleApp03(const vkw::WindowPtr& window,
                                 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
                                 0.0f, 0.0f, 0.5f, 1.0f};
 
-//         model_mat = glm::rotate(0.01f, glm::vec3(0.f, 1.f, 0.f)) * model_mat;
-    glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
-    vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
-                      sizeof(mvpc_mat));
 
     vkw::FencePtr draw_fence;
-    while (true) {
+
+    for (int render_idx = 0; render_idx < 60 * 5; render_idx++) {
+        model_mat = glm::rotate(0.01f, glm::vec3(0.f, 1.f, 0.f)) * model_mat;
+        glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
+        vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
+                      sizeof(mvpc_mat));
 
         auto img_acquired_semaphore = vkw::CreateSemaphore(device);
         uint32_t curr_img_idx = 0;
@@ -357,55 +363,59 @@ void RunExampleApp03(const vkw::WindowPtr& window,
                               img_acquired_semaphore, nullptr);
 
         auto& cmd_buf = cmd_bufs[curr_img_idx];
-        vkw::ResetCommand(cmd_buf);
-        vkw::BeginCommand(cmd_buf);
 
-        // Send color texture to GPU
-        static bool is_sent = false;
-        if (!is_sent) {
-            is_sent = true;
-            vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
-                              mesh.color_tex.size() * sizeof(mesh.color_tex[0]),
-                              cmd_buf);
+        if (render_idx < n_cmd_bufs) {
+            vkw::ResetCommand(cmd_buf);
+            vkw::BeginCommand(cmd_buf);
+
+            // Send color texture to GPU
+            static bool is_sent = false;
+            if (!is_sent) {
+                is_sent = true;
+                vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
+                                  mesh.color_tex.size() * sizeof(mesh.color_tex[0]),
+                                  cmd_buf);
+            }
+
+            const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};
+            vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
+                                    frame_buffer_packs[curr_img_idx],
+                                    {
+                                            vk::ClearColorValue(clear_color),
+                                            vk::ClearDepthStencilValue(1.0f, 0),
+                                    });
+
+            vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
+
+            const std::vector<uint32_t> dynamic_offsets = {0};
+            vkw::CmdBindDescSets(cmd_buf, pipeline_pack, {desc_set_pack},
+                                 dynamic_offsets);
+
+            vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
+
+            vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
+            vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
+
+            const uint32_t n_instances = 1;
+            vkw::CmdDraw(cmd_buf, mesh.vertices.size(), n_instances);
+
+            // vkw::CmdNextSubPass(cmd_buf);
+            vkw::CmdEndRenderPass(cmd_buf);
+
+            vkw::EndCommand(cmd_buf);
         }
 
-        const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};
-        vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
-                                frame_buffer_packs[curr_img_idx],
-                                {
-                                        vk::ClearColorValue(clear_color),
-                                        vk::ClearDepthStencilValue(1.0f, 0),
-                                });
-
-        vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
-
-        const std::vector<uint32_t> dynamic_offsets = {0};
-        vkw::CmdBindDescSets(cmd_buf, pipeline_pack, {desc_set_pack},
-                             dynamic_offsets);
-
-        vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
-
-        vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
-        vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
-
-        const uint32_t n_instances = 1;
-        vkw::CmdDraw(cmd_buf, mesh.vertices.size(), n_instances);
-
-        // vkw::CmdNextSubPass(cmd_buf);
-        vkw::CmdEndRenderPass(cmd_buf);
-
-        vkw::EndCommand(cmd_buf);
+        if (draw_fence) {
+            vkw::WaitForFence(device, draw_fence);
+            vkw::ResetFence(device, draw_fence);
+        } else {
+            draw_fence = vkw::CreateFence(device);
+        }
 
         vkw::QueueSubmit(queues[0], cmd_buf, draw_fence,
                          {{img_acquired_semaphore,
                            vk::PipelineStageFlagBits::eColorAttachmentOutput}},
                          {});
-
-        if (!draw_fence) {
-            draw_fence = vkw::CreateFence(device);
-        } else {
-            vkw::WaitForFences(device, {draw_fence}, true, false);
-        }
 
         vkw::QueuePresent(queues[0], swapchain_pack, curr_img_idx);
 
@@ -413,4 +423,6 @@ void RunExampleApp03(const vkw::WindowPtr& window,
 
         draw_hook();
     }
+
+    draw_fence.reset();
 }
