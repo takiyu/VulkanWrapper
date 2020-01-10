@@ -934,8 +934,8 @@ FencePtr CreateFence(const vk::UniqueDevice &device) {
     return FencePtr(new vk::UniqueFence(std::move(fence)));
 }
 
-vk::Result WaitForFence(const vk::UniqueDevice &device,
-                        const FencePtr &fence, uint64_t timeout) {
+vk::Result WaitForFence(const vk::UniqueDevice &device, const FencePtr &fence,
+                        uint64_t timeout) {
     // Wait during `timeout` nano-seconds
     return device->waitForFences(1, &fence->get(), false, timeout);
 }
@@ -953,10 +953,10 @@ vk::Result WaitForFences(const vk::UniqueDevice &device,
 
     // Wait during `timeout` nano-seconds
     return device->waitForFences(n_fences, fences_raw.data(), wait_all,
-                                   timeout);
+                                 timeout);
 }
 
-void ResetFence(const vk::UniqueDevice& device, const FencePtr& fence) {
+void ResetFence(const vk::UniqueDevice &device, const FencePtr &fence) {
     device->resetFences(1, &fence->get());
 }
 

@@ -127,8 +127,8 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
 using FencePtr = std::shared_ptr<vk::UniqueFence>;
 FencePtr CreateFence(const vk::UniqueDevice& device);
 
-vk::Result WaitForFence(const vk::UniqueDevice& device,
-                        const FencePtr& fence, uint64_t timeout = NO_TIMEOUT);
+vk::Result WaitForFence(const vk::UniqueDevice& device, const FencePtr& fence,
+                        uint64_t timeout = NO_TIMEOUT);
 vk::Result WaitForFences(const vk::UniqueDevice& device,
                          const std::vector<FencePtr>& fences,
                          bool wait_all = true, uint64_t timeout = NO_TIMEOUT);
@@ -212,8 +212,7 @@ ImagePackPtr CreateImagePack(
 
 void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
                   const void* data, uint64_t n_bytes,
-                  const vk::UniqueCommandBuffer& cmd_buf = {}  // needed for staging
-);
+                  const vk::UniqueCommandBuffer& cmd_buf = {});
 
 // -----------------------------------------------------------------------------
 // ---------------------------------- Texture ----------------------------------
@@ -235,8 +234,7 @@ TexturePackPtr CreateTexturePack(
 void SendToDevice(const vk::UniqueDevice& device,
                   const TexturePackPtr& tex_pack, const void* data,
                   uint64_t n_bytes,
-                  const vk::UniqueCommandBuffer& cmd_buf = {} // needed for staging
-);
+                  const vk::UniqueCommandBuffer& cmd_buf = {});
 
 // -----------------------------------------------------------------------------
 // ------------------------------- DescriptorSet -------------------------------
