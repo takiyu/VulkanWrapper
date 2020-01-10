@@ -197,7 +197,7 @@ void RunExampleApp01(const vkw::WindowPtr& window,
 
     auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
                                                       {nullptr, depth_img_pack},
-                                                      0, swapchain_pack);
+                                                      swapchain_pack);
 
     vkw::GLSLCompiler glsl_compiler;
     auto vert_shader_module_pack = glsl_compiler.compileFromString(

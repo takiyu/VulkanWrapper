@@ -1400,7 +1400,6 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
         const vk::UniqueDevice &device,
         const RenderPassPackPtr &render_pass_pack,
         const std::vector<ImagePackPtr> &imgs,
-        const uint32_t swapchain_attach_idx,
         const SwapchainPackPtr &swapchain) {
     // Prepare frame buffer creation
     auto info = PrepareFrameBuffer(render_pass_pack, imgs, swapchain->size);
@@ -1408,12 +1407,24 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
     std::vector<vk::ImageView> &attachments = std::get<1>(info);
     const uint32_t n_layers = 1;
 
+    // Find attachment index
+    uint32_t attach_idx = uint32_t(~0);
+    for (size_t i = 0; i < imgs.size(); i++) {
+        if (!imgs[i]) {
+            attach_idx = static_cast<uint32_t>(i);
+            break;
+        }
+    }
+    if (attach_idx == uint32_t(~0)) {
+        throw std::runtime_error("No attachment position for swapchain view");
+    }
+
     // Create Frame Buffers
     std::vector<FrameBufferPackPtr> rets;
     rets.reserve(swapchain->views.size());
     for (auto &&view : swapchain->views) {
         // Overwrite swapchain image view
-        attachments[swapchain_attach_idx] = *view;
+        attachments[attach_idx] = *view;
         // Create one Frame Buffer
         auto frame_buffer = device->createFramebufferUnique(
                 {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,

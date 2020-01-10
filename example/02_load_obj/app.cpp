@@ -280,7 +280,7 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     // Create frame buffers for swapchain images
     auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
                                                       {nullptr, depth_img_pack},
-                                                      0, swapchain_pack);
+                                                      swapchain_pack);
 
     // Compile shaders
     vkw::GLSLCompiler glsl_compiler;

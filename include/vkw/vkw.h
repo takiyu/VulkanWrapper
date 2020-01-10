@@ -323,7 +323,7 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
         const vk::UniqueDevice& device,
         const RenderPassPackPtr& render_pass_pack,
         const std::vector<ImagePackPtr>& imgs,
-        const uint32_t swapchain_attach_idx, const SwapchainPackPtr& swapchain);
+        const SwapchainPackPtr& swapchain);
 
 // -----------------------------------------------------------------------------
 // -------------------------------- ShaderModule -------------------------------
