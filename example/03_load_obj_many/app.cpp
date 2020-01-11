@@ -149,14 +149,16 @@ public:
     ~VkApp();
 
     void initBasicComps(const vkw::WindowPtr& window);
-    void initDescComps(uint32_t uniform_size, uint32_t color_tex_w, uint32_t color_tex_h);
+    void initDescComps(uint32_t uniform_size, uint32_t color_tex_w,
+                       uint32_t color_tex_h);
     void initAttachComps();
     void initShaderComps();
     void initVertexBuffer(const void* data, uint64_t n_bytes);
     void initPipeline();
     void initCmdBufs();
     void sendTexture(const void* tex_data, uint64_t tex_n_bytes);
-    void initDrawStates(uint32_t n_vtxs, const std::array<float, 4> clear_color);
+    void initDrawStates(uint32_t n_vtxs,
+                        const std::array<float, 4> clear_color);
     void draw(const void* uniform_data, uint64_t uniform_n_bytes);
 
     uint32_t getSwapchainWidth() const {
@@ -260,18 +262,17 @@ private:
     )";
 };
 
-VkApp::VkApp() {
-}
+VkApp::VkApp() {}
 
-VkApp::~VkApp() {
-}
+VkApp::~VkApp() {}
 
 void VkApp::initBasicComps(const vkw::WindowPtr& window) {
     m_window = window;
 
     // Create instance
-    m_instance = vkw::CreateInstance(APP_NAME, APP_VERSION, ENGINE_NAME,
-                                     ENGINE_VERSION, DEBUG_ENABLE, DISPLAY_ENABLE);
+    m_instance =
+            vkw::CreateInstance(APP_NAME, APP_VERSION, ENGINE_NAME,
+                                ENGINE_VERSION, DEBUG_ENABLE, DISPLAY_ENABLE);
 
     // Get a physical_device
     m_physical_device = vkw::GetFirstPhysicalDevice(m_instance);
@@ -284,8 +285,8 @@ void VkApp::initBasicComps(const vkw::WindowPtr& window) {
     m_queue_family_idx =
             vkw::GetGraphicPresentQueueFamilyIdx(m_physical_device, m_surface);
     // Create device
-    m_device = vkw::CreateDevice(m_queue_family_idx, m_physical_device, N_QUEUES,
-                                    DISPLAY_ENABLE);
+    m_device = vkw::CreateDevice(m_queue_family_idx, m_physical_device,
+                                 N_QUEUES, DISPLAY_ENABLE);
 
     // Create swapchain
     m_swapchain_pack =
@@ -299,7 +300,8 @@ void VkApp::initBasicComps(const vkw::WindowPtr& window) {
     }
 }
 
-void VkApp::initDescComps(uint32_t uniform_size, uint32_t color_tex_w, uint32_t color_tex_h) {
+void VkApp::initDescComps(uint32_t uniform_size, uint32_t color_tex_w,
+                          uint32_t color_tex_h) {
     // Create uniform buffer
     m_uniform_buf_pack = vkw::CreateBufferPack(
             m_physical_device, m_device, uniform_size,
@@ -310,17 +312,16 @@ void VkApp::initDescComps(uint32_t uniform_size, uint32_t color_tex_w, uint32_t 
     // Create color texture
     auto color_img_pack = vkw::CreateImagePack(
             m_physical_device, m_device, vk::Format::eR32G32B32A32Sfloat,
-            {color_tex_w, color_tex_h},
-            vk::ImageUsageFlagBits::eSampled, vk::ImageAspectFlagBits::eColor,
-            true, false);
+            {color_tex_w, color_tex_h}, vk::ImageUsageFlagBits::eSampled,
+            vk::ImageAspectFlagBits::eColor, true, false);
     m_color_tex_pack = vkw::CreateTexturePack(color_img_pack, m_device);
 
     // Create descriptor set for uniform buffer and texture
     m_desc_set_pack = vkw::CreateDescriptorSetPack(
             m_device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
-                      vk::ShaderStageFlagBits::eVertex},
-                     {vk::DescriptorType::eCombinedImageSampler, 1,
-                      vk::ShaderStageFlagBits::eFragment}});
+                        vk::ShaderStageFlagBits::eVertex},
+                       {vk::DescriptorType::eCombinedImageSampler, 1,
+                        vk::ShaderStageFlagBits::eFragment}});
 
     // Bind descriptor set with actual buffer
     auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
@@ -363,8 +364,8 @@ void VkApp::initAttachComps() {
 
     // Create frame buffers for swapchain images
     m_frame_buf_packs = vkw::CreateFrameBuffers(m_device, m_render_pass_pack,
-                                                      {nullptr, m_depth_img_pack},
-                                                      m_swapchain_pack);
+                                                {nullptr, m_depth_img_pack},
+                                                m_swapchain_pack);
 }
 
 void VkApp::initShaderComps() {
@@ -404,8 +405,8 @@ void VkApp::initCmdBufs() {
     // Create command buffers
     const uint32_t n_cmd_bufs = static_cast<uint32_t>(m_frame_buf_packs.size());
     const bool reset_enable = false;
-    m_cmd_bufs_pack =
-            vkw::CreateCommandBuffersPack(m_device, m_queue_family_idx, n_cmd_bufs, reset_enable);
+    m_cmd_bufs_pack = vkw::CreateCommandBuffersPack(
+            m_device, m_queue_family_idx, n_cmd_bufs, reset_enable);
 }
 
 void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
@@ -414,8 +415,8 @@ void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
 
     // Create sending command for color texture
     vkw::BeginCommand(cmd_buf);
-    vkw::SendToDevice(
-            m_device, m_color_tex_pack, tex_data, tex_n_bytes, cmd_buf);
+    vkw::SendToDevice(m_device, m_color_tex_pack, tex_data, tex_n_bytes,
+                      cmd_buf);
     vkw::EndCommand(cmd_buf);
 
     // Send
@@ -427,7 +428,8 @@ void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
     m_color_tex_pack->img_pack->trans_buf_pack.reset();
 }
 
-void VkApp::initDrawStates(uint32_t n_vtxs, const std::array<float, 4> clear_color) {
+void VkApp::initDrawStates(uint32_t n_vtxs,
+                           const std::array<float, 4> clear_color) {
     // Create image acquired semaphore
     m_img_acquired_semaphore = vkw::CreateSemaphore(m_device);
     // Create drawing fence
