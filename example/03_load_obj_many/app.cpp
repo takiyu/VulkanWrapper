@@ -174,7 +174,7 @@ private:
     const std::string ENGINE_NAME = "VKW";
     const uint32_t ENGINE_VERSION = 1;
 
-    const bool DEBUG_ENABLE = false;
+    const bool DEBUG_ENABLE = true;
     const bool DISPLAY_ENABLE = true;
     const uint32_t N_QUEUES = 2;
 
@@ -215,6 +215,7 @@ private:
 
     // Drawing states
     vkw::SemaphorePtr m_img_acquired_semaphore;
+    vkw::SemaphorePtr m_draw_semaphore;
     vkw::FencePtr m_draw_fence;
 
     // Shader sources
@@ -403,15 +404,17 @@ void VkApp::initPipeline() {
 
 void VkApp::initCmdBufs() {
     // Create command buffers
-    const uint32_t n_cmd_bufs = static_cast<uint32_t>(m_frame_buf_packs.size());
+    const uint32_t n_views = static_cast<uint32_t>(m_frame_buf_packs.size());
     const bool reset_enable = false;
     m_cmd_bufs_pack = vkw::CreateCommandBuffersPack(
-            m_device, m_queue_family_idx, n_cmd_bufs, reset_enable);
+            m_device, m_queue_family_idx, n_views, reset_enable);
 }
 
 void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
-    // Send color texture to GPU
-    auto& cmd_buf = m_cmd_bufs_pack->cmd_bufs[0];
+    // Sending command buffer for color texture
+    auto send_cmd_buf_pack = vkw::CreateCommandBuffersPack(
+            m_device, m_queue_family_idx, 1, false);
+    auto& cmd_buf = send_cmd_buf_pack->cmd_bufs[0];
 
     // Create sending command for color texture
     vkw::BeginCommand(cmd_buf);
@@ -432,6 +435,7 @@ void VkApp::initDrawStates(uint32_t n_vtxs,
                            const std::array<float, 4> clear_color) {
     // Create image acquired semaphore
     m_img_acquired_semaphore = vkw::CreateSemaphore(m_device);
+    m_draw_semaphore = vkw::CreateSemaphore(m_device);
     // Create drawing fence
     m_draw_fence = vkw::CreateFence(m_device);
 
@@ -480,17 +484,17 @@ void VkApp::draw(const void* uniform_data, uint64_t uniform_n_bytes) {
     vkw::AcquireNextImage(&curr_img_idx, m_device, m_swapchain_pack,
                           m_img_acquired_semaphore, nullptr);
 
-    auto& cmd_buf = m_cmd_bufs_pack->cmd_bufs[curr_img_idx];
-    auto& queue = m_queues[0];
-
     // Emit drawing command
-    vkw::QueueSubmit(queue, cmd_buf, m_draw_fence,
+    const uint32_t n_views = static_cast<uint32_t>(m_frame_buf_packs.size());
+    auto& cmd_buf = m_cmd_bufs_pack->cmd_bufs[curr_img_idx];
+    vkw::QueueSubmit(m_queues[0], cmd_buf, m_draw_fence,
                      {{m_img_acquired_semaphore,
                        vk::PipelineStageFlagBits::eColorAttachmentOutput}},
-                     {});
+                     {m_draw_semaphore});
 
     // Present
-    vkw::QueuePresent(queue, m_swapchain_pack, curr_img_idx);
+    vkw::QueuePresent(m_queues[1], m_swapchain_pack, curr_img_idx,
+                      {m_draw_semaphore});
 
     // Wait for drawing
     vkw::WaitForFence(m_device, m_draw_fence);

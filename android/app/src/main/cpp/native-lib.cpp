@@ -30,8 +30,8 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(
         try {
             // RunExampleApp01(window, draw_hook);
             // RunExampleApp02(window, draw_hook);
-            // RunExampleApp03(window, draw_hook);
-            RunExampleApp04(window, draw_hook);
+            RunExampleApp03(window, draw_hook);
+//             RunExampleApp04(window, draw_hook);
         } catch(const std::exception& e) {
             vkw::PrintInfo(e.what());
             vkw::PrintInfo("Exit app");
