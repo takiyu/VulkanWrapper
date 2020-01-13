@@ -84,8 +84,7 @@ static Mesh LoadObjMany(const std::string& filename, const float obj_scale,
     const std::vector<tinyobj::real_t>& tiny_texcoords = tiny_attrib.texcoords;
 
     // Deterministic random number generator
-    std::random_device rnd;
-    std::mt19937 mt_engine(0);
+    std::mt19937 mt_engine(5489U);
     std::uniform_int_distribution<> distrib(-shift_scale, shift_scale);
 
     // Parse to mesh structure
@@ -174,7 +173,7 @@ private:
     const std::string ENGINE_NAME = "VKW";
     const uint32_t ENGINE_VERSION = 1;
 
-    const bool DEBUG_ENABLE = true;
+    const bool DEBUG_ENABLE = false;
     const bool DISPLAY_ENABLE = true;
     const uint32_t N_QUEUES = 2;
 
@@ -214,9 +213,9 @@ private:
     vkw::CommandBuffersPackPtr m_cmd_bufs_pack;
 
     // Drawing states
-    vkw::SemaphorePtr m_img_acquired_semaphore;
-    vkw::SemaphorePtr m_draw_semaphore;
-    vkw::FencePtr m_draw_fence;
+    std::vector<vkw::SemaphorePtr> m_draw_semaphores;
+    std::vector<vkw::FencePtr> m_draw_fences;
+    uint32_t m_prev_img_idx = uint32_t(~0);
 
     // Shader sources
     const std::string VERT_SOURCE = R"(
@@ -230,11 +229,11 @@ private:
         } uniform_buf;
 
         layout (location = 0) in vec3 pos;
-        layout (location = 1) in vec3 normal;
-        layout (location = 2) in vec2 uv;
+        layout (location = 1) in lowp vec3 normal;
+        layout (location = 2) in lowp vec2 uv;
 
-        layout (location = 0) out vec3 vtx_normal;
-        layout (location = 1) out vec2 vtx_uv;
+        layout (location = 0) out lowp vec3 vtx_normal;
+        layout (location = 1) out lowp vec2 vtx_uv;
 
         void main() {
             gl_Position = uniform_buf.mvp_mat * vec4(pos, 1.0);
@@ -250,15 +249,15 @@ private:
 
         layout (binding = 1) uniform sampler2D tex;
 
-        layout (location = 0) in vec3 vtx_normal;
-        layout (location = 1) in vec2 vtx_uv;
+        layout (location = 0) in lowp vec3 vtx_normal;
+        layout (location = 1) in lowp vec2 vtx_uv;
 
         layout (location = 0) out vec4 frag_color;
 
         void main() {
             frag_color = texture(tex, vec2(1.0 - vtx_uv.x, 1.0 - vtx_uv.y));
-        //     frag_color = vec4(vtx_uv, 0.0, 1.0);
-            //frag_color = vec4(vtx_normal * 0.5 + 0.5, 1.0);
+            // frag_color = vec4(vtx_uv, 0.0, 1.0);
+            // frag_color = vec4(vtx_normal * 0.5 + 0.5, 1.0);
         }
     )";
 };
@@ -433,12 +432,6 @@ void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
 
 void VkApp::initDrawStates(uint32_t n_vtxs,
                            const std::array<float, 4> clear_color) {
-    // Create image acquired semaphore
-    m_img_acquired_semaphore = vkw::CreateSemaphore(m_device);
-    m_draw_semaphore = vkw::CreateSemaphore(m_device);
-    // Create drawing fence
-    m_draw_fence = vkw::CreateFence(m_device);
-
     // Build commands
     auto& cmd_bufs = m_cmd_bufs_pack->cmd_bufs;
     for (size_t i = 0; i < cmd_bufs.size(); i++) {
@@ -472,6 +465,16 @@ void VkApp::initDrawStates(uint32_t n_vtxs,
 
         vkw::EndCommand(cmd_buf);
     }
+
+    // Create asynchronous variables
+    m_draw_semaphores.resize(cmd_bufs.size());
+    m_draw_fences.resize(cmd_bufs.size());
+    for (uint32_t i = 0; i < cmd_bufs.size(); i++) {
+        // Create drawing semaphore
+        m_draw_semaphores[i] = vkw::CreateSemaphore(m_device);
+        // Create drawing fence
+        m_draw_fences[i] = vkw::CreateFence(m_device);
+    }
 }
 
 void VkApp::draw(const void* uniform_data, uint64_t uniform_n_bytes) {
@@ -481,24 +484,36 @@ void VkApp::draw(const void* uniform_data, uint64_t uniform_n_bytes) {
 
     // Get next image index of swapchain
     uint32_t curr_img_idx = 0;
+    auto img_acquired_semaphore = vkw::CreateSemaphore(m_device);
     vkw::AcquireNextImage(&curr_img_idx, m_device, m_swapchain_pack,
-                          m_img_acquired_semaphore, nullptr);
+                          img_acquired_semaphore, nullptr);
 
     // Emit drawing command
-    const uint32_t n_views = static_cast<uint32_t>(m_frame_buf_packs.size());
     auto& cmd_buf = m_cmd_bufs_pack->cmd_bufs[curr_img_idx];
-    vkw::QueueSubmit(m_queues[0], cmd_buf, m_draw_fence,
-                     {{m_img_acquired_semaphore,
+    auto& draw_fence = m_draw_fences[curr_img_idx];
+    vkw::QueueSubmit(m_queues[0], cmd_buf, draw_fence,
+                     {{img_acquired_semaphore,
                        vk::PipelineStageFlagBits::eColorAttachmentOutput}},
-                     {m_draw_semaphore});
+                     {});
+//                      {m_draw_semaphores[curr_img_idx]});
 
-    // Present
-    vkw::QueuePresent(m_queues[1], m_swapchain_pack, curr_img_idx,
-                      {m_draw_semaphore});
+    // Wait previous drawing
+    if (m_prev_img_idx != uint32_t(~0)) {
+        // Wait for drawing
+        auto& draw_fence = m_draw_fences[m_prev_img_idx];
+        vkw::WaitForFence(m_device, draw_fence);
+        vkw::ResetFence(m_device, draw_fence);
+    }
 
-    // Wait for drawing
-    vkw::WaitForFence(m_device, m_draw_fence);
-    vkw::ResetFence(m_device, m_draw_fence);
+    // Present current view
+    vkw::QueuePresent(m_queues[0], m_swapchain_pack, curr_img_idx,
+                      {});
+//                       {m_draw_semaphores[curr_img_idx]});
+
+    // Note: `draw_semaphore` may be needed for android even if using same queue
+
+    // Shift image index
+    m_prev_img_idx = curr_img_idx;
 }
 
 // -----------------------------------------------------------------------------
@@ -512,8 +527,8 @@ void RunExampleApp03(const vkw::WindowPtr& window,
     const std::string& OBJ_FILENAME = "../data/earth/earth.obj";
 #endif
     const float OBJ_SCALE = 1.f / 100.f;
-    const float SHIFT_SCALE = 100.f;
-    const uint32_t N_OBJECTS = 400;
+    const float SHIFT_SCALE = 30.f;
+    const uint32_t N_OBJECTS = 200;
     Mesh mesh = LoadObjMany(OBJ_FILENAME, OBJ_SCALE, SHIFT_SCALE, N_OBJECTS);
 
     VkApp app;
