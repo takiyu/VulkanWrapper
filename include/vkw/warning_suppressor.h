@@ -11,6 +11,7 @@
 #elif defined __GNUC__
 #define BEGIN_VKW_SUPPRESS_WARNING \
     _Pragma("GCC diagnostic push") \
+    _Pragma("GCC diagnostic ignored \"-Wundef\"") \
     _Pragma("GCC diagnostic ignored \"-Wsign-conversion\"") \
     _Pragma("GCC diagnostic ignored \"-Wold-style-cast\"") \
     _Pragma("GCC diagnostic ignored \"-Wctor-dtor-privacy\"") \

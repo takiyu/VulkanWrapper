@@ -35,9 +35,9 @@ inline T Clamp(const T &x, const T &min_v, const T &max_v) {
     return std::min(std::max(x, min_v), max_v);
 }
 
-template <typename BitType, typename MaskType = VkFlags>
-bool IsSufficient(const vk::Flags<BitType, MaskType> &actual_flags,
-                  const vk::Flags<BitType, MaskType> &require_flags) {
+template <typename BitType>
+bool IsSufficient(const vk::Flags<BitType> &actual_flags,
+                  const vk::Flags<BitType> &require_flags) {
     return (actual_flags & require_flags) == require_flags;
 }
 
@@ -92,7 +92,7 @@ static std::vector<std::string> Split(const std::string &str, char del = '\n') {
 static bool IsVkDebugUtilsAvailable() {
     const std::string DEBUG_UTIL_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
     for (auto &&prop : vk::enumerateInstanceExtensionProperties()) {
-        if (prop.extensionName == DEBUG_UTIL_NAME) {
+        if (std::string(prop.extensionName) == DEBUG_UTIL_NAME) {
             return true;
         }
     }
@@ -117,7 +117,9 @@ static std::vector<char const *> GetEnabledLayers(bool debug_enable) {
     // Check layer name validities
     std::set<std::string> valid_names;
     for (auto &&prop : vk::enumerateInstanceLayerProperties()) {
-        valid_names.insert(prop.layerName);
+        if (prop.layerName) {
+            valid_names.insert(std::string(prop.layerName));
+        }
     }
     std::vector<char const *> ret_names;
     for (auto &&name : names) {
