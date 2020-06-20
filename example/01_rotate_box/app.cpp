@@ -279,7 +279,8 @@ void RunExampleApp01(const vkw::WindowPtr& window,
         vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
 
         const uint32_t n_instances = 1;
-        vkw::CmdDraw(cmd_buf, CUBE_VERTICES.size(), n_instances);
+        vkw::CmdDraw(cmd_buf, static_cast<uint32_t>(CUBE_VERTICES.size()),
+                     n_instances);
 
         // vkw::CmdNextSubPass(cmd_buf);
         vkw::CmdEndRenderPass(cmd_buf);

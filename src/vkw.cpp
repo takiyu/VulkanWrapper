@@ -1733,7 +1733,8 @@ void CmdSetViewport(const vk::UniqueCommandBuffer &cmd_buf,
     // Convert to viewport
     const float min_depth = 0.f;
     const float max_depth = 1.f;
-    vk::Viewport viewport(0.f, 0.f, viewport_size.width, viewport_size.height,
+    vk::Viewport viewport(0.f, 0.f, static_cast<float>(viewport_size.width),
+                          static_cast<float>(viewport_size.height),
                           min_depth, max_depth);
     // Set
     CmdSetViewport(cmd_buf, viewport);
