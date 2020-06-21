@@ -17,7 +17,7 @@ END_VKW_SUPPRESS_WARNING
 #include <sstream>
 
 // -----------------------------------------------------------------------------
-const std::string VERT_SOURCE = R"(
+const std::string VERT_SOURCE1 = R"(
 #version 400
 
 #extension GL_ARB_separate_shader_objects : enable
@@ -40,14 +40,13 @@ void main() {
     vtx_uv = uv;
 }
 )";
-
-const std::string FRAG_SOURCE = R"(
+const std::string FRAG_SOURCE1 = R"(
 #version 400
 
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-layout (binding = 1) uniform sampler2D tex;
+layout (set=0, binding = 1) uniform sampler2D texs[2];
 
 layout (location = 0) in vec3 vtx_normal;
 layout (location = 1) in vec2 vtx_uv;
@@ -56,9 +55,41 @@ layout (location = 0) out vec4 frag_color;
 layout (location = 1) out vec4 frag_normal;
 
 void main() {
-    frag_color = texture(tex, vec2(1.0 - vtx_uv.x, 1.0 - vtx_uv.y));
-//     frag_color = vec4(vtx_uv, 0.0, 1.0);
+    // Texture fetching
+    vec2 uv = vec2(1.0 - vtx_uv.x, 1.0 - vtx_uv.y);
+    vec4 color = texture(texs[0], uv);
+    float bump = texture(texs[1], uv).r;
+
+    frag_color = color;
     frag_normal = vec4(vtx_normal * 0.5 + 0.5, 1.0);
+}
+)";
+
+const std::string VERT_SOURCE2 = R"(
+#version 400
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+void main() {
+	gl_Position = vec4(vec2((gl_VertexIndex << 1) & 2,
+                             gl_VertexIndex & 2) * 2.0f - 1.0f,
+                       0.0f, 1.0f);
+}
+)";
+const std::string FRAG_SOURCE2 = R"(
+#version 400
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput input_color;
+layout (input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput input_normal;
+
+layout (location = 0) out vec4 frag_color;
+
+void main() {
+    frag_color = subpassLoad(input_color).rgba;
 }
 )";
 
@@ -192,9 +223,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                      std::function<void()> draw_hook) {
     // Load mesh
 #if defined(__ANDROID__)
-    const std::string& OBJ_FILENAME = "/sdcard/vulkanwrapper/earth/earth.obj";
+    const std::string OBJ_FILENAME = "/sdcard/vulkanwrapper/earth/earth.obj";
 #else
-    const std::string& OBJ_FILENAME = "../data/earth/earth.obj";
+    const std::string OBJ_FILENAME = "../data/earth/earth.obj";
 #endif
     const float OBJ_SCALE = 1.f / 100.f;
     const float SHIFT_SCALE = 100.f;
@@ -203,7 +234,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
 
     // Initialize with display environment
     const bool display_enable = true;
-    const bool debug_enable = false;
+    const bool debug_enable = true;
     const uint32_t n_queues = 2;
 
     // Create instance
@@ -235,20 +266,28 @@ void RunExampleApp04(const vkw::WindowPtr& window,
         queues.push_back(vkw::GetQueue(device, queue_family_idx, i));
     }
 
+    // Create G buffer 0 (color)
+    const auto gbuf_col_format = vk::Format::eA8B8G8R8SnormPack32;
+    auto gbuf_col_img_pack = vkw::CreateImagePack(
+            physical_device, device, gbuf_col_format, swapchain_pack->size,
+            vk::ImageUsageFlagBits::eColorAttachment |
+                    vk::ImageUsageFlagBits::eInputAttachment,
+            vk::ImageAspectFlagBits::eColor, true, false);
+
+    // Create G buffer 1 (normal)
+    const auto gbuf_nor_format = vk::Format::eA8B8G8R8SnormPack32;
+    auto gbuf_nor_img_pack = vkw::CreateImagePack(
+            physical_device, device, gbuf_nor_format, swapchain_pack->size,
+            vk::ImageUsageFlagBits::eColorAttachment |
+                    vk::ImageUsageFlagBits::eInputAttachment,
+            vk::ImageAspectFlagBits::eColor, true, false);
+
     // Create depth buffer
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
             physical_device, device, depth_format, swapchain_pack->size,
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
             vk::ImageAspectFlagBits::eDepth, true, false);
-
-    // Create extra buffer
-//     const auto extra_format = vk::Format::eA8B8G8R8UintPack32;
-    const auto extra_format = surface_format;
-    auto extra_img_pack = vkw::CreateImagePack(
-            physical_device, device, extra_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eColorAttachment,
-            vk::ImageAspectFlagBits::eColor, true, false);
 
     // Create uniform buffer
     auto uniform_buf_pack = vkw::CreateBufferPack(
@@ -273,63 +312,90 @@ void RunExampleApp04(const vkw::WindowPtr& window,
             true, false);
     auto bump_tex_pack = vkw::CreateTexturePack(bump_img_pack, device);
 
-    // Create descriptor set for uniform buffer and texture
-    auto desc_set_pack = vkw::CreateDescriptorSetPack(
+    // Create descriptor set 0 for uniform buffer and texture
+    auto desc_set_pack0 = vkw::CreateDescriptorSetPack(
             device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
                       vk::ShaderStageFlagBits::eVertex},
                      {vk::DescriptorType::eCombinedImageSampler, 2,
                       vk::ShaderStageFlagBits::eFragment}});
-
     // Bind descriptor set with actual buffer
-    auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
+    auto write_desc_set_pack0 = vkw::CreateWriteDescSetPack();
+    vkw::AddWriteDescSet(write_desc_set_pack0, desc_set_pack0, 0,
                          {uniform_buf_pack});
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1,
+    vkw::AddWriteDescSet(write_desc_set_pack0, desc_set_pack0, 1,
                          {color_tex_pack, bump_tex_pack});
-    vkw::UpdateDescriptorSets(device, write_desc_set_pack);
+    vkw::UpdateDescriptorSets(device, write_desc_set_pack0);
+
+    // Create descriptor set 1 for uniform buffer and texture
+    auto desc_set_pack1 = vkw::CreateDescriptorSetPack(
+            device, {{vk::DescriptorType::eInputAttachment, 2,
+                      vk::ShaderStageFlagBits::eFragment}});
+    // Bind descriptor set with actual buffer
+    auto write_desc_set_pack1 = vkw::CreateWriteDescSetPack();
+    vkw::AddWriteDescSet(write_desc_set_pack1, desc_set_pack1, 0,
+                         {gbuf_col_img_pack, gbuf_nor_img_pack});
+    vkw::UpdateDescriptorSets(device, write_desc_set_pack1);
 
     // Create render pass
     auto render_pass_pack = vkw::CreateRenderPassPack();
-    // Add color attachment for surface
+    // 0) Add color attachment for surface
     vkw::AddAttachientDesc(
             render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
             vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
-    // Add color extra attachment
-    vkw::AddAttachientDesc(
-            render_pass_pack, extra_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
-//             vk::AttachmentStoreOp::eStore, vk::ImageLayout::eColorAttachmentOptimal);
-    // Add depth attachment
+    // 1) Add gbuffer 0 (color) attachment
+    vkw::AddAttachientDesc(render_pass_pack, gbuf_col_format,
+                           vk::AttachmentLoadOp::eClear,
+                           vk::AttachmentStoreOp::eStore,
+                           vk::ImageLayout::eColorAttachmentOptimal);
+    // 2) Add gbuffer 1 (normal) attachment
+    vkw::AddAttachientDesc(render_pass_pack, gbuf_nor_format,
+                           vk::AttachmentLoadOp::eClear,
+                           vk::AttachmentStoreOp::eStore,
+                           vk::ImageLayout::eColorAttachmentOptimal);
+    // 3) Add depth attachment
     vkw::AddAttachientDesc(render_pass_pack, depth_format,
                            vk::AttachmentLoadOp::eClear,
                            vk::AttachmentStoreOp::eDontCare,
                            vk::ImageLayout::eDepthStencilAttachmentOptimal);
-    // Add subpass
+    // Add subpass 1
     vkw::AddSubpassDesc(render_pass_pack,
                         {
                                 // No input attachments
                         },
                         {
-                                {0, vk::ImageLayout::eColorAttachmentOptimal},
                                 {1, vk::ImageLayout::eColorAttachmentOptimal},
+                                {2, vk::ImageLayout::eColorAttachmentOptimal},
                         },
-                        {2, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+                        {3, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+    // Add subpass 2
+    vkw::AddSubpassDesc(render_pass_pack,
+                        {
+                                {1, vk::ImageLayout::eShaderReadOnlyOptimal},
+                                {2, vk::ImageLayout::eShaderReadOnlyOptimal},
+                        },
+                        {
+                                {0, vk::ImageLayout::eColorAttachmentOptimal},
+                        },
+                        {3, vk::ImageLayout::eDepthStencilAttachmentOptimal});
     // Create render pass instance
     vkw::UpdateRenderPass(device, render_pass_pack);
 
     // Create frame buffers for swapchain images
-    auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
-//                                                       {extra_img_pack, nullptr, depth_img_pack},
-//                                                       swapchain_pack);
-                                                      {nullptr, extra_img_pack, depth_img_pack},
-                                                      swapchain_pack);
+    auto frame_buffer_packs = vkw::CreateFrameBuffers(
+            device, render_pass_pack,
+            {nullptr, gbuf_col_img_pack, gbuf_nor_img_pack, depth_img_pack},
+            swapchain_pack);
 
     // Compile shaders
     vkw::GLSLCompiler glsl_compiler;
-    auto vert_shader_module_pack = glsl_compiler.compileFromString(
-            device, VERT_SOURCE, vk::ShaderStageFlagBits::eVertex);
-    auto frag_shader_module_pack = glsl_compiler.compileFromString(
-            device, FRAG_SOURCE, vk::ShaderStageFlagBits::eFragment);
+    auto vert_shader_module_pack1 = glsl_compiler.compileFromString(
+            device, VERT_SOURCE1, vk::ShaderStageFlagBits::eVertex);
+    auto frag_shader_module_pack1 = glsl_compiler.compileFromString(
+            device, FRAG_SOURCE1, vk::ShaderStageFlagBits::eFragment);
+    auto vert_shader_module_pack2 = glsl_compiler.compileFromString(
+            device, VERT_SOURCE2, vk::ShaderStageFlagBits::eVertex);
+    auto frag_shader_module_pack2 = glsl_compiler.compileFromString(
+            device, FRAG_SOURCE2, vk::ShaderStageFlagBits::eFragment);
 
     // Create vertex buffer
     const size_t vertex_buf_size = mesh.vertices.size() * sizeof(Vertex);
@@ -342,16 +408,23 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     vkw::SendToDevice(device, vertex_buf_pack, mesh.vertices.data(),
                       vertex_buf_size);
 
-    // Create pipeline
-    vkw::PipelineInfo pipeline_info;
-    pipeline_info.color_blend_infos.resize(2);
-    auto pipeline_pack = vkw::CreatePipeline(
-            device, {vert_shader_module_pack, frag_shader_module_pack},
+    // Create pipeline 0
+    vkw::PipelineInfo pipeline_info0;
+    pipeline_info0.color_blend_infos.resize(2);
+    auto pipeline_pack0 = vkw::CreatePipeline(
+            device, {vert_shader_module_pack1, frag_shader_module_pack1},
             {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
             {{0, 0, vk::Format::eR32G32B32Sfloat, 0},
              {1, 0, vk::Format::eR32G32B32Sfloat, sizeof(float) * 3},
              {2, 0, vk::Format::eR32G32Sfloat, sizeof(float) * 6}},
-            pipeline_info, {desc_set_pack}, render_pass_pack);
+            pipeline_info0, {desc_set_pack0}, render_pass_pack, 0);
+
+    // Create pipeline 1
+    vkw::PipelineInfo pipeline_info1;
+    pipeline_info1.color_blend_infos.resize(1);
+    auto pipeline_pack1 = vkw::CreatePipeline(
+            device, {vert_shader_module_pack2, frag_shader_module_pack2}, {},
+            {}, pipeline_info1, {desc_set_pack1}, render_pass_pack, 1);
 
     uint32_t n_cmd_bufs = static_cast<uint32_t>(frame_buffer_packs.size());
     auto cmd_bufs_pack =
@@ -363,9 +436,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
         // Send color texture to GPU
         auto& cmd_buf = cmd_bufs[0];
         vkw::BeginCommand(cmd_buf);
-        vkw::SendToDevice(
-                device, color_tex_pack, mesh.color_tex.data(),
-                mesh.color_tex.size() * sizeof(mesh.color_tex[0]), cmd_buf);
+        vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
+                          mesh.color_tex.size() * sizeof(mesh.color_tex[0]),
+                          cmd_buf);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
@@ -378,9 +451,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
         // Send color texture to GPU
         auto& cmd_buf = cmd_bufs[0];
         vkw::BeginCommand(cmd_buf);
-        vkw::SendToDevice(
-                device, bump_tex_pack, mesh.bump_tex.data(),
-                mesh.bump_tex.size() * sizeof(mesh.bump_tex[0]), cmd_buf);
+        vkw::SendToDevice(device, bump_tex_pack, mesh.bump_tex.data(),
+                          mesh.bump_tex.size() * sizeof(mesh.bump_tex[0]),
+                          cmd_buf);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
@@ -406,7 +479,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
 
     vkw::FencePtr draw_fence = vkw::CreateFence(device);
 
-    for (int render_idx = 0; render_idx < 60 * 10; render_idx++) {
+    for (int render_idx = 0; render_idx < 60 * 5; render_idx++) {
         model_mat = glm::rotate(0.01f, glm::vec3(0.f, 1.f, 0.f)) * model_mat;
         glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
         vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],
@@ -436,18 +509,21 @@ void RunExampleApp04(const vkw::WindowPtr& window,
             vkw::BeginCommand(cmd_buf);
 
             const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};
+            const std::array<float, 4> clear_normal = {0.0f, 0.0f, 0.0f, 0.0f};
             vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack,
                                     frame_buffer_packs[curr_img_idx],
                                     {
                                             vk::ClearColorValue(clear_color),
                                             vk::ClearColorValue(clear_color),
+                                            vk::ClearColorValue(clear_normal),
                                             vk::ClearDepthStencilValue(1.0f, 0),
                                     });
 
-            vkw::CmdBindPipeline(cmd_buf, pipeline_pack);
+            // 1st subpass
+            vkw::CmdBindPipeline(cmd_buf, pipeline_pack0);
 
             const std::vector<uint32_t> dynamic_offsets = {0};
-            vkw::CmdBindDescSets(cmd_buf, pipeline_pack, {desc_set_pack},
+            vkw::CmdBindDescSets(cmd_buf, pipeline_pack0, {desc_set_pack0},
                                  dynamic_offsets);
 
             vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
@@ -458,9 +534,14 @@ void RunExampleApp04(const vkw::WindowPtr& window,
             const uint32_t n_instances = 1;
             vkw::CmdDraw(cmd_buf, mesh.vertices.size(), n_instances);
 
-            // vkw::CmdNextSubPass(cmd_buf);
-            vkw::CmdEndRenderPass(cmd_buf);
+            // 2nd subpass
+            vkw::CmdNextSubPass(cmd_buf);
 
+            vkw::CmdBindPipeline(cmd_buf, pipeline_pack1);
+            vkw::CmdBindDescSets(cmd_buf, pipeline_pack1, {desc_set_pack1});
+            vkw::CmdDraw(cmd_buf, 3, 1);
+
+            vkw::CmdEndRenderPass(cmd_buf);
             vkw::EndCommand(cmd_buf);
         }
 

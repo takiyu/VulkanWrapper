@@ -253,8 +253,8 @@ DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice& device,
 
 struct WriteDescSetPack {
     std::vector<vk::WriteDescriptorSet> write_desc_sets;
-    std::vector<std::vector<vk::DescriptorImageInfo>> desc_img_info_vecs;
     std::vector<std::vector<vk::DescriptorBufferInfo>> desc_buf_info_vecs;
+    std::vector<std::vector<vk::DescriptorImageInfo>> desc_img_info_vecs;
 };
 using WriteDescSetPackPtr = std::shared_ptr<WriteDescSetPack>;
 WriteDescSetPackPtr CreateWriteDescSetPack();
@@ -262,11 +262,15 @@ WriteDescSetPackPtr CreateWriteDescSetPack();
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<BufferPackPtr>& buf_packs);
+                     const std::vector<BufferPackPtr>& buf_packs);  // For buf
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<TexturePackPtr>& tex_packs);
+                     const std::vector<TexturePackPtr>& tex_packs);  // For tex
+void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
+                     const DescSetPackPtr& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<ImagePackPtr>& img_packs);  // For img
 
 void UpdateDescriptorSets(const vk::UniqueDevice& device,
                           const WriteDescSetPackPtr& write_desc_set_pack);
@@ -394,7 +398,7 @@ PipelinePackPtr CreatePipeline(
         const std::vector<VtxInputAttribInfo>& vtx_inp_attrib_info,
         const PipelineInfo& pipeline_info,
         const std::vector<DescSetPackPtr>& desc_set_packs,
-        const RenderPassPackPtr& render_pass_pack);
+        const RenderPassPackPtr& render_pass_pack, uint32_t subpass_idx = 0);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- Command Buffer ------------------------------

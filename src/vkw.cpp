@@ -1290,6 +1290,35 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
             img_infos.data(), nullptr, nullptr);
 }
 
+void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
+                     const DescSetPackPtr &desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<ImagePackPtr> &img_packs) {
+    // Fetch form and check with DescSetInfo
+    const DescSetInfo &desc_set_info =
+            desc_set_pack->desc_set_info[binding_idx];
+    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
+    const uint32_t desc_cnt = std::get<1>(desc_set_info);
+    if (desc_cnt != static_cast<uint32_t>(img_packs.size())) {
+        throw std::runtime_error("Invalid descriptor count to write images");
+    }
+    // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
+
+    // Create vector of DescriptorImageInfo in the result pack
+    auto &img_infos = EmplaceBackEmpty(write_pack->desc_img_info_vecs);
+    // Create DescriptorImageInfo
+    for (auto &&img_pack : img_packs) {
+        const vk::Sampler empty_sampler = nullptr;
+        img_infos.emplace_back(empty_sampler, *img_pack->view,
+                               vk::ImageLayout::eShaderReadOnlyOptimal);
+    }
+
+    // Create and Add WriteDescriptorSet
+    write_pack->write_desc_sets.emplace_back(
+            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
+            img_infos.data(), nullptr, nullptr);
+}
+
 void UpdateDescriptorSets(const vk::UniqueDevice &device,
                           const WriteDescSetPackPtr &write_desc_set_pack) {
     device->updateDescriptorSets(write_desc_set_pack->write_desc_sets, nullptr);
@@ -1475,7 +1504,7 @@ PipelinePackPtr CreatePipeline(
         const std::vector<VtxInputAttribInfo> &vtx_inp_attrib_info,
         const PipelineInfo &pipeline_info,
         const std::vector<DescSetPackPtr> &desc_set_packs,
-        const RenderPassPackPtr &render_pass_pack) {
+        const RenderPassPackPtr &render_pass_pack, uint32_t subpass_idx) {
     // Shader stage create infos
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stage_cis;
     shader_stage_cis.reserve(shader_modules.size());
@@ -1597,7 +1626,7 @@ PipelinePackPtr CreatePipeline(
              nullptr, &viewport_state_ci, &rasterization_state_ci,
              &multisample_state_ci, &depth_stencil_state_ci,
              &color_blend_state_ci, &dynamic_state_ci, pipeline_layout.get(),
-             render_pass_pack->render_pass.get()});
+             render_pass_pack->render_pass.get(), subpass_idx});
 
     return PipelinePackPtr(
             new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});
