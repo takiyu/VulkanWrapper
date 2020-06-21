@@ -61,7 +61,7 @@ void main() {
     float bump = texture(texs[1], uv).r;
 
     frag_color = color;
-    frag_normal = vec4(vtx_normal * 0.5 + 0.5, 1.0);
+    frag_normal = vec4(vtx_normal, 1.0);
 }
 )";
 
@@ -71,10 +71,13 @@ const std::string VERT_SOURCE2 = R"(
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
+layout (location = 0) out vec2 vtx_uv;
+
 void main() {
-	gl_Position = vec4(vec2((gl_VertexIndex << 1) & 2,
-                             gl_VertexIndex & 2) * 2.0f - 1.0f,
-                       0.0f, 1.0f);
+    vec2 uv = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
+    vec2 screen_pos = uv * 2.0f - 1.0f;
+    gl_Position = vec4(screen_pos, 0.0f, 1.0f);
+    vtx_uv = uv;
 }
 )";
 const std::string FRAG_SOURCE2 = R"(
@@ -83,13 +86,15 @@ const std::string FRAG_SOURCE2 = R"(
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput input_color;
-layout (input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput input_normal;
+layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput input_imgs[2];
+
+layout (location = 0) in vec2 vtx_uv;
 
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-    frag_color = subpassLoad(input_color).rgba;
+    int idx = (vtx_uv.x < 0.5) ? 0 : 1;
+    frag_color = subpassLoad(input_imgs[idx]).rgba;
 }
 )";
 
