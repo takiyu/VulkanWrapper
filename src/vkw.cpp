@@ -1392,17 +1392,32 @@ void AddSubpassDesc(RenderPassPackPtr &render_pass_pack,
             preserve_attachments_p);
 }
 
+void AddSubpassDepend(RenderPassPackPtr& render_pass_pack,
+                      const DependInfo& src_depend,
+                      const DependInfo& dst_depend,
+                      const vk::DependencyFlags& depend_flags) {
+    // Add subpass dependency info
+    render_pass_pack->subpass_depends.emplace_back(
+            src_depend.subpass_idx, dst_depend.subpass_idx,
+            src_depend.stage_mask, dst_depend.stage_mask,
+            src_depend.access_mask, dst_depend.access_mask,
+            depend_flags);
+}
+
 void UpdateRenderPass(const vk::UniqueDevice &device,
                       RenderPassPackPtr &render_pass_pack) {
     const auto &att_descs = render_pass_pack->attachment_descs;
     const uint32_t n_att_descs = static_cast<uint32_t>(att_descs.size());
     const auto &sub_descs = render_pass_pack->subpass_descs;
     const uint32_t n_sub_descs = static_cast<uint32_t>(sub_descs.size());
+    const auto &sub_depends = render_pass_pack->subpass_depends;
+    const uint32_t n_sub_depends = static_cast<uint32_t>(sub_depends.size());
 
     // Create render pass instance
     render_pass_pack->render_pass = device->createRenderPassUnique(
             {vk::RenderPassCreateFlags(), n_att_descs, DataSafety(att_descs),
-             n_sub_descs, DataSafety(sub_descs)});
+             n_sub_descs, DataSafety(sub_descs), n_sub_depends,
+             DataSafety(sub_depends)});
 }
 
 // -----------------------------------------------------------------------------

@@ -93,8 +93,9 @@ layout (location = 0) in vec2 vtx_uv;
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-    int idx = (vtx_uv.x < 0.5) ? 0 : 1;
-    frag_color = subpassLoad(input_imgs[idx]).rgba;
+    vec4 v0 = subpassLoad(input_imgs[0]).rgba;
+    vec4 v1 = subpassLoad(input_imgs[1]).rgba;
+    frag_color = mix(v0, v1, step(vtx_uv.x, 0.5));
 }
 )";
 
@@ -382,6 +383,14 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                                 {0, vk::ImageLayout::eColorAttachmentOptimal},
                         },
                         {3, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+    // Add dependency
+    vkw::AddSubpassDepend(render_pass_pack,
+                          {0,
+                           vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                           vk::AccessFlagBits::eColorAttachmentWrite},
+                          {1, vk::PipelineStageFlagBits::eFragmentShader,
+                           vk::AccessFlagBits::eInputAttachmentRead},
+                          vk::DependencyFlagBits::eByRegion);
     // Create render pass instance
     vkw::UpdateRenderPass(device, render_pass_pack);
 
@@ -527,9 +536,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
             // 1st subpass
             vkw::CmdBindPipeline(cmd_buf, pipeline_pack0);
 
-            const std::vector<uint32_t> dynamic_offsets = {0};
+            const std::vector<uint32_t> dynamic_offsets0 = {0};
             vkw::CmdBindDescSets(cmd_buf, pipeline_pack0, {desc_set_pack0},
-                                 dynamic_offsets);
+                                 dynamic_offsets0);
 
             vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
 

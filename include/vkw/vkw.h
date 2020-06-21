@@ -282,8 +282,8 @@ struct RenderPassPack {
     std::vector<vk::AttachmentDescription> attachment_descs;
     std::vector<std::vector<vk::AttachmentReference>> attachment_ref_vecs;
     std::vector<vk::SubpassDescription> subpass_descs;
+    std::vector<vk::SubpassDependency> subpass_depends;
     vk::UniqueRenderPass render_pass;
-    // TODO: dependency
 };
 using RenderPassPackPtr = std::shared_ptr<RenderPassPack>;
 RenderPassPackPtr CreateRenderPassPack();
@@ -302,6 +302,16 @@ void AddSubpassDesc(RenderPassPackPtr& render_pass_pack,
                     const std::vector<AttachmentRefInfo>& col_attach_refs,
                     const AttachmentRefInfo& depth_stencil_attach_ref = {
                             uint32_t(~0), vk::ImageLayout::eUndefined});
+
+struct DependInfo {
+    uint32_t subpass_idx;
+    vk::PipelineStageFlags stage_mask;
+    vk::AccessFlags access_mask;
+};
+void AddSubpassDepend(RenderPassPackPtr& render_pass_pack,
+                      const DependInfo& src_depend,
+                      const DependInfo& dst_depend,
+                      const vk::DependencyFlags& depend_flags = {});
 
 void UpdateRenderPass(const vk::UniqueDevice& device,
                       RenderPassPackPtr& render_pass_pack);

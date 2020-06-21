@@ -22,8 +22,8 @@ int main(int argc, char const* argv[]) {
         // RunExampleApp01(window, draw_hook);
         // RunExampleApp02(window, draw_hook);
         // RunExampleApp03(window, draw_hook);
-        // RunExampleApp04(window, draw_hook);
-        RunExampleApp05(window, draw_hook);
+        RunExampleApp04(window, draw_hook);
+        // RunExampleApp05(window, draw_hook);
     } catch(const std::exception& e) {
         vkw::PrintInfo(e.what());
         vkw::PrintInfo("Exit app");
