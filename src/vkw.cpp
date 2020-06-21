@@ -281,12 +281,12 @@ static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
     VkExtent2D swapchain_extent = surface_capas.currentExtent;
     if (swapchain_extent.width == std::numeric_limits<uint32_t>::max()) {
         // If the surface size is undefined, setting screen size is requested.
-        const uint32_t win_w = 256;
-        const uint32_t win_h = 256;
+        const uint32_t WIN_W = 256;
+        const uint32_t WIN_H = 256;
         const auto &min_ex = surface_capas.minImageExtent;
         const auto &max_ex = surface_capas.maxImageExtent;
-        swapchain_extent.width = Clamp(win_w, min_ex.width, max_ex.width);
-        swapchain_extent.height = Clamp(win_h, min_ex.height, max_ex.height);
+        swapchain_extent.width = Clamp(WIN_W, min_ex.width, max_ex.width);
+        swapchain_extent.height = Clamp(WIN_H, min_ex.height, max_ex.height);
     }
 
     // Set swapchain pre-transform
@@ -560,7 +560,8 @@ EShLanguage CvtShaderStage(const vk::ShaderStageFlagBits &stage) {
 std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
                                       const std::string &source) {
     const EShLanguage stage = CvtShaderStage(vk_stage);
-    const EShMessages rules = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+    const EShMessages rules =
+            static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
 
     // Set source string
     glslang::TShader shader(stage);
@@ -685,23 +686,23 @@ void DefaultFpsFunc(float fps) {
 }
 
 void PrintFps(std::function<void(float)> print_func, int show_interval) {
-    static int count = -2;  // Some starting offset
-    static auto start_clk = std::chrono::system_clock::now();
+    static int s_count = -2;  // Some starting offset
+    static auto s_start_clk = std::chrono::system_clock::now();
 
     // Count up
-    count++;
+    s_count++;
     // Print per interval
-    if (count % show_interval == show_interval - 1) {
+    if (s_count % show_interval == show_interval - 1) {
         // Compute fps
         auto end_clk = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed = end_clk - start_clk;
+        std::chrono::duration<double> elapsed = end_clk - s_start_clk;
         const float fps = static_cast<float>(show_interval) /
                           static_cast<float>(elapsed.count());
         // Print
         print_func(fps);
         // Shift clock
-        count = 0;
-        start_clk = end_clk;
+        s_count = 0;
+        s_start_clk = end_clk;
     }
 }
 
@@ -728,9 +729,9 @@ static void WindowDeleter(GLFWwindow *ptr) {
 WindowPtr InitGLFWWindow(const std::string &win_name, uint32_t win_w,
                          uint32_t win_h) {
     // Initialize GLFW
-    static bool is_inited = false;
-    if (!is_inited) {
-        is_inited = true;
+    static bool s_is_inited = false;
+    if (!s_is_inited) {
+        s_is_inited = true;
         glfwInit();
         atexit([]() { glfwTerminate(); });
     }
@@ -758,11 +759,11 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
                                   bool surface_enable) {
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
-    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
+    PFN_vkGetInstanceProcAddr get_vk_instance_proc_addr =
             vk::DynamicLoader()
                     .template getProcAddress<PFN_vkGetInstanceProcAddr>(
                             "vkGetInstanceProcAddr");
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(get_vk_instance_proc_addr);
 
     // Decide Vulkan layer and extensions
     const auto &enabled_layer = GetEnabledLayers(debug_enable);
@@ -978,15 +979,15 @@ SemaphorePtr CreateSemaphore(const vk::UniqueDevice &device) {
 SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
                                      const vk::UniqueDevice &device,
                                      const vk::UniqueSurfaceKHR &surface,
-                                     const vk::Format &surface_format_,
+                                     const vk::Format &surface_format_raw,
                                      const vk::ImageUsageFlags &usage) {
     // Set swapchain present mode
     const vk::PresentModeKHR swapchain_present_mode = vk::PresentModeKHR::eFifo;
 
     // Get the supported surface VkFormats
-    auto surface_format = (surface_format_ == vk::Format::eUndefined) ?
+    auto surface_format = (surface_format_raw == vk::Format::eUndefined) ?
                                   GetSurfaceFormat(physical_device, surface) :
-                                  surface_format_;
+                                  surface_format_raw;
 
     // Select properties from capabilities
     auto props = SelectSwapchainProps(physical_device, surface);
@@ -1734,8 +1735,8 @@ void CmdSetViewport(const vk::UniqueCommandBuffer &cmd_buf,
     const float min_depth = 0.f;
     const float max_depth = 1.f;
     vk::Viewport viewport(0.f, 0.f, static_cast<float>(viewport_size.width),
-                          static_cast<float>(viewport_size.height),
-                          min_depth, max_depth);
+                          static_cast<float>(viewport_size.height), min_depth,
+                          max_depth);
     // Set
     CmdSetViewport(cmd_buf, viewport);
 }
