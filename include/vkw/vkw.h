@@ -281,9 +281,9 @@ struct RenderPassPack {
     vk::UniqueRenderPass render_pass;
     // TODO: dependency
 };
-
 using RenderPassPackPtr = std::shared_ptr<RenderPassPack>;
 RenderPassPackPtr CreateRenderPassPack();
+
 void AddAttachientDesc(
         RenderPassPackPtr& render_pass_pack,
         const vk::Format& format = vk::Format::eB8G8R8A8Unorm,
