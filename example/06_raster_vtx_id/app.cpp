@@ -17,21 +17,52 @@ const std::string VERT_SOURCE = R"(
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
+layout (location = 0) in vec4 pos;
+layout (location = 1) in vec4 color;
+
+layout (location = 0) out vec4 vtx_color;
+layout (location = 1) out float vtx_id_f;
+
 layout (std140, binding = 0) uniform buffer {
     mat4 mvp;
 } uniformBuffer;
 
-layout (location = 0) in vec4 pos;
-layout (location = 1) in vec4 color;
-layout (location = 2) in uint face_id;
-
-layout (location = 0) out vec4 vtx_color;
-layout (location = 1) out float face_id_f;
-
 void main() {
-    vtx_color = color;
-    face_id_f = float(face_id) + 0.5;
     gl_Position = uniformBuffer.mvp * pos;
+    vtx_color = color;
+    vtx_id_f = float(gl_VertexIndex) + 0.5;
+}
+)";
+
+const std::string GEOM_SOURCE = R"(
+#version 400
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+layout (location = 0) in vec4 vtx_color[3];
+layout (location = 1) in float vtx_id_f[3];
+
+layout (location = 0) out vec4 geom_color;
+layout (location = 1) out vec3 vtx_ids_f;
+layout (location = 2) out vec3 vtx_bary;
+
+
+void main(void) {
+    vtx_ids_f = vec3(vtx_id_f[0], vtx_id_f[1], vtx_id_f[2]);
+
+    for (int i = 0; i < 3; i++) {
+        gl_Position = gl_in[i].gl_Position;
+        geom_color = vtx_color[i];
+        vtx_bary = vec3(0.0);
+        vtx_bary[i] = 1.0;
+        EmitVertex();
+    }
+
+    EndPrimitive();
 }
 )";
 
@@ -42,58 +73,55 @@ const std::string FRAG_SOURCE = R"(
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-layout (location = 0) in vec4 color;
-layout (location = 1) in float face_id_f;
+layout (location = 0) in vec4 geom_color;
+layout (location = 1) in vec3 vtx_ids_f;
+layout (location = 2) in vec3 vtx_bary;
 
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-    uint face_id = uint(face_id_f);
-    if (face_id % 2 == 0) {
-        frag_color = color;
-    } else {
-        frag_color = vec4(0.5, 0.5, 0.5, 1.0);
-    }
+    frag_color = vec4(vtx_bary, 1.0);
+//     frag_color = vec4(vtx_ids_f / 10.0, 1.0);
+//     frag_color = geom_color;
 }
 )";
 
 struct Vertex {
     float x, y, z, w;  // Position
     float r, g, b, a;  // Color
-    uint32_t vtx_id;
 };
 
 const std::vector<Vertex> CUBE_VERTICES = {
         // red face
-        {-1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0},  // f0
-        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1},   // f1  f1
-        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 2},   // f2  f0
-        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 3},    //     f2
+        {-1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},  // f0
+        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},   // f1  f1
+        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},   // f2  f0
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f},    //     f2
         // green face
-        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 4},
-        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 5},
-        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 6},
-        {1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 7},
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f},
         // blue face
-        {-1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 8},
-        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 9},
-        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 10},
-        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 11},
+        {-1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f},
         // yellow face
-        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 12},
-        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 13},
-        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 14},
-        {1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 15},
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f},
         // magenta face
-        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 16},
-        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 17},
-        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 18},
-        {-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 19},
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f},
         // cyan face
-        {1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 20},
-        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 21},
-        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 22},
-        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 23},
+        {1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
 };
 
 const std::vector<uint32_t> CUBE_INDICES {
@@ -196,6 +224,8 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     vkw::GLSLCompiler glsl_compiler;
     auto vert_shader_module_pack = glsl_compiler.compileFromString(
             device, VERT_SOURCE, vk::ShaderStageFlagBits::eVertex);
+    auto geom_shader_module_pack = glsl_compiler.compileFromString(
+            device, GEOM_SOURCE, vk::ShaderStageFlagBits::eGeometry);
     auto frag_shader_module_pack = glsl_compiler.compileFromString(
             device, FRAG_SOURCE, vk::ShaderStageFlagBits::eFragment);
 
@@ -223,11 +253,11 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     vkw::PipelineInfo pipeline_info;
     pipeline_info.color_blend_infos.resize(1);
     auto pipeline_pack = vkw::CreatePipeline(
-            device, {vert_shader_module_pack, frag_shader_module_pack},
+            device, {vert_shader_module_pack, geom_shader_module_pack,
+                     frag_shader_module_pack},
             {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
             {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
-             {1, 0, vk::Format::eR32G32B32A32Sfloat, 16},
-             {2, 0, vk::Format::eR32Uint, 32}},
+             {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
             pipeline_info, {desc_set_pack}, render_pass_pack);
 
     const uint32_t n_cmd_bufs = 1;
