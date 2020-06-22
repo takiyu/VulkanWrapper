@@ -102,6 +102,9 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 
 vk::PhysicalDevice GetFirstPhysicalDevice(const vk::UniqueInstance& instance);
 
+using FeaturesPtr = std::shared_ptr<vk::PhysicalDeviceFeatures>;
+FeaturesPtr GetPhysicalFeatures(const vk::PhysicalDevice& physical_device);
+
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
@@ -129,7 +132,8 @@ uint32_t GetGraphicPresentQueueFamilyIdx(
 vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               const vk::PhysicalDevice& physical_device,
                               uint32_t n_queues = 1,
-                              bool swapchain_support = true);
+                              bool swapchain_support = true,
+                              const FeaturesPtr& features = nullptr);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- Asynchronous --------------------------------
@@ -480,8 +484,8 @@ void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_vtxs,
              uint32_t n_instances = 1, uint32_t first_vtx = 0,
              uint32_t first_instance = 0);
 void CmdDrawIndexed(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_idxs,
-             uint32_t n_instances = 1, uint32_t first_idx = 0,
-             int32_t vtx_offset = 0, uint32_t first_instance = 0);
+                    uint32_t n_instances = 1, uint32_t first_idx = 0,
+                    int32_t vtx_offset = 0, uint32_t first_instance = 0);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Queue -----------------------------------

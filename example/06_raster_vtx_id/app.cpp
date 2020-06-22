@@ -148,6 +148,10 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     // Get a physical_device
     auto physical_device = vkw::GetFirstPhysicalDevice(instance);
 
+    // Set features
+    auto features = vkw::GetPhysicalFeatures(physical_device);
+    features->geometryShader = true;
+
     // Create surface
     auto surface = vkw::CreateSurface(instance, window);
     auto surface_format = vkw::GetSurfaceFormat(physical_device, surface);
@@ -157,7 +161,7 @@ void RunExampleApp06(const vkw::WindowPtr& window,
             vkw::GetGraphicPresentQueueFamilyIdx(physical_device, surface);
     // Create device
     auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
-                                    display_enable);
+                                    display_enable, features);
 
     // Create swapchain
     auto swapchain_pack =

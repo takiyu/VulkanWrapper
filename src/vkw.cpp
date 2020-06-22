@@ -1,4 +1,5 @@
 #include <vkw/vkw.h>
+
 #include "vulkan/vulkan.hpp"
 
 // -----------------------------------------------------------------------------
@@ -729,8 +730,8 @@ union Float16 {
     };
 };
 
-uint16_t CastFloat32To16(const float& f32_raw) {
-    const Float32& f32 = reinterpret_cast<const Float32&>(f32_raw);
+uint16_t CastFloat32To16(const float &f32_raw) {
+    const Float32 &f32 = reinterpret_cast<const Float32 &>(f32_raw);
     Float16 ret = {0};
 
     if (f32.exp == 255) {
@@ -762,11 +763,11 @@ uint16_t CastFloat32To16(const float& f32_raw) {
     return ret.u;
 }
 
-float CastFloat16To32(const uint16_t& f16_raw) {
-    static const Float32 MAGIC = { 113 << 23 };
+float CastFloat16To32(const uint16_t &f16_raw) {
+    static const Float32 MAGIC = {113 << 23};
     static const uint32_t SHIFTED_EXP = 0x7c00 << 13;
 
-    const Float16& f16 = reinterpret_cast<const Float16&>(f16_raw);
+    const Float16 &f16 = reinterpret_cast<const Float16 &>(f16_raw);
     Float32 ret;
 
     ret.u = (f16.u & 0x7fffu) << 13;
@@ -785,33 +786,33 @@ float CastFloat16To32(const uint16_t& f16_raw) {
     return ret.f;
 }
 
-void CastFloat32To16(const float* src_p, uint16_t* dst_p, size_t n) {
+void CastFloat32To16(const float *src_p, uint16_t *dst_p, size_t n) {
     for (size_t i = 0; i < n; i++) {
         dst_p[i] = CastFloat32To16(src_p[i]);
     }
 }
 
-void CastFloat16To32(const uint16_t* src_p, float* dst_p, size_t n) {
+void CastFloat16To32(const uint16_t *src_p, float *dst_p, size_t n) {
     for (size_t i = 0; i < n; i++) {
         dst_p[i] = CastFloat16To32(src_p[i]);
     }
 }
 
-std::vector<uint16_t> CastFloat32To16(const std::vector<float>& src) {
+std::vector<uint16_t> CastFloat32To16(const std::vector<float> &src) {
     std::vector<uint16_t> ret;
     ret.reserve(src.size());
     // Apply cast function to all elements
     std::transform(src.begin(), src.end(), std::back_inserter(ret),
-            static_cast<uint16_t (*)(const float&)>(CastFloat32To16));
+                   static_cast<uint16_t (*)(const float &)>(CastFloat32To16));
     return ret;
 }
 
-std::vector<float> CastFloat16To32(const std::vector<uint16_t>& src) {
+std::vector<float> CastFloat16To32(const std::vector<uint16_t> &src) {
     std::vector<float> ret;
     ret.reserve(src.size());
     // Apply cast function to all elements
     std::transform(src.begin(), src.end(), std::back_inserter(ret),
-            static_cast<float (*)(const uint16_t&)>(CastFloat16To32));
+                   static_cast<float (*)(const uint16_t &)>(CastFloat16To32));
     return ret;
 }
 
@@ -925,6 +926,11 @@ vk::PhysicalDevice GetFirstPhysicalDevice(const vk::UniqueInstance &instance) {
     return physical_devices.front();
 }
 
+FeaturesPtr GetPhysicalFeatures(const vk::PhysicalDevice &physical_device) {
+    auto &&features = physical_device.getFeatures();
+    return std::make_shared<vk::PhysicalDeviceFeatures>(features);
+}
+
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
@@ -1013,7 +1019,8 @@ uint32_t GetGraphicPresentQueueFamilyIdx(
 // -----------------------------------------------------------------------------
 vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               const vk::PhysicalDevice &physical_device,
-                              uint32_t n_queues, bool swapchain_support) {
+                              uint32_t n_queues, bool swapchain_support,
+                              const FeaturesPtr &features) {
     // Create queue create info
     std::vector<float> queue_priorites(n_queues, 0.f);
     vk::DeviceQueueCreateInfo device_queue_create_info = {
@@ -1030,7 +1037,7 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
     // Create a logical device
     vk::UniqueDevice device = physical_device.createDeviceUnique(
             {vk::DeviceCreateFlags(), 1, &device_queue_create_info, 0, nullptr,
-             n_device_exts, DataSafety(device_exts)});
+             n_device_exts, DataSafety(device_exts), features.get()});
 
     // Initialize dispatcher for device
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device.get());
@@ -1501,16 +1508,15 @@ void AddSubpassDesc(RenderPassPackPtr &render_pass_pack,
             preserve_attachments_p);
 }
 
-void AddSubpassDepend(RenderPassPackPtr& render_pass_pack,
-                      const DependInfo& src_depend,
-                      const DependInfo& dst_depend,
-                      const vk::DependencyFlags& depend_flags) {
+void AddSubpassDepend(RenderPassPackPtr &render_pass_pack,
+                      const DependInfo &src_depend,
+                      const DependInfo &dst_depend,
+                      const vk::DependencyFlags &depend_flags) {
     // Add subpass dependency info
     render_pass_pack->subpass_depends.emplace_back(
             src_depend.subpass_idx, dst_depend.subpass_idx,
             src_depend.stage_mask, dst_depend.stage_mask,
-            src_depend.access_mask, dst_depend.access_mask,
-            depend_flags);
+            src_depend.access_mask, dst_depend.access_mask, depend_flags);
 }
 
 void UpdateRenderPass(const vk::UniqueDevice &device,
@@ -1875,9 +1881,9 @@ void CmdBindVertexBuffers(const vk::UniqueCommandBuffer &cmd_buf,
                                offsets.data());
 }
 
-void CmdBindIndexBuffer(const vk::UniqueCommandBuffer& cmd_buf,
-                        const BufferPackPtr& index_buf_pack,
-                        uint64_t offset, vk::IndexType index_type) {
+void CmdBindIndexBuffer(const vk::UniqueCommandBuffer &cmd_buf,
+                        const BufferPackPtr &index_buf_pack, uint64_t offset,
+                        vk::IndexType index_type) {
     // Bind
     cmd_buf->bindIndexBuffer(index_buf_pack->buf.get(), offset, index_type);
 }
@@ -1922,7 +1928,7 @@ void CmdDraw(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_vtxs,
     cmd_buf->draw(n_vtxs, n_instances, first_vtx, first_instance);
 }
 
-void CmdDrawIndexed(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_idxs,
+void CmdDrawIndexed(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_idxs,
                     uint32_t n_instances, uint32_t first_idx,
                     int32_t vtx_offset, uint32_t first_instance) {
     cmd_buf->drawIndexed(n_idxs, n_instances, first_idx, vtx_offset,
