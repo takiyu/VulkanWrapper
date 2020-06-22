@@ -2,7 +2,8 @@
 #include "../example/02_load_obj/app.h"
 #include "../example/03_load_obj_many/app.h"
 #include "../example/04_deferred_shading/app.h"
-#include "../example/05_raster_vtx_id/app.h"
+#include "../example/05_instancing/app.h"
+#include "../example/06_raster_vtx_id/app.h"
 
 #include <sstream>
 
@@ -41,6 +42,8 @@ int main(int argc, char const* argv[]) {
             RunExampleApp04(window, draw_hook);
         } else if (app_id == 5) {
             RunExampleApp05(window, draw_hook);
+        } else if (app_id == 6) {
+            RunExampleApp06(window, draw_hook);
         } else {
             vkw::PrintErr("Invalid application ID");
         }

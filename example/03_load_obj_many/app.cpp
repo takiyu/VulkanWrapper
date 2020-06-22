@@ -464,7 +464,7 @@ void VkApp::initDrawStates(uint32_t n_vtxs,
         vkw::CmdBindDescSets(cmd_buf, m_pipeline_pack, {m_desc_set_pack},
                              dynamic_offsets);
         // Set Vertex buffer
-        vkw::CmdBindVertexBuffers(cmd_buf, {m_vert_buf_pack});
+        vkw::CmdBindVertexBuffers(cmd_buf, 0, {m_vert_buf_pack});
         // Set viewport and scissor
         vkw::CmdSetViewport(cmd_buf, m_swapchain_pack->size);
         vkw::CmdSetScissor(cmd_buf, m_swapchain_pack->size);

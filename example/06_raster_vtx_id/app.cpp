@@ -110,7 +110,7 @@ const std::vector<Vertex> CUBE_VERTICES = {
 
 // -----------------------------------------------------------------------------
 
-void RunExampleApp05(const vkw::WindowPtr& window,
+void RunExampleApp06(const vkw::WindowPtr& window,
                      std::function<void()> draw_hook) {
     // Initialize with display environment
     const bool display_enable = true;
@@ -118,7 +118,7 @@ void RunExampleApp05(const vkw::WindowPtr& window,
     const uint32_t n_queues = 2;
 
     // Create instance
-    auto instance = vkw::CreateInstance("VKW Example 01", 1, "VKW", 0,
+    auto instance = vkw::CreateInstance("VKW Example 06", 1, "VKW", 0,
                                         debug_enable, display_enable);
     // Get a physical_device
     auto physical_device = vkw::GetFirstPhysicalDevice(instance);
@@ -273,7 +273,7 @@ void RunExampleApp05(const vkw::WindowPtr& window,
         vkw::CmdBindDescSets(cmd_buf, pipeline_pack, {desc_set_pack},
                              dynamic_offsets);
 
-        vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
+        vkw::CmdBindVertexBuffers(cmd_buf, 0, {vertex_buf_pack});
 
         vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
         vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);

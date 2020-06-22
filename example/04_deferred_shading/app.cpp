@@ -542,7 +542,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
             vkw::CmdBindDescSets(cmd_buf, pipeline_pack0, {desc_set_pack0},
                                  dynamic_offsets0);
 
-            vkw::CmdBindVertexBuffers(cmd_buf, {vertex_buf_pack});
+            vkw::CmdBindVertexBuffers(cmd_buf, 0, {vertex_buf_pack});
 
             vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
             vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);

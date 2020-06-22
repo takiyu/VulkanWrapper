@@ -460,6 +460,7 @@ void CmdBindDescSets(const vk::UniqueCommandBuffer& cmd_buf,
                              vk::PipelineBindPoint::eGraphics);
 
 void CmdBindVertexBuffers(const vk::UniqueCommandBuffer& cmd_buf,
+                          uint32_t binding_idx,
                           const std::vector<BufferPackPtr>& vtx_buf_packs);
 
 void CmdSetViewport(const vk::UniqueCommandBuffer& cmd_buf,

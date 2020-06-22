@@ -30,11 +30,13 @@ layout (location = 0) in vec3 pos;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec2 uv;
 
+layout (location = 3) in vec3 instance_shift;
+
 layout (location = 0) out vec3 vtx_normal;
 layout (location = 1) out vec2 vtx_uv;
 
 void main() {
-    gl_Position = uniform_buf.mvp_mat * vec4(pos, 1.0);
+    gl_Position = uniform_buf.mvp_mat * vec4(pos + instance_shift, 1.0);
     vtx_normal = normal;
     vtx_uv = uv;
 }
@@ -172,7 +174,7 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
 
 // -----------------------------------------------------------------------------
 
-void RunExampleApp02(const vkw::WindowPtr& window,
+void RunExampleApp05(const vkw::WindowPtr& window,
                      std::function<void()> draw_hook) {
     // Load mesh
 #if defined(__ANDROID__)
@@ -189,7 +191,7 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     const uint32_t n_queues = 1;
 
     // Create instance
-    auto instance = vkw::CreateInstance("VKW Example 02", 1, "VKW", 0,
+    auto instance = vkw::CreateInstance("VKW Example 05", 1, "VKW", 0,
                                         debug_enable, display_enable);
 
     // Get a physical_device
@@ -300,15 +302,35 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     vkw::SendToDevice(device, vertex_buf_pack, mesh.vertices.data(),
                       vertex_buf_size);
 
+    // Create instance buffer
+    const size_t n_instances = 100;
+    std::vector<glm::vec3> instance_shift_buf;
+    for (size_t i = 0; i < n_instances; i++) {
+        const float x = (static_cast<float>(i % 10) - 5.f) * 10.f;
+        const float y = (static_cast<float>(i / 10) - 5.f) * 10.f;
+        instance_shift_buf.push_back({x, y, 0.f});
+    }
+    const size_t instance_buf_size = n_instances * sizeof(glm::vec3);
+    auto instance_buf_pack = vkw::CreateBufferPack(
+            physical_device, device, instance_buf_size,
+            vk::BufferUsageFlagBits::eVertexBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible |
+                    vk::MemoryPropertyFlagBits::eHostCoherent);
+    // Send instance buffer to GPU
+    vkw::SendToDevice(device, instance_buf_pack, instance_shift_buf.data(),
+                      instance_buf_size);
+
     // Create pipeline
     vkw::PipelineInfo pipeline_info;
     pipeline_info.color_blend_infos.resize(1);
     auto pipeline_pack = vkw::CreatePipeline(
             device, {vert_shader_module_pack, frag_shader_module_pack},
-            {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
+            {{0, sizeof(Vertex), vk::VertexInputRate::eVertex},
+             {1, sizeof(glm::vec3), vk::VertexInputRate::eInstance}},
             {{0, 0, vk::Format::eR32G32B32Sfloat, 0},
              {1, 0, vk::Format::eR32G32B32Sfloat, sizeof(float) * 3},
-             {2, 0, vk::Format::eR32G32Sfloat, sizeof(float) * 6}},
+             {2, 0, vk::Format::eR32G32Sfloat, sizeof(float) * 6},
+             {3, 1, vk::Format::eR32G32B32Sfloat, 0}},
             pipeline_info, {desc_set_pack}, render_pass_pack);
 
     const uint32_t n_cmd_bufs = 1;
@@ -369,11 +391,11 @@ void RunExampleApp02(const vkw::WindowPtr& window,
                              dynamic_offsets);
 
         vkw::CmdBindVertexBuffers(cmd_buf, 0, {vertex_buf_pack});
+        vkw::CmdBindVertexBuffers(cmd_buf, 1, {instance_buf_pack});
 
         vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
         vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
 
-        const uint32_t n_instances = 1;
         vkw::CmdDraw(cmd_buf, mesh.vertices.size(), n_instances);
 
         // vkw::CmdNextSubPass(cmd_buf);

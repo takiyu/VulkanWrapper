@@ -1859,6 +1859,7 @@ void CmdBindDescSets(const vk::UniqueCommandBuffer &cmd_buf,
 }
 
 void CmdBindVertexBuffers(const vk::UniqueCommandBuffer &cmd_buf,
+                          uint32_t binding_idx,
                           const std::vector<BufferPackPtr> &vtx_buf_packs) {
     // Repack buffers
     std::vector<vk::Buffer> vtx_bufs;
@@ -1868,9 +1869,8 @@ void CmdBindVertexBuffers(const vk::UniqueCommandBuffer &cmd_buf,
     }
     // Bind
     const uint32_t n_vtx_bufs = static_cast<uint32_t>(vtx_bufs.size());
-    const uint32_t first_binding = 0;
     const std::vector<vk::DeviceSize> offsets(n_vtx_bufs, 0);  // no offsets
-    cmd_buf->bindVertexBuffers(first_binding, n_vtx_bufs, vtx_bufs.data(),
+    cmd_buf->bindVertexBuffers(binding_idx, n_vtx_bufs, vtx_bufs.data(),
                                offsets.data());
 }
 
