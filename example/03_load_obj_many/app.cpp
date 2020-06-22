@@ -173,7 +173,7 @@ private:
     const std::string ENGINE_NAME = "VKW";
     const uint32_t ENGINE_VERSION = 1;
 
-    const bool DEBUG_ENABLE = false;
+    const bool DEBUG_ENABLE = true;
     const bool DISPLAY_ENABLE = true;
     const uint32_t N_QUEUES = 2;
 

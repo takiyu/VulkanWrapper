@@ -102,7 +102,8 @@ if (0)
     list(APPEND VKW_LIBRARY ${Vulkan_LIBRARY})
 else()
     # Vulkan (Dynamic)
-    list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
+    list(APPEND VKW_INCLUDE
+                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
 endif()
 
 # GLSLang
@@ -119,8 +120,9 @@ list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
 
 # Validation Layer
 if (ANDROID)
-    # Copy library files. Linking is not needed because VulkanHpp loads them dynamically.
-    file(COPY ${ANDROID_NDK}/sources/third_party/vulkan/src/build-android/jniLibs/${ANDROID_ABI}
+    # Copy library files. Link is not needed because VulkanHpp loads dynamically
+    set(VALILAYER_MID_PATH sources/third_party/vulkan/src/build-android/jniLibs)
+    file(COPY ${ANDROID_NDK}/${VALILAYER_MID_PATH}/${ANDROID_ABI}
          DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/)
 endif()
 
@@ -132,7 +134,8 @@ if (NOT ANDROID)
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
     set(GLFW_INSTALL OFF CACHE BOOL "")
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw)
-    list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw/include)
+    list(APPEND VKW_INCLUDE
+                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw/include)
     list(APPEND VKW_LIBRARY glfw)
 endif()
 
