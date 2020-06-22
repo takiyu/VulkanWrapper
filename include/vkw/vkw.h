@@ -58,6 +58,16 @@ void PrintFps(std::function<void(float)> print_func = DefaultFpsFunc,
               int show_interval = 60);
 
 // -----------------------------------------------------------------------------
+// ---------------------------------- Float16 ----------------------------------
+// -----------------------------------------------------------------------------
+uint16_t CastFloat32To16(const float& f32);
+float CastFloat16To32(const uint16_t& f16);
+void CastFloat32To16(const float* src_p, uint16_t* dst_p, size_t n);
+void CastFloat16To32(const uint16_t* src_p, float* dst_p, size_t n);
+std::vector<uint16_t> CastFloat32To16(const std::vector<float>& f32);
+std::vector<float> CastFloat16To32(const std::vector<uint16_t>& f16);
+
+// -----------------------------------------------------------------------------
 // ----------------------------------- Window ----------------------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)

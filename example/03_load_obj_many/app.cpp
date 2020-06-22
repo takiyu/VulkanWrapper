@@ -16,6 +16,8 @@ END_VKW_SUPPRESS_WARNING
 #include <random>
 #include <sstream>
 
+#define USE_F16_TEX
+
 // -----------------------------------------------------------------------------
 struct Vertex {
     float x, y, z;     // Position
@@ -29,6 +31,9 @@ struct Mesh {
     uint32_t color_tex_w = 0;
     uint32_t color_tex_h = 0;
     std::vector<float> color_tex;  // 4ch
+#ifdef USE_F16_TEX
+    std::vector<uint16_t> color_tex_f16;  // 4ch
+#endif
 
     uint32_t bump_tex_w = 0;
     uint32_t bump_tex_h = 0;
@@ -131,6 +136,10 @@ static Mesh LoadObjMany(const std::string& filename, const float obj_scale,
         ret_mesh.color_tex =
                 LoadTextureF32(dirname + tiny_mat.diffuse_texname, 4,
                                &ret_mesh.color_tex_w, &ret_mesh.color_tex_h);
+#ifdef USE_F16_TEX
+        ret_mesh.color_tex_f16 = vkw::CastFloat32To16(ret_mesh.color_tex);
+        ret_mesh.color_tex.clear();
+#endif
         // Load bump texture
         ret_mesh.bump_tex =
                 LoadTextureF32(dirname + tiny_mat.bump_texname, 1,
@@ -310,7 +319,11 @@ void VkApp::initDescComps(uint32_t uniform_size, uint32_t color_tex_w,
 
     // Create color texture
     auto color_img_pack = vkw::CreateImagePack(
+#ifdef USE_F16_TEX
+            m_physical_device, m_device, vk::Format::eR16G16B16A16Sfloat,
+#else
             m_physical_device, m_device, vk::Format::eR32G32B32A32Sfloat,
+#endif
             {color_tex_w, color_tex_h}, vk::ImageUsageFlagBits::eSampled,
             vk::ImageAspectFlagBits::eColor, true, false);
     m_color_tex_pack = vkw::CreateTexturePack(color_img_pack, m_device);
@@ -513,9 +526,9 @@ void RunExampleApp03(const vkw::WindowPtr& window,
                      std::function<void()> draw_hook) {
     // Load mesh
 #if defined(__ANDROID__)
-    const std::string& OBJ_FILENAME = "/sdcard/vulkanwrapper/earth/earth.obj";
+    const std::string OBJ_FILENAME = "/sdcard/vulkanwrapper/earth/earth.obj";
 #else
-    const std::string& OBJ_FILENAME = "../data/earth/earth.obj";
+    const std::string OBJ_FILENAME = "../data/earth/earth.obj";
 #endif
     const float OBJ_SCALE = 1.f / 100.f;
     const float SHIFT_SCALE = 30.f;
@@ -531,8 +544,13 @@ void RunExampleApp03(const vkw::WindowPtr& window,
                          mesh.vertices.size() * sizeof(Vertex));
     app.initPipeline();
     app.initCmdBufs();
+#ifdef USE_F16_TEX
+    app.sendTexture(mesh.color_tex_f16.data(),
+                    mesh.color_tex_f16.size() * sizeof(mesh.color_tex_f16[0]));
+#else
     app.sendTexture(mesh.color_tex.data(),
                     mesh.color_tex.size() * sizeof(mesh.color_tex[0]));
+#endif
     app.initDrawStates(mesh.vertices.size(), {0.2f, 0.2f, 0.2f, 1.0f});
 
     glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));

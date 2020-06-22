@@ -707,6 +707,114 @@ void PrintFps(std::function<void(float)> print_func, int show_interval) {
 }
 
 // -----------------------------------------------------------------------------
+// ---------------------------------- Float16 ----------------------------------
+// -----------------------------------------------------------------------------
+union Float32 {
+    uint32_t u;
+    float f;
+    struct {
+        uint32_t coeff : 23;
+        uint32_t exp : 8;
+        uint32_t sign : 1;
+    };
+};
+
+union Float16 {
+    uint16_t u;
+    struct {
+        uint16_t coeff : 10;
+        uint16_t exp : 5;
+        uint16_t sign : 1;
+    };
+};
+
+uint16_t CastFloat32To16(const float& f32_raw) {
+    const Float32& f32 = reinterpret_cast<const Float32&>(f32_raw);
+    Float16 ret = {0};
+
+    if (f32.exp == 255) {
+        ret.exp = 31;
+        ret.coeff = f32.coeff ? 0x200 : 0;
+    } else {
+        const int32_t newexp = f32.exp - 127 + 15;
+        if (31 <= newexp) {
+            ret.exp = 31;
+        } else if (newexp <= 0) {
+            if ((14 - newexp) <= 24) {
+                uint32_t mant = f32.coeff | 0x800000;
+                ret.coeff = static_cast<uint16_t>(mant >> (14 - newexp));
+                if ((mant >> (13 - newexp)) & 1) {
+                    ret.u++;
+                }
+            }
+        } else {
+            ret.exp = static_cast<uint16_t>(newexp);
+            ret.coeff = f32.coeff >> 13;
+            if (f32.coeff & 0x1000) {
+                ret.u++;
+            }
+        }
+    }
+
+    ret.sign = f32.sign;
+
+    return ret.u;
+}
+
+float CastFloat16To32(const uint16_t& f16_raw) {
+    static const Float32 MAGIC = { 113 << 23 };
+    static const uint32_t SHIFTED_EXP = 0x7c00 << 13;
+
+    const Float16& f16 = reinterpret_cast<const Float16&>(f16_raw);
+    Float32 ret;
+
+    ret.u = (f16.u & 0x7fffu) << 13;
+    uint32_t exp = SHIFTED_EXP & ret.u;
+    ret.u += (127 - 15) << 23;
+
+    if (exp == SHIFTED_EXP) {
+        ret.u += (128 - 16) << 23;
+    } else if (exp == 0) {
+        ret.u += 1 << 23;
+        ret.f -= MAGIC.f;
+    }
+
+    ret.u |= (f16.u & 0x8000u) << 16;
+
+    return ret.f;
+}
+
+void CastFloat32To16(const float* src_p, uint16_t* dst_p, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        dst_p[i] = CastFloat32To16(src_p[i]);
+    }
+}
+
+void CastFloat16To32(const uint16_t* src_p, float* dst_p, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        dst_p[i] = CastFloat16To32(src_p[i]);
+    }
+}
+
+std::vector<uint16_t> CastFloat32To16(const std::vector<float>& src) {
+    std::vector<uint16_t> ret;
+    ret.reserve(src.size());
+    // Apply cast function to all elements
+    std::transform(src.begin(), src.end(), std::back_inserter(ret),
+            static_cast<uint16_t (*)(const float&)>(CastFloat32To16));
+    return ret;
+}
+
+std::vector<float> CastFloat16To32(const std::vector<uint16_t>& src) {
+    std::vector<float> ret;
+    ret.reserve(src.size());
+    // Apply cast function to all elements
+    std::transform(src.begin(), src.end(), std::back_inserter(ret),
+            static_cast<float (*)(const uint16_t&)>(CastFloat16To32));
+    return ret;
+}
+
+// -----------------------------------------------------------------------------
 // ----------------------------------- Window ----------------------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
