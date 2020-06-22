@@ -52,11 +52,11 @@ layout (location = 2) out vec3 vtx_bary;
 
 
 void main(void) {
-    vtx_ids_f = vec3(vtx_id_f[0], vtx_id_f[1], vtx_id_f[2]);
 
     for (int i = 0; i < 3; i++) {
         gl_Position = gl_in[i].gl_Position;
         geom_color = vtx_color[i];
+        vtx_ids_f = vec3(vtx_id_f[0], vtx_id_f[1], vtx_id_f[2]);
         vtx_bary = vec3(0.0);
         vtx_bary[i] = 1.0;
         EmitVertex();
@@ -80,8 +80,8 @@ layout (location = 2) in vec3 vtx_bary;
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-    frag_color = vec4(vtx_bary, 1.0);
-//     frag_color = vec4(vtx_ids_f / 10.0, 1.0);
+    //frag_color = vec4(vtx_bary, 1.0);
+     frag_color = vec4(vtx_ids_f / 24.0, 1.0);
 //     frag_color = geom_color;
 }
 )";
