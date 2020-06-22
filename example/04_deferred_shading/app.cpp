@@ -493,7 +493,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
 
     vkw::FencePtr draw_fence = vkw::CreateFence(device);
 
-    for (int render_idx = 0; render_idx < 60 * 5; render_idx++) {
+    for (uint32_t render_idx = 0; render_idx < n_cmd_bufs * 2; render_idx++) {
+        render_idx = std::min(render_idx, n_cmd_bufs);
+
         model_mat = glm::rotate(0.01f, glm::vec3(0.f, 1.f, 0.f)) * model_mat;
         glm::mat4 mvpc_mat = clip_mat * proj_mat * view_mat * model_mat;
         vkw::SendToDevice(device, uniform_buf_pack, &mvpc_mat[0],

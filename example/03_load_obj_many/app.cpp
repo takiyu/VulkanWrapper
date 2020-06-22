@@ -213,7 +213,6 @@ private:
     vkw::CommandBuffersPackPtr m_cmd_bufs_pack;
 
     // Drawing states
-    std::vector<vkw::SemaphorePtr> m_draw_semaphores;
     std::vector<vkw::FencePtr> m_draw_fences;
     uint32_t m_prev_img_idx = uint32_t(~0);
 
@@ -467,17 +466,17 @@ void VkApp::initDrawStates(uint32_t n_vtxs,
     }
 
     // Create asynchronous variables
-    m_draw_semaphores.resize(cmd_bufs.size());
     m_draw_fences.resize(cmd_bufs.size());
     for (uint32_t i = 0; i < cmd_bufs.size(); i++) {
-        // Create drawing semaphore
-        m_draw_semaphores[i] = vkw::CreateSemaphore(m_device);
         // Create drawing fence
         m_draw_fences[i] = vkw::CreateFence(m_device);
     }
 }
 
 void VkApp::draw(const void* uniform_data, uint64_t uniform_n_bytes) {
+    // Note: For two drawing for asynchronous, create two uniform buffers or
+    //       use lock properly.
+
     // Update uniform
     vkw::SendToDevice(m_device, m_uniform_buf_pack, uniform_data,
                       uniform_n_bytes);
@@ -495,22 +494,14 @@ void VkApp::draw(const void* uniform_data, uint64_t uniform_n_bytes) {
                      {{img_acquired_semaphore,
                        vk::PipelineStageFlagBits::eColorAttachmentOutput}},
                      {});
-//                      {m_draw_semaphores[curr_img_idx]});
-
-    // Wait previous drawing
-    if (m_prev_img_idx != uint32_t(~0)) {
-        // Wait for drawing
-        auto& draw_fence = m_draw_fences[m_prev_img_idx];
-        vkw::WaitForFence(m_device, draw_fence);
-        vkw::ResetFence(m_device, draw_fence);
-    }
 
     // Present current view
     vkw::QueuePresent(m_queues[0], m_swapchain_pack, curr_img_idx,
                       {});
-//                       {m_draw_semaphores[curr_img_idx]});
 
-    // Note: `draw_semaphore` may be needed for android even if using same queue
+    // Wait for drawing
+    vkw::WaitForFence(m_device, draw_fence);
+    vkw::ResetFence(m_device, draw_fence);
 
     // Shift image index
     m_prev_img_idx = curr_img_idx;
