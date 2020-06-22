@@ -60,52 +60,49 @@ void main() {
 struct Vertex {
     float x, y, z, w;  // Position
     float r, g, b, a;  // Color
-    uint32_t id;
+    uint32_t vtx_id;
 };
 
 const std::vector<Vertex> CUBE_VERTICES = {
         // red face
-        {-1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0},
-        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0},
-        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0},
-        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1},
-        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1},
-        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0},  // f0
+        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1},   // f1  f1
+        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 2},   // f2  f0
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 3},    //     f2
         // green face
-        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 2},
-        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 2},
-        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 2},
-        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 3},
-        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 3},
-        {1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 3},
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 4},
+        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 5},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 6},
+        {1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 7},
         // blue face
-        {-1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 4},
-        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 4},
-        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 4},
-        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 5},
-        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 5},
-        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 5},
+        {-1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 8},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 9},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 10},
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 11},
         // yellow face
-        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 6},
-        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 6},
-        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 6},
-        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 7},
-        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 7},
-        {1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 7},
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 12},
+        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 13},
+        {1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 14},
+        {1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 15},
         // magenta face
-        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 8},
-        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 8},
-        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 8},
-        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 9},
-        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 9},
-        {-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 9},
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 16},
+        {-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 17},
+        {1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 18},
+        {-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 19},
         // cyan face
-        {1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 10},
-        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 10},
-        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 10},
-        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 11},
-        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 11},
-        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 11},
+        {1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 20},
+        {1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 21},
+        {-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 22},
+        {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 23},
+};
+
+const std::vector<uint32_t> CUBE_INDICES {
+        0, 1, 2, 2, 1, 3,  // red face
+        4, 5, 6, 6, 5, 7,  // green face
+        8, 9, 10, 10, 9, 11,  // blur face
+        12, 13, 14, 14, 13, 15,  // yellow face
+        16, 17, 18, 18, 17, 19,  // magenta face
+        20, 21, 22, 22, 21, 23,  // cyan face
 };
 
 // -----------------------------------------------------------------------------
@@ -212,6 +209,16 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     vkw::SendToDevice(device, vertex_buf_pack, CUBE_VERTICES.data(),
                       vertex_buf_size);
 
+    // Create index buffer
+    const size_t index_buf_size = CUBE_INDICES.size() * sizeof(uint32_t);
+    auto index_buf_pack = vkw::CreateBufferPack(
+            physical_device, device, index_buf_size,
+            vk::BufferUsageFlagBits::eIndexBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible |
+                    vk::MemoryPropertyFlagBits::eHostCoherent);
+    vkw::SendToDevice(device, index_buf_pack, CUBE_INDICES.data(),
+                      index_buf_size);
+
     // Create pipeline
     vkw::PipelineInfo pipeline_info;
     pipeline_info.color_blend_infos.resize(1);
@@ -274,13 +281,15 @@ void RunExampleApp06(const vkw::WindowPtr& window,
                              dynamic_offsets);
 
         vkw::CmdBindVertexBuffers(cmd_buf, 0, {vertex_buf_pack});
+        vkw::CmdBindIndexBuffer(cmd_buf, index_buf_pack, 0,
+                                vk::IndexType::eUint32);
 
         vkw::CmdSetViewport(cmd_buf, swapchain_pack->size);
         vkw::CmdSetScissor(cmd_buf, swapchain_pack->size);
 
         const uint32_t n_instances = 1;
-        vkw::CmdDraw(cmd_buf, static_cast<uint32_t>(CUBE_VERTICES.size()),
-                     n_instances);
+        vkw::CmdDrawIndexed(cmd_buf, static_cast<uint32_t>(CUBE_INDICES.size()),
+                            n_instances);
 
         // vkw::CmdNextSubPass(cmd_buf);
         vkw::CmdEndRenderPass(cmd_buf);

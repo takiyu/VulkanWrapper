@@ -462,6 +462,10 @@ void CmdBindDescSets(const vk::UniqueCommandBuffer& cmd_buf,
 void CmdBindVertexBuffers(const vk::UniqueCommandBuffer& cmd_buf,
                           uint32_t binding_idx,
                           const std::vector<BufferPackPtr>& vtx_buf_packs);
+void CmdBindIndexBuffer(const vk::UniqueCommandBuffer& cmd_buf,
+                        const BufferPackPtr& index_buf_pack,
+                        uint64_t offset = 0,
+                        vk::IndexType index_type = vk::IndexType::eUint32);
 
 void CmdSetViewport(const vk::UniqueCommandBuffer& cmd_buf,
                     const vk::Viewport& viewport);
@@ -473,7 +477,11 @@ void CmdSetScissor(const vk::UniqueCommandBuffer& cmd_buf,
                    const vk::Extent2D& scissor_size);
 
 void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_vtxs,
-             uint32_t n_instances = 1);
+             uint32_t n_instances = 1, uint32_t first_vtx = 0,
+             uint32_t first_instance = 0);
+void CmdDrawIndexed(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_idxs,
+             uint32_t n_instances = 1, uint32_t first_idx = 0,
+             int32_t vtx_offset = 0, uint32_t first_instance = 0);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Queue -----------------------------------

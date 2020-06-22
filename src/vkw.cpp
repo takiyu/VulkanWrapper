@@ -1,4 +1,5 @@
 #include <vkw/vkw.h>
+#include "vulkan/vulkan.hpp"
 
 // -----------------------------------------------------------------------------
 // ------------------------- Begin third party include -------------------------
@@ -1874,6 +1875,13 @@ void CmdBindVertexBuffers(const vk::UniqueCommandBuffer &cmd_buf,
                                offsets.data());
 }
 
+void CmdBindIndexBuffer(const vk::UniqueCommandBuffer& cmd_buf,
+                        const BufferPackPtr& index_buf_pack,
+                        uint64_t offset, vk::IndexType index_type) {
+    // Bind
+    cmd_buf->bindIndexBuffer(index_buf_pack->buf.get(), offset, index_type);
+}
+
 void CmdSetViewport(const vk::UniqueCommandBuffer &cmd_buf,
                     const vk::Viewport &viewport) {
     // Set a viewport
@@ -1909,10 +1917,16 @@ void CmdSetScissor(const vk::UniqueCommandBuffer &cmd_buf,
 }
 
 void CmdDraw(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_vtxs,
-             uint32_t n_instances) {
-    const uint32_t first_vtx = 0;
-    const uint32_t first_instance = 0;
+             uint32_t n_instances, uint32_t first_vtx,
+             uint32_t first_instance) {
     cmd_buf->draw(n_vtxs, n_instances, first_vtx, first_instance);
+}
+
+void CmdDrawIndexed(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_idxs,
+                    uint32_t n_instances, uint32_t first_idx,
+                    int32_t vtx_offset, uint32_t first_instance) {
+    cmd_buf->drawIndexed(n_idxs, n_instances, first_idx, vtx_offset,
+                         first_instance);
 }
 
 // -----------------------------------------------------------------------------
