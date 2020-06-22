@@ -245,7 +245,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
     return VK_TRUE;
 }
 
-static void RegisterDebugCalback(const vk::UniqueInstance &instance) {
+static void RegisterDebugCallback(const vk::UniqueInstance &instance) {
     // If available, use `debug utils`
     if (IsVkDebugUtilsAvailable()) {
         // Create debug messenger (only warning and error)
@@ -894,7 +894,7 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
 
     // Create debug messenger or debug report
     if (debug_enable) {
-        RegisterDebugCalback(instance);
+        RegisterDebugCallback(instance);
     }
 
     return instance;
