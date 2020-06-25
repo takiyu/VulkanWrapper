@@ -9,6 +9,8 @@ BEGIN_VKW_SUPPRESS_WARNING
 #include <glm/gtx/transform.hpp>
 END_VKW_SUPPRESS_WARNING
 
+#include <iostream>
+
 // -----------------------------------------------------------------------------
 // vertex shader with (P)osition and (C)olor in and (C)olor out
 const std::string VERT_SOURCE = R"(

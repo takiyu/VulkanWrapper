@@ -927,8 +927,15 @@ vk::PhysicalDevice GetFirstPhysicalDevice(const vk::UniqueInstance &instance) {
 }
 
 FeaturesPtr GetPhysicalFeatures(const vk::PhysicalDevice &physical_device) {
-    auto &&features = physical_device.getFeatures();
-    return std::make_shared<vk::PhysicalDeviceFeatures>(features);
+    auto features = std::make_shared<vk::PhysicalDeviceFeatures>();
+    physical_device.getFeatures(features.get());
+    return features;
+}
+
+PropertiesPtr GetPhysicalProperties(const vk::PhysicalDevice& physical_device) {
+    auto properties = std::make_shared<vk::PhysicalDeviceProperties>();
+    physical_device.getProperties(properties.get());
+    return properties;
 }
 
 // -----------------------------------------------------------------------------

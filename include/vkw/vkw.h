@@ -105,6 +105,9 @@ vk::PhysicalDevice GetFirstPhysicalDevice(const vk::UniqueInstance& instance);
 using FeaturesPtr = std::shared_ptr<vk::PhysicalDeviceFeatures>;
 FeaturesPtr GetPhysicalFeatures(const vk::PhysicalDevice& physical_device);
 
+using PropertiesPtr = std::shared_ptr<vk::PhysicalDeviceProperties>;
+PropertiesPtr GetPhysicalProperties(const vk::PhysicalDevice& physical_device);
+
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
