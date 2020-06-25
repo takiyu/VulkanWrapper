@@ -17,12 +17,9 @@ END_VKW_SUPPRESS_WARNING
 
 // -----------------------------------------------------------------------------
 const std::string VERT_SOURCE = R"(
-#version 400
+#version 460
 
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-
-layout (std140, binding = 0) uniform buffer {
+layout(binding = 0) uniform UniformBuffer {
     mat4 mvp_mat;
 } uniform_buf;
 
@@ -42,10 +39,7 @@ void main() {
 
 // fragment shader with (C)olor in and (C)olor out
 const std::string FRAG_SOURCE = R"(
-#version 400
-
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#version 460
 
 layout (binding = 1) uniform sampler2D tex;
 

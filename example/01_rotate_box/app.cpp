@@ -14,13 +14,9 @@ END_VKW_SUPPRESS_WARNING
 // -----------------------------------------------------------------------------
 // vertex shader with (P)osition and (C)olor in and (C)olor out
 const std::string VERT_SOURCE = R"(
-#version 400
+#version 460
 
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-
-layout (std140, binding = 0) uniform buffer
-{
+layout (binding = 0) uniform UniformBuffer {
     mat4 mvp;
 } uniformBuffer;
 
@@ -29,8 +25,7 @@ layout (location = 1) in vec4 inColor;
 
 layout (location = 0) out vec4 outColor;
 
-void main()
-{
+void main() {
     outColor = inColor;
     gl_Position = uniformBuffer.mvp * pos;
 }
@@ -38,17 +33,13 @@ void main()
 
 // fragment shader with (C)olor in and (C)olor out
 const std::string FRAG_SOURCE = R"(
-#version 400
-
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#version 460
 
 layout (location = 0) in vec4 color;
 
 layout (location = 0) out vec4 outColor;
 
-void main()
-{
+void main() {
     outColor = color;
 }
 )";

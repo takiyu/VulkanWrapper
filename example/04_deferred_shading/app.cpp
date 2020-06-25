@@ -18,12 +18,9 @@ END_VKW_SUPPRESS_WARNING
 
 // -----------------------------------------------------------------------------
 const std::string VERT_SOURCE1 = R"(
-#version 400
+#version 460
 
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-
-layout (std140, binding = 0) uniform buffer {
+layout (binding = 0) uniform UniformBuffer {
     mat4 mvp_mat;
 } uniform_buf;
 
@@ -41,10 +38,7 @@ void main() {
 }
 )";
 const std::string FRAG_SOURCE1 = R"(
-#version 400
-
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#version 460
 
 layout (set=0, binding = 1) uniform sampler2D texs[2];
 
@@ -66,10 +60,7 @@ void main() {
 )";
 
 const std::string VERT_SOURCE2 = R"(
-#version 400
-
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#version 450
 
 layout (location = 0) out vec2 vtx_uv;
 
@@ -81,10 +72,7 @@ void main() {
 }
 )";
 const std::string FRAG_SOURCE2 = R"(
-#version 400
-
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#version 450
 
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput input_imgs[2];
 

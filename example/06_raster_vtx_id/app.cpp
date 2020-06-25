@@ -10,12 +10,8 @@ BEGIN_VKW_SUPPRESS_WARNING
 END_VKW_SUPPRESS_WARNING
 
 // -----------------------------------------------------------------------------
-// vertex shader with (P)osition and (C)olor in and (C)olor out
 const std::string VERT_SOURCE = R"(
-#version 400
-
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#version 460
 
 layout (location = 0) in vec4 pos;
 layout (location = 1) in vec4 color;
@@ -23,7 +19,7 @@ layout (location = 1) in vec4 color;
 layout (location = 0) out vec4 vtx_color;
 layout (location = 1) out float vtx_id_f;
 
-layout (std140, binding = 0) uniform buffer {
+layout(binding = 0) uniform UniformBuffer {
     mat4 mvp;
 } uniformBuffer;
 
@@ -35,10 +31,7 @@ void main() {
 )";
 
 const std::string GEOM_SOURCE = R"(
-#version 400
-
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#version 460
 
 layout (triangles) in;
 layout (triangle_strip, max_vertices = 3) out;
@@ -66,12 +59,8 @@ void main(void) {
 }
 )";
 
-// fragment shader with (C)olor in and (C)olor out
 const std::string FRAG_SOURCE = R"(
-#version 400
-
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#version 460
 
 layout (location = 0) in vec4 geom_color;
 layout (location = 1) in vec3 vtx_ids_f;
