@@ -381,8 +381,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                         },
                         {
                                 {0, vk::ImageLayout::eColorAttachmentOptimal},
-                        },
-                        {3, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+                        });  // No depth
     // Add dependency
     vkw::AddSubpassDepend(render_pass_pack,
                           {0,
@@ -436,6 +435,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Create pipeline 1
     vkw::PipelineInfo pipeline_info1;
     pipeline_info1.color_blend_infos.resize(1);
+    pipeline_info1.depth_test_enable = false;
     auto pipeline_pack1 = vkw::CreatePipeline(
             device, {vert_shader_module_pack2, frag_shader_module_pack2}, {},
             {}, pipeline_info1, {desc_set_pack1}, render_pass_pack, 1);
