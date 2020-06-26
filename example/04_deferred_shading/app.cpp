@@ -60,7 +60,7 @@ void main() {
 )";
 
 const std::string VERT_SOURCE2 = R"(
-#version 450
+#version 460
 
 layout (location = 0) out vec2 vtx_uv;
 
@@ -72,7 +72,7 @@ void main() {
 }
 )";
 const std::string FRAG_SOURCE2 = R"(
-#version 450
+#version 460
 
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput input_imgs[2];
 
