@@ -177,12 +177,11 @@ SwapchainPackPtr CreateSwapchainPack(
         const vk::ImageUsageFlags& usage =
                 vk::ImageUsageFlagBits::eColorAttachment);
 
-vk::Result AcquireNextImage(uint32_t* out_img_idx,
-                            const vk::UniqueDevice& device,
-                            const SwapchainPackPtr& swapchain_pack,
-                            const SemaphorePtr& signal_semaphore = nullptr,
-                            const FencePtr& signal_fence = nullptr,
-                            uint64_t timeout = NO_TIMEOUT);
+uint32_t AcquireNextImage(const vk::UniqueDevice& device,
+                          const SwapchainPackPtr& swapchain_pack,
+                          const SemaphorePtr& signal_semaphore = nullptr,
+                          const FencePtr& signal_fence = nullptr,
+                          uint64_t timeout = NO_TIMEOUT);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------

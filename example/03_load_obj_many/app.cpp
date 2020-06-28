@@ -489,10 +489,9 @@ void VkApp::draw(const void* uniform_data, uint64_t uniform_n_bytes) {
                       uniform_n_bytes);
 
     // Get next image index of swapchain
-    uint32_t curr_img_idx = 0;
     auto img_acquired_semaphore = vkw::CreateSemaphore(m_device);
-    vkw::AcquireNextImage(&curr_img_idx, m_device, m_swapchain_pack,
-                          img_acquired_semaphore, nullptr);
+    uint32_t curr_img_idx = vkw::AcquireNextImage(
+            m_device, m_swapchain_pack, img_acquired_semaphore, nullptr);
 
     // Emit drawing command
     auto& cmd_buf = m_cmd_bufs_pack->cmd_bufs[curr_img_idx];
@@ -503,8 +502,7 @@ void VkApp::draw(const void* uniform_data, uint64_t uniform_n_bytes) {
                      {});
 
     // Present current view
-    vkw::QueuePresent(m_queues[0], m_swapchain_pack, curr_img_idx,
-                      {});
+    vkw::QueuePresent(m_queues[0], m_swapchain_pack, curr_img_idx, {});
 
     // Wait for drawing
     vkw::WaitForFence(m_device, draw_fence);

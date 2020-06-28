@@ -372,8 +372,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                         });  // No depth
     // Add dependency
     vkw::AddSubpassDepend(render_pass_pack,
-                          {0,
-                           vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                          {0, vk::PipelineStageFlagBits::eColorAttachmentOutput,
                            vk::AccessFlagBits::eColorAttachmentWrite},
                           {1, vk::PipelineStageFlagBits::eFragmentShader,
                            vk::AccessFlagBits::eInputAttachmentRead},
@@ -490,9 +489,8 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                           sizeof(mvpc_mat));
 
         auto img_acquired_semaphore = vkw::CreateSemaphore(device);
-        uint32_t curr_img_idx = 0;
-        vkw::AcquireNextImage(&curr_img_idx, device, swapchain_pack,
-                              img_acquired_semaphore, nullptr);
+        uint32_t curr_img_idx = vkw::AcquireNextImage(
+                device, swapchain_pack, img_acquired_semaphore, nullptr);
 
 #if 1
         auto& cmd_buf = cmd_bufs[curr_img_idx];

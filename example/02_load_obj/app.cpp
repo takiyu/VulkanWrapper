@@ -272,9 +272,9 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     vkw::UpdateRenderPass(device, render_pass_pack);
 
     // Create frame buffers for swapchain images
-    auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
-                                                      {nullptr, depth_img_pack},
-                                                      swapchain_pack);
+    auto frame_buffer_packs =
+            vkw::CreateFrameBuffers(device, render_pass_pack,
+                                    {nullptr, depth_img_pack}, swapchain_pack);
 
     // Compile shaders
     vkw::GLSLCompiler glsl_compiler;
@@ -334,9 +334,8 @@ void RunExampleApp02(const vkw::WindowPtr& window,
         vkw::ResetCommand(cmd_buf);
 
         auto img_acquired_semaphore = vkw::CreateSemaphore(device);
-        uint32_t curr_img_idx = 0;
-        vkw::AcquireNextImage(&curr_img_idx, device, swapchain_pack,
-                              img_acquired_semaphore, nullptr);
+        uint32_t curr_img_idx = vkw::AcquireNextImage(
+                device, swapchain_pack, img_acquired_semaphore, nullptr);
 
         vkw::BeginCommand(cmd_buf);
 

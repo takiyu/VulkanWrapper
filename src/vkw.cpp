@@ -1143,18 +1143,18 @@ SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
             std::move(swapchain), std::move(img_views), swapchain_extent});
 }
 
-vk::Result AcquireNextImage(uint32_t *out_img_idx,
-                            const vk::UniqueDevice &device,
-                            const SwapchainPackPtr &swapchain_pack,
-                            const SemaphorePtr &signal_semaphore,
-                            const FencePtr &signal_fence, uint64_t timeout) {
+uint32_t AcquireNextImage(const vk::UniqueDevice &device,
+                          const SwapchainPackPtr &swapchain_pack,
+                          const SemaphorePtr &signal_semaphore,
+                          const FencePtr &signal_fence, uint64_t timeout) {
     // Escape nullptr
     vk::Semaphore semaphore_raw =
             signal_semaphore ? signal_semaphore->get() : vk::Semaphore();
     vk::Fence fence_raw = signal_fence ? signal_fence->get() : vk::Fence();
-    // Acquire
+
+    // Acquire (may throw exception)
     return device->acquireNextImageKHR(swapchain_pack->swapchain.get(), timeout,
-                                       semaphore_raw, fence_raw, out_img_idx);
+                                       semaphore_raw, fence_raw);
 }
 
 // -----------------------------------------------------------------------------
