@@ -1164,7 +1164,7 @@ BufferPackPtr CreateBufferPack(const vk::PhysicalDevice &physical_device,
                                const vk::UniqueDevice &device,
                                const vk::DeviceSize &size,
                                const vk::BufferUsageFlags &usage,
-                               const vk::MemoryPropertyFlags &memory_props) {
+                               const vk::MemoryPropertyFlags &mem_prop) {
     // Create buffer
     auto buf =
             device->createBufferUnique({vk::BufferCreateFlags(), size, usage});
@@ -1172,13 +1172,14 @@ BufferPackPtr CreateBufferPack(const vk::PhysicalDevice &physical_device,
     // Allocate memory
     auto memory_requs = device->getBufferMemoryRequirements(*buf);
     auto device_mem =
-            AllocMemory(device, physical_device, memory_requs, memory_props);
+            AllocMemory(device, physical_device, memory_requs, mem_prop);
 
     // Bind memory
     device->bindBufferMemory(buf.get(), device_mem.get(), 0);
 
-    return BufferPackPtr(new BufferPack{
-            std::move(buf), size, std::move(device_mem), memory_requs.size});
+    return BufferPackPtr(new BufferPack{std::move(buf), size,
+                                        std::move(device_mem),
+                                        memory_requs.size, usage, mem_prop});
 }
 
 void SendToDevice(const vk::UniqueDevice &device, const BufferPackPtr &buf_pack,
@@ -1213,7 +1214,7 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     }();
     const vk::ImageTiling &tiling = std::get<0>(modes);
     const vk::ImageLayout &initial_layout = std::get<1>(modes);
-    const vk::MemoryPropertyFlags &memory_props = std::get<2>(modes);
+    const vk::MemoryPropertyFlags &mem_prop = std::get<2>(modes);
     const vk::ImageUsageFlags &usage = std::get<3>(modes);
 
     // Select sharing mode
@@ -1229,7 +1230,7 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     // Allocate memory
     auto memory_requs = device->getImageMemoryRequirements(*img);
     auto device_mem =
-            AllocMemory(device, physical_device, memory_requs, memory_props);
+            AllocMemory(device, physical_device, memory_requs, mem_prop);
     auto dev_mem_size = memory_requs.size;
 
     // Bind memory
@@ -1249,10 +1250,10 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     }
 
     // Construct image pack
-    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
-                                      format, size, std::move(device_mem),
-                                      dev_mem_size, is_staging, initial_layout,
-                                      std::move(trans_buf_pack)});
+    return ImagePackPtr(new ImagePack{
+            std::move(img), std::move(img_view), format, size,
+            std::move(device_mem), dev_mem_size, usage, aspects, is_staging,
+            is_shared, initial_layout, std::move(trans_buf_pack)});
 }
 
 void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,

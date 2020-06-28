@@ -191,6 +191,8 @@ struct BufferPack {
     vk::DeviceSize size;
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
+    vk::BufferUsageFlags usage;
+    vk::MemoryPropertyFlags mem_prop;
 };
 using BufferPackPtr = std::shared_ptr<BufferPack>;
 BufferPackPtr CreateBufferPack(
@@ -198,7 +200,7 @@ BufferPackPtr CreateBufferPack(
         const vk::UniqueDevice& device, const vk::DeviceSize& size = 256,
         const vk::BufferUsageFlags& usage =
                 vk::BufferUsageFlagBits::eVertexBuffer,
-        const vk::MemoryPropertyFlags& memory_props =
+        const vk::MemoryPropertyFlags& mem_prop =
                 vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
@@ -214,7 +216,10 @@ struct ImagePack {
     vk::Extent2D size;
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
+    vk::ImageUsageFlags usage;
+    vk::ImageAspectFlags aspects;
     bool is_staging;
+    bool is_shared;
     vk::ImageLayout layout;
 
     BufferPackPtr trans_buf_pack;  // for only staging mode
