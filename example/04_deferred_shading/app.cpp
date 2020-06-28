@@ -436,32 +436,38 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     {
         // Send color texture to GPU
         auto& cmd_buf = cmd_bufs[0];
+        const uint64_t tex_n_bytes =
+                mesh.color_tex.size() * sizeof(mesh.color_tex[0]);
+        vkw::BufferPackPtr src_trans_buf_pack = vkw::CreateBufferPack(
+                physical_device, device, tex_n_bytes,
+                vk::BufferUsageFlagBits::eTransferSrc,
+                vk::MemoryPropertyFlagBits::eHostCoherent |
+                        vk::MemoryPropertyFlagBits::eHostVisible);
         vkw::BeginCommand(cmd_buf);
         vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
-                          mesh.color_tex.size() * sizeof(mesh.color_tex[0]),
-                          cmd_buf);
+                          tex_n_bytes, src_trans_buf_pack, cmd_buf);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
         vkw::WaitForFence(device, send_fence);
-
-        // Sending buffer will not be used anymore.
-        color_tex_pack->img_pack->trans_buf_pack.reset();
     }
     {
         // Send color texture to GPU
         auto& cmd_buf = cmd_bufs[0];
+        const uint64_t tex_n_bytes =
+                mesh.bump_tex.size() * sizeof(mesh.bump_tex[0]);
+        vkw::BufferPackPtr src_trans_buf_pack = vkw::CreateBufferPack(
+                physical_device, device, tex_n_bytes,
+                vk::BufferUsageFlagBits::eTransferSrc,
+                vk::MemoryPropertyFlagBits::eHostCoherent |
+                        vk::MemoryPropertyFlagBits::eHostVisible);
         vkw::BeginCommand(cmd_buf);
         vkw::SendToDevice(device, bump_tex_pack, mesh.bump_tex.data(),
-                          mesh.bump_tex.size() * sizeof(mesh.bump_tex[0]),
-                          cmd_buf);
+                          tex_n_bytes, src_trans_buf_pack, cmd_buf);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
         vkw::WaitForFence(device, send_fence);
-
-        // Sending buffer will not be used anymore.
-        bump_tex_pack->img_pack->trans_buf_pack.reset();
     }
 
     // ------------------

@@ -1239,25 +1239,16 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     // Create image view
     auto img_view = CreateImageView(*img, format, aspects, device);
 
-    // Create transfer buffer for only staging mode
-    BufferPackPtr trans_buf_pack;
-    if (is_staging) {
-        trans_buf_pack = CreateBufferPack(
-                physical_device, device, dev_mem_size,
-                vk::BufferUsageFlagBits::eTransferSrc,
-                vk::MemoryPropertyFlagBits::eHostCoherent |
-                        vk::MemoryPropertyFlagBits::eHostVisible);
-    }
-
     // Construct image pack
     return ImagePackPtr(new ImagePack{
             std::move(img), std::move(img_view), format, size,
             std::move(device_mem), dev_mem_size, usage, aspects, is_staging,
-            is_shared, initial_layout, std::move(trans_buf_pack)});
+            is_shared, initial_layout});
 }
 
 void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
                   const void *data, uint64_t n_bytes,
+                  const BufferPackPtr& src_trans_buf_pack,
                   const vk::UniqueCommandBuffer &cmd_buf) {
     if (img_pack->is_staging) {
         // Check command buffer existence
@@ -1266,7 +1257,7 @@ void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
         }
 
         // Send to buffer
-        SendToDevice(device, img_pack->trans_buf_pack, data, n_bytes);
+        SendToDevice(device, src_trans_buf_pack, data, n_bytes);
 
         // Transfer from buffer to image
         SetImageLayout(cmd_buf, img_pack, vk::ImageLayout::eTransferDstOptimal);
@@ -1277,7 +1268,7 @@ void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
                                            0, 1),
                 vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
         cmd_buf->copyBufferToImage(
-                img_pack->trans_buf_pack->buf.get(), img_pack->img.get(),
+                src_trans_buf_pack->buf.get(), img_pack->img.get(),
                 vk::ImageLayout::eTransferDstOptimal, copy_region);
     } else {
         // Send to device directly
@@ -1310,8 +1301,10 @@ TexturePackPtr CreateTexturePack(const ImagePackPtr &img_pack,
 
 void SendToDevice(const vk::UniqueDevice &device,
                   const TexturePackPtr &tex_pack, const void *data,
-                  uint64_t n_bytes, const vk::UniqueCommandBuffer &cmd_buf) {
-    SendToDevice(device, tex_pack->img_pack, data, n_bytes, cmd_buf);
+                  uint64_t n_bytes, const BufferPackPtr& src_trans_buf_pack,
+                  const vk::UniqueCommandBuffer &cmd_buf) {
+    SendToDevice(device, tex_pack->img_pack, data, n_bytes, src_trans_buf_pack,
+                 cmd_buf); // Through
 }
 
 // -----------------------------------------------------------------------------

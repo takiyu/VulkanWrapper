@@ -333,6 +333,16 @@ void RunExampleApp05(const vkw::WindowPtr& window,
     auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
+    // Create source transfer buffer
+    const uint64_t tex_n_bytes =
+            mesh.color_tex.size() * sizeof(mesh.color_tex[0]);
+    vkw::BufferPackPtr src_trans_buf_pack = vkw::CreateBufferPack(
+            physical_device, device, tex_n_bytes,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostCoherent |
+                    vk::MemoryPropertyFlagBits::eHostVisible);
+
+    // ------------------
     glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));
     const glm::mat4 view_mat = glm::lookAt(glm::vec3(0.0f, 0.0f, -100.0f),
                                            glm::vec3(0.0f, 0.0f, 0.0f),
@@ -365,8 +375,7 @@ void RunExampleApp05(const vkw::WindowPtr& window,
         if (!is_col_tex_sent) {
             is_col_tex_sent = true;
             vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
-                              mesh.color_tex.size() * sizeof(mesh.color_tex[0]),
-                              cmd_buf);
+                              tex_n_bytes, src_trans_buf_pack, cmd_buf);
         }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};

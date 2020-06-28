@@ -221,8 +221,6 @@ struct ImagePack {
     bool is_staging;
     bool is_shared;
     vk::ImageLayout layout;
-
-    BufferPackPtr trans_buf_pack;  // for only staging mode
 };
 using ImagePackPtr = std::shared_ptr<ImagePack>;
 ImagePackPtr CreateImagePack(
@@ -236,6 +234,7 @@ ImagePackPtr CreateImagePack(
 
 void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
                   const void* data, uint64_t n_bytes,
+                  const BufferPackPtr& src_trans_buf_pack = nullptr,
                   const vk::UniqueCommandBuffer& cmd_buf = {});
 
 // -----------------------------------------------------------------------------
@@ -258,6 +257,7 @@ TexturePackPtr CreateTexturePack(
 void SendToDevice(const vk::UniqueDevice& device,
                   const TexturePackPtr& tex_pack, const void* data,
                   uint64_t n_bytes,
+                  const BufferPackPtr& src_trans_buf_pack = nullptr,
                   const vk::UniqueCommandBuffer& cmd_buf = {});
 
 // -----------------------------------------------------------------------------

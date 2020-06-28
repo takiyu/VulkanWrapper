@@ -421,19 +421,23 @@ void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
             m_device, m_queue_family_idx, 1, false);
     auto& cmd_buf = send_cmd_buf_pack->cmd_bufs[0];
 
+    // Create source transfer buffer
+    vkw::BufferPackPtr src_trans_buf_pack = vkw::CreateBufferPack(
+                m_physical_device, m_device, tex_n_bytes,
+                vk::BufferUsageFlagBits::eTransferSrc,
+                vk::MemoryPropertyFlagBits::eHostCoherent |
+                        vk::MemoryPropertyFlagBits::eHostVisible);
+
     // Create sending command for color texture
     vkw::BeginCommand(cmd_buf);
     vkw::SendToDevice(m_device, m_color_tex_pack, tex_data, tex_n_bytes,
-                      cmd_buf);
+                      src_trans_buf_pack, cmd_buf);
     vkw::EndCommand(cmd_buf);
 
     // Send
     auto send_fence = vkw::CreateFence(m_device);
     vkw::QueueSubmit(m_queues[0], cmd_buf, send_fence, {}, {});
     vkw::WaitForFence(m_device, send_fence);
-
-    // Release sending buffer (because it will not be used anymore)
-    m_color_tex_pack->img_pack->trans_buf_pack.reset();
 }
 
 void VkApp::initDrawStates(uint32_t n_vtxs,
