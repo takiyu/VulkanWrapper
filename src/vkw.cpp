@@ -38,8 +38,8 @@ inline T Clamp(const T &x, const T &min_v, const T &max_v) {
 }
 
 template <typename BitType>
-bool IsSufficient(const vk::Flags<BitType> &actual_flags,
-                  const vk::Flags<BitType> &require_flags) {
+bool IsFlagSufficient(const vk::Flags<BitType> &actual_flags,
+                      const vk::Flags<BitType> &require_flags) {
     return (actual_flags & require_flags) == require_flags;
 }
 
@@ -330,8 +330,8 @@ vk::UniqueDeviceMemory AllocMemory(
     uint32_t type_idx = uint32_t(~0);
     for (uint32_t i = 0; i < actual_memory_props.memoryTypeCount; i++) {
         if ((type_bits & 1) &&
-            IsSufficient(actual_memory_props.memoryTypes[i].propertyFlags,
-                         require_flags)) {
+            IsFlagSufficient(actual_memory_props.memoryTypes[i].propertyFlags,
+                             require_flags)) {
             type_idx = i;
             break;
         }
@@ -932,7 +932,7 @@ FeaturesPtr GetPhysicalFeatures(const vk::PhysicalDevice &physical_device) {
     return features;
 }
 
-PropertiesPtr GetPhysicalProperties(const vk::PhysicalDevice& physical_device) {
+PropertiesPtr GetPhysicalProperties(const vk::PhysicalDevice &physical_device) {
     auto properties = std::make_shared<vk::PhysicalDeviceProperties>();
     physical_device.getProperties(properties.get());
     return properties;
@@ -991,7 +991,7 @@ std::vector<uint32_t> GetQueueFamilyIdxs(
     // Search sufficient queue family indices
     std::vector<uint32_t> queue_family_idxs;
     for (uint32_t i = 0; i < props.size(); i++) {
-        if (IsSufficient(props[i].queueFlags, queue_flags)) {
+        if (IsFlagSufficient(props[i].queueFlags, queue_flags)) {
             queue_family_idxs.push_back(i);
         }
     }
