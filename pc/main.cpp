@@ -4,6 +4,7 @@
 #include "../example/04_deferred_shading/app.h"
 #include "../example/05_instancing/app.h"
 #include "../example/06_raster_vtx_id/app.h"
+#include "../example/07_compute_shader/app.h"
 
 #include <sstream>
 
@@ -44,6 +45,8 @@ int main(int argc, char const* argv[]) {
             RunExampleApp05(window, draw_hook);
         } else if (app_id == 6) {
             RunExampleApp06(window, draw_hook);
+        } else if (app_id == 7) {
+            RunExampleApp07(window, draw_hook);
         } else {
             vkw::PrintErr("Invalid application ID");
         }

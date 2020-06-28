@@ -55,7 +55,7 @@ void PrintQueueFamilyProps(const vk::PhysicalDevice& physical_device);
 void DefaultFpsFunc(float fps);
 
 void PrintFps(std::function<void(float)> print_func = DefaultFpsFunc,
-              int show_interval = 60);
+              float show_interval_sec = 1.f);
 
 // -----------------------------------------------------------------------------
 // ---------------------------------- Float16 ----------------------------------
@@ -122,12 +122,16 @@ vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
 // -----------------------------------------------------------------------------
 std::vector<uint32_t> GetQueueFamilyIdxs(
         const vk::PhysicalDevice& physical_device,
-        const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics);
+        const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics |
+                                            vk::QueueFlagBits::eCompute |
+                                            vk::QueueFlagBits::eTransfer);
 
 uint32_t GetGraphicPresentQueueFamilyIdx(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueSurfaceKHR& surface,
-        const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics);
+        const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics |
+                                            vk::QueueFlagBits::eCompute |
+                                            vk::QueueFlagBits::eTransfer);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Device ----------------------------------

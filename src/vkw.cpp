@@ -687,24 +687,26 @@ void DefaultFpsFunc(float fps) {
     PrintInfo(ss.str());
 }
 
-void PrintFps(std::function<void(float)> print_func, int show_interval) {
+void PrintFps(std::function<void(float)> print_func, float show_interval_sec) {
     static int s_count = -2;  // Some starting offset
     static auto s_start_clk = std::chrono::system_clock::now();
+    using ElapsedSec = std::chrono::duration<float>;
 
     // Count up
     s_count++;
+    // Check current elapsed time
+    const auto cur_clk = std::chrono::system_clock::now();
+    const float elapsed_sec = ElapsedSec(cur_clk - s_start_clk).count();
+
     // Print per interval
-    if (s_count % show_interval == show_interval - 1) {
+    if (show_interval_sec <= elapsed_sec) {
         // Compute fps
-        auto end_clk = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed = end_clk - s_start_clk;
-        const float fps = static_cast<float>(show_interval) /
-                          static_cast<float>(elapsed.count());
+        const float fps = static_cast<float>(s_count) / elapsed_sec;
         // Print
         print_func(fps);
         // Shift clock
         s_count = 0;
-        s_start_clk = end_clk;
+        s_start_clk = cur_clk;
     }
 }
 

@@ -186,6 +186,7 @@ if (VKW_BUILD_EXAMPLES)
         ${CMAKE_CURRENT_SOURCE_DIR}/example/04_deferred_shading/app.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/example/05_instancing/app.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/example/06_raster_vtx_id/app.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/example/07_compute_shader/app.cpp
     )
 
     if (ANDROID)
