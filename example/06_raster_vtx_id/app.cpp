@@ -167,8 +167,8 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
             physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::ImageAspectFlagBits::eDepth, true, false);
+            vk::ImageUsageFlagBits::eDepthStencilAttachment, {}, true, // tiling
+            vk::ImageAspectFlagBits::eDepth);
 
     // Create uniform buffer
     auto uniform_buf_pack = vkw::CreateBufferPack(

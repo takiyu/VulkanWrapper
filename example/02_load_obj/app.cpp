@@ -215,8 +215,9 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
             physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::ImageAspectFlagBits::eDepth, true, false);
+            vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
+            true,  // tiling
+            vk::ImageAspectFlagBits::eDepth);
 
     // Create uniform buffer
     auto uniform_buf_pack = vkw::CreateBufferPack(
@@ -229,8 +230,10 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     auto color_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32G32B32A32Sfloat,
             {mesh.color_tex_w, mesh.color_tex_h},
-            vk::ImageUsageFlagBits::eSampled, vk::ImageAspectFlagBits::eColor,
-            true, false);
+            vk::ImageUsageFlagBits::eSampled |
+                    vk::ImageUsageFlagBits::eTransferDst,
+            {}, true,  // tiling
+            vk::ImageAspectFlagBits::eColor);
     auto color_tex_pack = vkw::CreateTexturePack(color_img_pack, device);
 
     // Create descriptor set for uniform buffer and texture
@@ -310,15 +313,13 @@ void RunExampleApp02(const vkw::WindowPtr& window,
             vkw::CreateCommandBuffersPack(device, queue_family_idx, n_cmd_bufs);
     auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
-    // ------------------
+    // -----------------
     // Create source transfer buffer
     const uint64_t tex_n_bytes =
             mesh.color_tex.size() * sizeof(mesh.color_tex[0]);
-    vkw::BufferPackPtr src_trans_buf_pack = vkw::CreateBufferPack(
+    vkw::BufferPackPtr trans_buf_pack = vkw::CreateBufferPack(
             physical_device, device, tex_n_bytes,
-            vk::BufferUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eHostCoherent |
-                    vk::MemoryPropertyFlagBits::eHostVisible);
+            vk::BufferUsageFlagBits::eTransferSrc, vkw::HOST_VISIB_COHER_PROPS);
 
     // ------------------
     glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));
@@ -352,8 +353,12 @@ void RunExampleApp02(const vkw::WindowPtr& window,
         // Send color texture to GPU
         if (!is_col_tex_sent) {
             is_col_tex_sent = true;
-            vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
-                              tex_n_bytes, src_trans_buf_pack, cmd_buf);
+
+            // Send to buffer
+            vkw::SendToDevice(device, trans_buf_pack, mesh.color_tex.data(),
+                              tex_n_bytes);
+            // Send buffer to image
+            vkw::CopyBufferToImage(cmd_buf, trans_buf_pack, color_tex_pack);
         }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};

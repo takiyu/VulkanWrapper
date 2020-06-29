@@ -266,7 +266,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
             physical_device, device, gbuf_col_format, swapchain_pack->size,
             vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eInputAttachment,
-            vk::ImageAspectFlagBits::eColor, true, false);
+            {}, true, vk::ImageAspectFlagBits::eColor);
 
     // Create G buffer 1 (normal)
     const auto gbuf_nor_format = vk::Format::eA8B8G8R8SnormPack32;
@@ -274,14 +274,14 @@ void RunExampleApp04(const vkw::WindowPtr& window,
             physical_device, device, gbuf_nor_format, swapchain_pack->size,
             vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eInputAttachment,
-            vk::ImageAspectFlagBits::eColor, true, false);
+            {}, true, vk::ImageAspectFlagBits::eColor);
 
     // Create depth buffer
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
             physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::ImageAspectFlagBits::eDepth, true, false);
+            vk::ImageUsageFlagBits::eDepthStencilAttachment, {}, true,
+            vk::ImageAspectFlagBits::eDepth);
 
     // Create uniform buffer
     auto uniform_buf_pack = vkw::CreateBufferPack(
@@ -294,16 +294,18 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     auto color_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32G32B32A32Sfloat,
             {mesh.color_tex_w, mesh.color_tex_h},
-            vk::ImageUsageFlagBits::eSampled, vk::ImageAspectFlagBits::eColor,
-            true, false);
+            vk::ImageUsageFlagBits::eSampled |
+                    vk::ImageUsageFlagBits::eTransferDst,
+            {}, true, vk::ImageAspectFlagBits::eColor);
     auto color_tex_pack = vkw::CreateTexturePack(color_img_pack, device);
 
     // Create bump texture
     auto bump_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32Sfloat,
             {mesh.color_tex_w, mesh.color_tex_h},
-            vk::ImageUsageFlagBits::eSampled, vk::ImageAspectFlagBits::eColor,
-            true, false);
+            vk::ImageUsageFlagBits::eSampled |
+                    vk::ImageUsageFlagBits::eTransferDst,
+            {}, true, vk::ImageAspectFlagBits::eColor);
     auto bump_tex_pack = vkw::CreateTexturePack(bump_img_pack, device);
 
     // Create descriptor set 0 for uniform buffer and texture
@@ -443,9 +445,10 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                 vk::BufferUsageFlagBits::eTransferSrc,
                 vk::MemoryPropertyFlagBits::eHostCoherent |
                         vk::MemoryPropertyFlagBits::eHostVisible);
+        vkw::SendToDevice(device, src_trans_buf_pack, mesh.color_tex.data(),
+                          tex_n_bytes);
         vkw::BeginCommand(cmd_buf);
-        vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
-                          tex_n_bytes, src_trans_buf_pack, cmd_buf);
+        vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack, color_tex_pack);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
@@ -461,9 +464,10 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                 vk::BufferUsageFlagBits::eTransferSrc,
                 vk::MemoryPropertyFlagBits::eHostCoherent |
                         vk::MemoryPropertyFlagBits::eHostVisible);
+        vkw::SendToDevice(device, src_trans_buf_pack, mesh.bump_tex.data(),
+                          tex_n_bytes);
         vkw::BeginCommand(cmd_buf);
-        vkw::SendToDevice(device, bump_tex_pack, mesh.bump_tex.data(),
-                          tex_n_bytes, src_trans_buf_pack, cmd_buf);
+        vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack, bump_tex_pack);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});

@@ -393,17 +393,10 @@ static vk::UniqueSampler CreateSampler(const vk::UniqueDevice &device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
-                           const ImagePackPtr &img_pack,
-                           const vk::ImageLayout &new_img_layout) {
-    // Check the need to set layout
-    const vk::ImageLayout old_img_layout = img_pack->layout;
-    if (old_img_layout == new_img_layout) {
-        return;
-    }
-    // Shift layout variable
-    img_pack->layout = new_img_layout;
-
+static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
+                               const ImagePackPtr &img_pack,
+                               const vk::ImageLayout &old_img_layout,
+                               const vk::ImageLayout &new_img_layout) {
     // Decide source access mask
     const vk::AccessFlags src_access_mask = [&]() -> vk::AccessFlags {
         switch (old_img_layout) {
@@ -414,7 +407,8 @@ static void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
             case vk::ImageLayout::eGeneral:
             case vk::ImageLayout::eUndefined: return {};  // empty
             default:
-                throw std::runtime_error("Unexpected old image layout (A)");
+                throw std::runtime_error("Unexpected old image layout (A): " +
+                                         vk::to_string(old_img_layout));
         }
     }();
     // Decide source stage
@@ -428,7 +422,8 @@ static void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
             case vk::ImageLayout::eUndefined:
                 return vk::PipelineStageFlagBits::eTopOfPipe;
             default:
-                throw std::runtime_error("Unexpected old image layout (B)");
+                throw std::runtime_error("Unexpected old image layout (B): " +
+                                         vk::to_string(old_img_layout));
         }
     }();
     // Decide destination access mask
@@ -447,7 +442,8 @@ static void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
             case vk::ImageLayout::eTransferDstOptimal:
                 return vk::AccessFlagBits::eTransferWrite;
             default:
-                throw std::runtime_error("Unexpected new image layout (A)");
+                throw std::runtime_error("Unexpected new image layout (A): " +
+                                         vk::to_string(new_img_layout));
         }
     }();
     // Decide destination stage
@@ -465,7 +461,8 @@ static void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
             case vk::ImageLayout::eTransferSrcOptimal:
                 return vk::PipelineStageFlagBits::eTransfer;
             default:
-                throw std::runtime_error("Unexpected new image layout (B)");
+                throw std::runtime_error("Unexpected new image layout (B): " +
+                                         vk::to_string(new_img_layout));
         }
     }();
     // Decide aspect mask
@@ -1184,6 +1181,13 @@ BufferPackPtr CreateBufferPack(const vk::PhysicalDevice &physical_device,
 
 void SendToDevice(const vk::UniqueDevice &device, const BufferPackPtr &buf_pack,
                   const void *data, uint64_t n_bytes) {
+    // Check `HostVisible` and `HostCoherent` flags
+    if (!IsFlagSufficient(buf_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
+        throw std::runtime_error(
+                "Failed to send (Buffer): HostCoherent and HostVisible are "
+                "needed");
+    }
+    // Send
     SendToDevice(device, buf_pack->dev_mem, buf_pack->dev_mem_size, data,
                  n_bytes);
 }
@@ -1194,38 +1198,25 @@ void SendToDevice(const vk::UniqueDevice &device, const BufferPackPtr &buf_pack,
 ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
                              const vk::UniqueDevice &device,
                              const vk::Format &format, const vk::Extent2D &size,
-                             const vk::ImageUsageFlags &usage_org,
+                             const vk::ImageUsageFlags &usage,
+                             const vk::MemoryPropertyFlags &mem_prop,
+                             bool is_tiling,
                              const vk::ImageAspectFlags &aspects,
-                             bool is_staging, bool is_shared) {
-    // Decide modes about staging
-    auto modes = [&]() {
-        if (is_staging) {
-            return std::make_tuple(
-                    vk::ImageTiling::eOptimal, vk::ImageLayout::eUndefined,
-                    vk::MemoryPropertyFlags{},
-                    (usage_org | vk::ImageUsageFlagBits::eTransferDst));
-        } else {
-            return std::make_tuple(
-                    vk::ImageTiling::eLinear, vk::ImageLayout::ePreinitialized,
-                    vk::MemoryPropertyFlagBits::eHostCoherent |
-                            vk::MemoryPropertyFlagBits::eHostVisible,
-                    usage_org);
-        }
-    }();
-    const vk::ImageTiling &tiling = std::get<0>(modes);
-    const vk::ImageLayout &initial_layout = std::get<1>(modes);
-    const vk::MemoryPropertyFlags &mem_prop = std::get<2>(modes);
-    const vk::ImageUsageFlags &usage = std::get<3>(modes);
+                             const vk::ImageLayout &init_layout,
+                             bool is_shared) {
+    // Select tiling mode
+    const vk::ImageTiling tiling =
+            is_tiling ? vk::ImageTiling::eOptimal : vk::ImageTiling::eLinear;
 
     // Select sharing mode
-    const vk::SharingMode sharing = is_shared ? vk::SharingMode::eConcurrent :
-                                                vk::SharingMode::eExclusive;
+    const vk::SharingMode shared = is_shared ? vk::SharingMode::eConcurrent :
+                                               vk::SharingMode::eExclusive;
 
     // Create image
     auto img = device->createImageUnique(
             {vk::ImageCreateFlags(), vk::ImageType::e2D, format,
              vk::Extent3D(size, 1), 1, 1, vk::SampleCountFlagBits::e1, tiling,
-             usage, sharing, 0, nullptr, initial_layout});
+             usage, shared, 0, nullptr, init_layout});
 
     // Allocate memory
     auto memory_requs = device->getImageMemoryRequirements(*img);
@@ -1240,44 +1231,66 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     auto img_view = CreateImageView(*img, format, aspects, device);
 
     // Construct image pack
-    return ImagePackPtr(new ImagePack{
-            std::move(img), std::move(img_view), format, size,
-            std::move(device_mem), dev_mem_size, usage, aspects, is_staging,
-            is_shared, initial_layout});
+    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
+                                      format, size, std::move(device_mem),
+                                      dev_mem_size, usage, mem_prop, is_tiling,
+                                      aspects, init_layout, is_shared});
 }
 
 void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
-                  const void *data, uint64_t n_bytes,
-                  const BufferPackPtr& src_trans_buf_pack,
-                  const vk::UniqueCommandBuffer &cmd_buf) {
-    if (img_pack->is_staging) {
-        // Check command buffer existence
-        if (!cmd_buf.get()) {
-            throw std::runtime_error("No command buffer to send staging image");
-        }
-
-        // Send to buffer
-        SendToDevice(device, src_trans_buf_pack, data, n_bytes);
-
-        // Transfer from buffer to image
-        SetImageLayout(cmd_buf, img_pack, vk::ImageLayout::eTransferDstOptimal);
-        const auto &extent = img_pack->size;
-        vk::BufferImageCopy copy_region(
-                0, extent.width, extent.height,
-                vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0,
-                                           0, 1),
-                vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
-        cmd_buf->copyBufferToImage(
-                src_trans_buf_pack->buf.get(), img_pack->img.get(),
-                vk::ImageLayout::eTransferDstOptimal, copy_region);
-    } else {
-        // Send to device directly
-        SendToDevice(device, img_pack->dev_mem, img_pack->dev_mem_size, data,
-                     n_bytes);
+                  const void *data, uint64_t n_bytes) {
+    // Check `HostVisible` and `HostCoherent` flags
+    if (!IsFlagSufficient(img_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
+        throw std::runtime_error(
+                "Failed to send (Image): HostCoherent and HostVisible are "
+                "needed.");
+    }
+    // Check tiling
+    if (img_pack->is_tiling) {
+        throw std::runtime_error("Failed to send (Image): Image is tiled.");
     }
 
-    // Set layout for shader read
-    SetImageLayout(cmd_buf, img_pack, vk::ImageLayout::eShaderReadOnlyOptimal);
+    // Send to device directly
+    SendToDevice(device, img_pack->dev_mem, img_pack->dev_mem_size, data,
+                 n_bytes);
+}
+
+void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
+                    const ImagePackPtr &img_pack,
+                    const vk::ImageLayout &new_layout) {
+    // Check the need to set layout
+    const vk::ImageLayout old_layout = img_pack->layout;
+    if (old_layout == new_layout) {
+        return;
+    }
+
+    // Shift layout variable
+    img_pack->layout = new_layout;
+
+    // Operate transition
+    SetImageLayoutImpl(cmd_buf, img_pack, old_layout, new_layout);
+}
+
+void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
+                       const BufferPackPtr &src_buf_pack,
+                       const ImagePackPtr &dst_img_pack,
+                       const vk::ImageLayout &final_layout) {
+    // Set image layout as transfer destination
+    SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
+
+    // Transfer from buffer to image
+    const auto &extent = dst_img_pack->size;
+    vk::BufferImageCopy copy_region(
+            0, extent.width, extent.height,
+            vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0,
+                                       1),
+            vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
+    cmd_buf->copyBufferToImage(src_buf_pack->buf.get(), dst_img_pack->img.get(),
+                               vk::ImageLayout::eTransferDstOptimal,
+                               copy_region);
+
+    // Set final image layout
+    SetImageLayout(cmd_buf, dst_img_pack, final_layout);
 }
 
 // -----------------------------------------------------------------------------
@@ -1301,10 +1314,22 @@ TexturePackPtr CreateTexturePack(const ImagePackPtr &img_pack,
 
 void SendToDevice(const vk::UniqueDevice &device,
                   const TexturePackPtr &tex_pack, const void *data,
-                  uint64_t n_bytes, const BufferPackPtr& src_trans_buf_pack,
-                  const vk::UniqueCommandBuffer &cmd_buf) {
-    SendToDevice(device, tex_pack->img_pack, data, n_bytes, src_trans_buf_pack,
-                 cmd_buf); // Through
+                  uint64_t n_bytes) {
+    SendToDevice(device, tex_pack->img_pack, data, n_bytes);
+}
+
+void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
+                    const TexturePackPtr &tex_pack,
+                    const vk::ImageLayout &new_layout) {
+    SetImageLayout(cmd_buf, tex_pack->img_pack, new_layout);
+}
+
+void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
+                       const BufferPackPtr &src_buf_pack,
+                       const TexturePackPtr &dst_tex_pack,
+                       const vk::ImageLayout &final_layout) {
+    CopyBufferToImage(cmd_buf, src_buf_pack, dst_tex_pack->img_pack,
+                      final_layout);
 }
 
 // -----------------------------------------------------------------------------
@@ -1458,12 +1483,12 @@ void AddAttachientDesc(RenderPassPackPtr &render_pass_pack,
     const auto sample_cnt = vk::SampleCountFlagBits::e1;
     const auto stencil_load_op = vk::AttachmentLoadOp::eDontCare;
     const auto stencil_store_op = vk::AttachmentStoreOp::eDontCare;
-    const auto initial_layout = vk::ImageLayout::eUndefined;
+    const auto init_layout = vk::ImageLayout::eUndefined;
 
     // Add attachment description
     render_pass_pack->attachment_descs.emplace_back(
             vk::AttachmentDescriptionFlags(), format, sample_cnt, load_op,
-            store_op, stencil_load_op, stencil_store_op, initial_layout,
+            store_op, stencil_load_op, stencil_store_op, init_layout,
             final_layout);
 }
 
