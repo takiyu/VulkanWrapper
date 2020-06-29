@@ -209,6 +209,10 @@ BufferPackPtr CreateBufferPack(
 void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
                   const void* data, uint64_t n_bytes);
 
+void RecvFromDevice(const vk::UniqueDevice& device,
+                    const BufferPackPtr& buf_pack, void* data,
+                    uint64_t n_bytes);
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
@@ -233,13 +237,16 @@ ImagePackPtr CreateImagePack(
         const vk::Format& format = vk::Format::eR8G8B8A8Uint,
         const vk::Extent2D& size = {256, 256},
         const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
-        const vk::MemoryPropertyFlags& mem_prop = {}, bool is_tiling = false,
+        const vk::MemoryPropertyFlags& mem_prop = {}, bool is_tiling = true,
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
         const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined,
         bool is_shared = false);
 
 void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
                   const void* data, uint64_t n_bytes);
+
+void RecvFromDevice(const vk::UniqueDevice& device,
+                    const ImagePackPtr& img_pack, void* data, uint64_t n_bytes);
 
 void SetImageLayout(const vk::UniqueCommandBuffer& cmd_buf,
                     const ImagePackPtr& img_pack,
@@ -251,6 +258,12 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer& cmd_buf,
                        const ImagePackPtr& dst_img_pack,
                        const vk::ImageLayout& final_layout =
                                vk::ImageLayout::eShaderReadOnlyOptimal);
+
+void CopyImageToBuffer(const vk::UniqueCommandBuffer& cmd_buf,
+                       const ImagePackPtr& src_img_pack,
+                       const BufferPackPtr& dst_buf_pack,
+                       const vk::ImageLayout& final_layout =
+                               vk::ImageLayout::eColorAttachmentOptimal);
 
 // -----------------------------------------------------------------------------
 // ---------------------------------- Texture ----------------------------------

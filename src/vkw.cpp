@@ -364,7 +364,17 @@ static void SendToDevice(const vk::UniqueDevice &device,
                          uint64_t n_bytes) {
     uint8_t *dev_p = static_cast<uint8_t *>(
             device->mapMemory(dev_mem.get(), 0, dev_mem_size));
-    memcpy(dev_p, data, n_bytes);
+    memcpy(dev_p, data, n_bytes);  // data -> dev_p
+    device->unmapMemory(dev_mem.get());
+}
+
+static void RecvFromDevice(const vk::UniqueDevice &device,
+                           const vk::UniqueDeviceMemory &dev_mem,
+                           const vk::DeviceSize &dev_mem_size, void *data,
+                           uint64_t n_bytes) {
+    const uint8_t *dev_p = static_cast<uint8_t *>(
+            device->mapMemory(dev_mem.get(), 0, dev_mem_size));
+    memcpy(data, dev_p, n_bytes);  // dev_p -> data
     device->unmapMemory(dev_mem.get());
 }
 
@@ -400,10 +410,14 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
     // Decide source access mask
     const vk::AccessFlags src_access_mask = [&]() -> vk::AccessFlags {
         switch (old_img_layout) {
+            case vk::ImageLayout::eTransferSrcOptimal:
+                return vk::AccessFlagBits::eTransferRead;
             case vk::ImageLayout::eTransferDstOptimal:
                 return vk::AccessFlagBits::eTransferWrite;
             case vk::ImageLayout::ePreinitialized:
                 return vk::AccessFlagBits::eHostWrite;
+            case vk::ImageLayout::eShaderReadOnlyOptimal:
+                return vk::AccessFlagBits::eShaderRead;
             case vk::ImageLayout::eGeneral:
             case vk::ImageLayout::eUndefined: return {};  // empty
             default:
@@ -418,14 +432,18 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
             case vk::ImageLayout::ePreinitialized:
                 return vk::PipelineStageFlagBits::eHost;
             case vk::ImageLayout::eTransferDstOptimal:
+            case vk::ImageLayout::eTransferSrcOptimal:
                 return vk::PipelineStageFlagBits::eTransfer;
             case vk::ImageLayout::eUndefined:
                 return vk::PipelineStageFlagBits::eTopOfPipe;
+            case vk::ImageLayout::eShaderReadOnlyOptimal:
+                return vk::PipelineStageFlagBits::eFragmentShader;
             default:
                 throw std::runtime_error("Unexpected old image layout (B): " +
                                          vk::to_string(old_img_layout));
         }
     }();
+
     // Decide destination access mask
     const vk::AccessFlags dst_access_mask = [&]() -> vk::AccessFlags {
         switch (new_img_layout) {
@@ -1192,6 +1210,20 @@ void SendToDevice(const vk::UniqueDevice &device, const BufferPackPtr &buf_pack,
                  n_bytes);
 }
 
+void RecvFromDevice(const vk::UniqueDevice &device,
+                    const BufferPackPtr &buf_pack, void *data,
+                    uint64_t n_bytes) {
+    // Check `HostVisible` and `HostCoherent` flags
+    if (!IsFlagSufficient(buf_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
+        throw std::runtime_error(
+                "Failed to receive (Buffer): HostCoherent and HostVisible are "
+                "needed");
+    }
+    // Receive
+    RecvFromDevice(device, buf_pack->dev_mem, buf_pack->dev_mem_size, data,
+                   n_bytes);
+}
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
@@ -1255,9 +1287,32 @@ void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
                  n_bytes);
 }
 
+void RecvFromDevice(const vk::UniqueDevice &device,
+                    const ImagePackPtr &img_pack, void *data,
+                    uint64_t n_bytes) {
+    // Check `HostVisible` and `HostCoherent` flags
+    if (!IsFlagSufficient(img_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
+        throw std::runtime_error(
+                "Failed to receive (Image): HostCoherent and HostVisible are "
+                "needed.");
+    }
+    // Check tiling
+    if (img_pack->is_tiling) {
+        throw std::runtime_error("Failed to receive (Image): Image is tiled.");
+    }
+    // Receive
+    RecvFromDevice(device, img_pack->dev_mem, img_pack->dev_mem_size, data,
+                   n_bytes);
+}
+
 void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
                     const ImagePackPtr &img_pack,
                     const vk::ImageLayout &new_layout) {
+    // Ignore undefined destination
+    if (new_layout == vk::ImageLayout::eUndefined) {
+        return;
+    }
+
     // Check the need to set layout
     const vk::ImageLayout old_layout = img_pack->layout;
     if (old_layout == new_layout) {
@@ -1291,6 +1346,28 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Set final image layout
     SetImageLayout(cmd_buf, dst_img_pack, final_layout);
+}
+
+void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
+                       const ImagePackPtr &src_img_pack,
+                       const BufferPackPtr &dst_buf_pack,
+                       const vk::ImageLayout &final_layout) {
+    // Set image layout as transfer source
+    SetImageLayout(cmd_buf, src_img_pack, vk::ImageLayout::eTransferSrcOptimal);
+
+    // Transfer from image to buffer
+    const auto &extent = src_img_pack->size;
+    vk::BufferImageCopy copy_region(
+            0, extent.width, extent.height,
+            vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0,
+                                       1),
+            vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
+    cmd_buf->copyImageToBuffer(src_img_pack->img.get(),
+                               vk::ImageLayout::eTransferSrcOptimal,
+                               dst_buf_pack->buf.get(), copy_region);
+
+    // Set final image layout
+    SetImageLayout(cmd_buf, src_img_pack, final_layout);
 }
 
 // -----------------------------------------------------------------------------
