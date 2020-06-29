@@ -4,7 +4,7 @@
 #include "../example/04_deferred_shading/app.h"
 #include "../example/05_instancing/app.h"
 #include "../example/06_raster_vtx_id/app.h"
-#include "../example/07_compute_shader/app.h"
+#include "../example/07_image_transfer/app.h"
 
 #include <sstream>
 

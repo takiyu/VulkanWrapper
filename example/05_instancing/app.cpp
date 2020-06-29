@@ -217,8 +217,9 @@ void RunExampleApp05(const vkw::WindowPtr& window,
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
             physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::ImageAspectFlagBits::eDepth, true, false);
+            vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
+            true,  // tiling
+            vk::ImageAspectFlagBits::eDepth);
 
     // Create uniform buffer
     auto uniform_buf_pack = vkw::CreateBufferPack(
@@ -231,8 +232,9 @@ void RunExampleApp05(const vkw::WindowPtr& window,
     auto color_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32G32B32A32Sfloat,
             {mesh.color_tex_w, mesh.color_tex_h},
-            vk::ImageUsageFlagBits::eSampled, vk::ImageAspectFlagBits::eColor,
-            true, false);
+            vk::ImageUsageFlagBits::eSampled |
+                    vk::ImageUsageFlagBits::eTransferDst,
+            {}, true, vk::ImageAspectFlagBits::eColor);
     auto color_tex_pack = vkw::CreateTexturePack(color_img_pack, device);
 
     // Create descriptor set for uniform buffer and texture
@@ -333,6 +335,18 @@ void RunExampleApp05(const vkw::WindowPtr& window,
     auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
+    // Create source transfer buffer
+    const uint64_t tex_n_bytes =
+            mesh.color_tex.size() * sizeof(mesh.color_tex[0]);
+    vkw::BufferPackPtr src_trans_buf_pack = vkw::CreateBufferPack(
+            physical_device, device, tex_n_bytes,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostCoherent |
+                    vk::MemoryPropertyFlagBits::eHostVisible);
+    vkw::SendToDevice(device, src_trans_buf_pack, mesh.color_tex.data(),
+                      tex_n_bytes);
+
+    // ------------------
     glm::mat4 model_mat = glm::scale(glm::vec3(1.00f));
     const glm::mat4 view_mat = glm::lookAt(glm::vec3(0.0f, 0.0f, -100.0f),
                                            glm::vec3(0.0f, 0.0f, 0.0f),
@@ -364,9 +378,7 @@ void RunExampleApp05(const vkw::WindowPtr& window,
         // Send color texture to GPU
         if (!is_col_tex_sent) {
             is_col_tex_sent = true;
-            vkw::SendToDevice(device, color_tex_pack, mesh.color_tex.data(),
-                              mesh.color_tex.size() * sizeof(mesh.color_tex[0]),
-                              cmd_buf);
+            vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack, color_tex_pack);
         }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};

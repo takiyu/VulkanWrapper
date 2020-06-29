@@ -138,8 +138,9 @@ void RunExampleApp01(const vkw::WindowPtr& window,
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
             physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::ImageAspectFlagBits::eDepth, true, false);
+            vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
+            true,  // tiling
+            vk::ImageAspectFlagBits::eDepth);
 
     auto uniform_buf_pack = vkw::CreateBufferPack(
             physical_device, device, sizeof(glm::mat4),
@@ -147,26 +148,13 @@ void RunExampleApp01(const vkw::WindowPtr& window,
             vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
 
-#if 1
     auto desc_set_pack = vkw::CreateDescriptorSetPack(
             device, {{vk::DescriptorType::eUniformBufferDynamic, 1,
                       vk::ShaderStageFlagBits::eVertex}});
-#else
-    auto tex = vkw::CreateTexturePack(
-            vkw::CreateImagePack(physical_device, device), device);
-    auto desc_set_pack = vkw::CreateDescriptorSet(
-            device, {{vk::DescriptorType::eUniformBuffer, 1,
-                      vk::ShaderStageFlagBits::eVertex},
-                     {vk::DescriptorType::eCombinedImageSampler, 1,
-                      vk::ShaderStageFlagBits::eVertex}});
-#endif
 
     auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
                          {uniform_buf_pack});
-#if 0
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {tex_pack->getTexturePack()});
-#endif
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
     auto render_pass_pack = vkw::CreateRenderPassPack();

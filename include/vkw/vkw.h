@@ -186,6 +186,9 @@ uint32_t AcquireNextImage(const vk::UniqueDevice& device,
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
+const auto HOST_VISIB_COHER_PROPS = vk::MemoryPropertyFlagBits::eHostCoherent |
+                                    vk::MemoryPropertyFlagBits::eHostVisible;
+
 struct BufferPack {
     vk::UniqueBuffer buf;
     vk::DeviceSize size;
@@ -206,6 +209,10 @@ BufferPackPtr CreateBufferPack(
 void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
                   const void* data, uint64_t n_bytes);
 
+void RecvFromDevice(const vk::UniqueDevice& device,
+                    const BufferPackPtr& buf_pack, void* data,
+                    uint64_t n_bytes);
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
@@ -217,12 +224,11 @@ struct ImagePack {
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
     vk::ImageUsageFlags usage;
+    vk::MemoryPropertyFlags mem_prop;
+    bool is_tiling;
     vk::ImageAspectFlags aspects;
-    bool is_staging;
-    bool is_shared;
     vk::ImageLayout layout;
-
-    BufferPackPtr trans_buf_pack;  // for only staging mode
+    bool is_shared;
 };
 using ImagePackPtr = std::shared_ptr<ImagePack>;
 ImagePackPtr CreateImagePack(
@@ -231,12 +237,33 @@ ImagePackPtr CreateImagePack(
         const vk::Format& format = vk::Format::eR8G8B8A8Uint,
         const vk::Extent2D& size = {256, 256},
         const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
+        const vk::MemoryPropertyFlags& mem_prop = {}, bool is_tiling = true,
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
-        bool is_staging = false, bool is_shared = false);
+        const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined,
+        bool is_shared = false);
 
 void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
-                  const void* data, uint64_t n_bytes,
-                  const vk::UniqueCommandBuffer& cmd_buf = {});
+                  const void* data, uint64_t n_bytes);
+
+void RecvFromDevice(const vk::UniqueDevice& device,
+                    const ImagePackPtr& img_pack, void* data, uint64_t n_bytes);
+
+void SetImageLayout(const vk::UniqueCommandBuffer& cmd_buf,
+                    const ImagePackPtr& img_pack,
+                    const vk::ImageLayout& new_layout =
+                            vk::ImageLayout::eShaderReadOnlyOptimal);
+
+void CopyBufferToImage(const vk::UniqueCommandBuffer& cmd_buf,
+                       const BufferPackPtr& src_buf_pack,
+                       const ImagePackPtr& dst_img_pack,
+                       const vk::ImageLayout& final_layout =
+                               vk::ImageLayout::eShaderReadOnlyOptimal);
+
+void CopyImageToBuffer(const vk::UniqueCommandBuffer& cmd_buf,
+                       const ImagePackPtr& src_img_pack,
+                       const BufferPackPtr& dst_buf_pack,
+                       const vk::ImageLayout& final_layout =
+                               vk::ImageLayout::eColorAttachmentOptimal);
 
 // -----------------------------------------------------------------------------
 // ---------------------------------- Texture ----------------------------------
@@ -257,8 +284,18 @@ TexturePackPtr CreateTexturePack(
 
 void SendToDevice(const vk::UniqueDevice& device,
                   const TexturePackPtr& tex_pack, const void* data,
-                  uint64_t n_bytes,
-                  const vk::UniqueCommandBuffer& cmd_buf = {});
+                  uint64_t n_bytes);
+
+void SetImageLayout(const vk::UniqueCommandBuffer& cmd_buf,
+                    const TexturePackPtr& tex_pack,
+                    const vk::ImageLayout& new_layout =
+                            vk::ImageLayout::eShaderReadOnlyOptimal);
+
+void CopyBufferToImage(const vk::UniqueCommandBuffer& cmd_buf,
+                       const BufferPackPtr& src_buf_pack,
+                       const TexturePackPtr& dst_tex_pack,
+                       const vk::ImageLayout& final_layout =
+                               vk::ImageLayout::eShaderReadOnlyOptimal);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- DescriptorSet -------------------------------

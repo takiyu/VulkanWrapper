@@ -318,8 +318,10 @@ void VkApp::initDescComps(uint32_t uniform_size, uint32_t color_tex_w,
 #else
             m_physical_device, m_device, vk::Format::eR32G32B32A32Sfloat,
 #endif
-            {color_tex_w, color_tex_h}, vk::ImageUsageFlagBits::eSampled,
-            vk::ImageAspectFlagBits::eColor, true, false);
+            {color_tex_w, color_tex_h},
+            vk::ImageUsageFlagBits::eSampled |
+                    vk::ImageUsageFlagBits::eTransferDst,
+            {}, true, vk::ImageAspectFlagBits::eColor);
     m_color_tex_pack = vkw::CreateTexturePack(color_img_pack, m_device);
 
     // Create descriptor set for uniform buffer and texture
@@ -342,8 +344,9 @@ void VkApp::initAttachComps() {
     // Create depth buffer
     m_depth_img_pack = vkw::CreateImagePack(
             m_physical_device, m_device, DEPTH_FORMAT, m_swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::ImageAspectFlagBits::eDepth, true, false);
+            vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
+            true,  // tiling
+            vk::ImageAspectFlagBits::eDepth);
 
     // Create render pass
     m_render_pass_pack = vkw::CreateRenderPassPack();
@@ -421,19 +424,25 @@ void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
             m_device, m_queue_family_idx, 1, false);
     auto& cmd_buf = send_cmd_buf_pack->cmd_bufs[0];
 
-    // Create sending command for color texture
+    // Create source transfer buffer
+    vkw::BufferPackPtr src_trans_buf_pack = vkw::CreateBufferPack(
+            m_physical_device, m_device, tex_n_bytes,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostCoherent |
+                    vk::MemoryPropertyFlagBits::eHostVisible);
+
+    // Send to buffer
+    vkw::SendToDevice(m_device, src_trans_buf_pack, tex_data, tex_n_bytes);
+
+    // Copy from buffer to image
     vkw::BeginCommand(cmd_buf);
-    vkw::SendToDevice(m_device, m_color_tex_pack, tex_data, tex_n_bytes,
-                      cmd_buf);
+    vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack, m_color_tex_pack);
     vkw::EndCommand(cmd_buf);
 
     // Send
     auto send_fence = vkw::CreateFence(m_device);
     vkw::QueueSubmit(m_queues[0], cmd_buf, send_fence, {}, {});
     vkw::WaitForFence(m_device, send_fence);
-
-    // Release sending buffer (because it will not be used anymore)
-    m_color_tex_pack->img_pack->trans_buf_pack.reset();
 }
 
 void VkApp::initDrawStates(uint32_t n_vtxs,
