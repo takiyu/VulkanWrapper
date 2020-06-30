@@ -420,7 +420,7 @@ public:
 };
 
 // -----------------------------------------------------------------------------
-// ---------------------------------- Pipeline ---------------------------------
+// ----------------------------- Graphics Pipeline -----------------------------
 // -----------------------------------------------------------------------------
 struct VtxInputBindingInfo {
     uint32_t binding_idx = 0;
@@ -463,7 +463,7 @@ struct PipelinePack {
     vk::UniquePipeline pipeline;
 };
 using PipelinePackPtr = std::shared_ptr<PipelinePack>;
-PipelinePackPtr CreatePipeline(
+PipelinePackPtr CreateGraphicsPipeline(
         const vk::UniqueDevice& device,
         const std::vector<ShaderModulePackPtr>& shader_modules,
         const std::vector<VtxInputBindingInfo>& vtx_inp_binding_info,
@@ -471,6 +471,14 @@ PipelinePackPtr CreatePipeline(
         const PipelineInfo& pipeline_info,
         const std::vector<DescSetPackPtr>& desc_set_packs,
         const RenderPassPackPtr& render_pass_pack, uint32_t subpass_idx = 0);
+
+// -----------------------------------------------------------------------------
+// ----------------------------- Compute Pipeline ------------------------------
+// -----------------------------------------------------------------------------
+PipelinePackPtr CreateComputePipeline(
+        const vk::UniqueDevice& device,
+        const ShaderModulePackPtr& shader_module,
+        const std::vector<DescSetPackPtr>& desc_set_packs);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- Command Buffer ------------------------------
@@ -534,6 +542,9 @@ void CmdDraw(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_vtxs,
 void CmdDrawIndexed(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_idxs,
                     uint32_t n_instances = 1, uint32_t first_idx = 0,
                     int32_t vtx_offset = 0, uint32_t first_instance = 0);
+
+void CmdDispatch(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_group_x,
+                 uint32_t n_group_y, uint32_t n_group_z = 1);
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- Queue -----------------------------------

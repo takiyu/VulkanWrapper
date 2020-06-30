@@ -1502,7 +1502,7 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     // Create DescriptorImageInfo
     for (auto &&tex_pack : tex_packs) {
         img_infos.emplace_back(*tex_pack->sampler, *tex_pack->img_pack->view,
-                               vk::ImageLayout::eShaderReadOnlyOptimal);
+                               tex_pack->img_pack->layout);
     }
 
     // Create and Add WriteDescriptorSet
@@ -1531,7 +1531,7 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     for (auto &&img_pack : img_packs) {
         const vk::Sampler empty_sampler = nullptr;
         img_infos.emplace_back(empty_sampler, *img_pack->view,
-                               vk::ImageLayout::eShaderReadOnlyOptimal);
+                               img_pack->layout);
     }
 
     // Create and Add WriteDescriptorSet
@@ -1730,9 +1730,9 @@ ShaderModulePackPtr GLSLCompiler::compileFromString(
 }
 
 // -----------------------------------------------------------------------------
-// ---------------------------------- Pipeline ---------------------------------
+// ----------------------------- Graphics Pipeline -----------------------------
 // -----------------------------------------------------------------------------
-PipelinePackPtr CreatePipeline(
+PipelinePackPtr CreateGraphicsPipeline(
         const vk::UniqueDevice &device,
         const std::vector<ShaderModulePackPtr> &shader_modules,
         const std::vector<VtxInputBindingInfo> &vtx_inp_binding_info,
@@ -1854,7 +1854,7 @@ PipelinePackPtr CreatePipeline(
 
     // Create pipeline
     auto pipeline = device->createGraphicsPipelineUnique(
-            nullptr,
+            nullptr,  // no pipeline cache
             {vk::PipelineCreateFlags(),
              static_cast<uint32_t>(shader_stage_cis.size()),
              shader_stage_cis.data(), &vtx_inp_state_ci, &inp_assembly_state_ci,
@@ -1862,6 +1862,40 @@ PipelinePackPtr CreatePipeline(
              &multisample_state_ci, &depth_stencil_state_ci,
              &color_blend_state_ci, &dynamic_state_ci, pipeline_layout.get(),
              render_pass_pack->render_pass.get(), subpass_idx});
+
+    return PipelinePackPtr(
+            new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});
+}
+
+// -----------------------------------------------------------------------------
+// ----------------------------- Compute Pipeline ------------------------------
+// -----------------------------------------------------------------------------
+PipelinePackPtr CreateComputePipeline(
+        const vk::UniqueDevice& device,
+        const ShaderModulePackPtr& shader_module,
+        const std::vector<DescSetPackPtr>& desc_set_packs) {
+    // Shader stage create infos
+    vk::PipelineShaderStageCreateInfo shader_stage_ci = {
+        vk::PipelineShaderStageCreateFlags(),
+        shader_module->stage, shader_module->shader_module.get(), "main"};
+
+    // Repack descriptor set layout
+    std::vector<vk::DescriptorSetLayout> desc_set_layouts;
+    desc_set_layouts.reserve(desc_set_packs.size());
+    for (auto &&desc_set_pack : desc_set_packs) {
+        desc_set_layouts.push_back(desc_set_pack->desc_set_layout.get());
+    }
+    // Create pipeline layout
+    auto pipeline_layout = device->createPipelineLayoutUnique(
+            {vk::PipelineLayoutCreateFlags(),
+             static_cast<uint32_t>(desc_set_layouts.size()),
+             desc_set_layouts.data()});
+
+    // Create pipeline
+    auto pipeline = device->createComputePipelineUnique(
+            nullptr,  // no pipeline cache
+            {vk::PipelineCreateFlags(),
+             shader_stage_ci, pipeline_layout.get()});
 
     return PipelinePackPtr(
             new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});
@@ -2038,6 +2072,11 @@ void CmdDrawIndexed(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_idxs,
                     int32_t vtx_offset, uint32_t first_instance) {
     cmd_buf->drawIndexed(n_idxs, n_instances, first_idx, vtx_offset,
                          first_instance);
+}
+
+void CmdDispatch(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_group_x,
+                 uint32_t n_group_y, uint32_t n_group_z) {
+    cmd_buf->dispatch(n_group_x, n_group_y, n_group_z);
 }
 
 // -----------------------------------------------------------------------------

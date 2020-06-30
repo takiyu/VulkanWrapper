@@ -245,7 +245,7 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     // Create pipeline
     vkw::PipelineInfo pipeline_info;
     pipeline_info.color_blend_infos.resize(1);
-    auto pipeline_pack = vkw::CreatePipeline(
+    auto pipeline_pack = vkw::CreateGraphicsPipeline(
             device, {vert_shader_module_pack, geom_shader_module_pack,
                      frag_shader_module_pack},
             {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},

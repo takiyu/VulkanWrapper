@@ -413,7 +413,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Create pipeline 0
     vkw::PipelineInfo pipeline_info0;
     pipeline_info0.color_blend_infos.resize(2);
-    auto pipeline_pack0 = vkw::CreatePipeline(
+    auto pipeline_pack0 = vkw::CreateGraphicsPipeline(
             device, {vert_shader_module_pack1, frag_shader_module_pack1},
             {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
             {{0, 0, vk::Format::eR32G32B32Sfloat, 0},
@@ -425,7 +425,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     vkw::PipelineInfo pipeline_info1;
     pipeline_info1.color_blend_infos.resize(1);
     pipeline_info1.depth_test_enable = false;
-    auto pipeline_pack1 = vkw::CreatePipeline(
+    auto pipeline_pack1 = vkw::CreateGraphicsPipeline(
             device, {vert_shader_module_pack2, frag_shader_module_pack2}, {},
             {}, pipeline_info1, {desc_set_pack1}, render_pass_pack, 1);
 

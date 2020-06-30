@@ -401,7 +401,7 @@ void VkApp::initPipeline() {
     // Create pipeline
     vkw::PipelineInfo pipeline_info;
     pipeline_info.color_blend_infos.resize(1);
-    m_pipeline_pack = vkw::CreatePipeline(
+    m_pipeline_pack = vkw::CreateGraphicsPipeline(
             m_device, {m_vert_shader_pack, m_frag_shader_pack},
             {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
             {{0, 0, vk::Format::eR32G32B32Sfloat, 0},
