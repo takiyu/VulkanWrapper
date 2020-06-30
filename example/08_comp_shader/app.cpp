@@ -32,7 +32,7 @@ void main() {
 }
 )";
 
-bool IsAlmostEq(const float &a, const float &b) {
+bool IsAlmostEq(const float& a, const float& b) {
     return std::abs(a - b) < 0.01;
 }
 
@@ -136,10 +136,8 @@ void RunExampleApp08(const vkw::WindowPtr& window,
                      {vk::DescriptorType::eStorageImage, 1,
                       vk::ShaderStageFlagBits::eCompute}});  // Output image
     auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
-                         {inp_img_pack});
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1,
-                         {out_img_pack});
+    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0, {inp_img_pack});
+    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {out_img_pack});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
     // Compile shader
@@ -156,7 +154,8 @@ void RunExampleApp08(const vkw::WindowPtr& window,
     {
         // Make image layout "General"
         vkw::BeginCommand(cmd_buf);
-        vkw::CmdBindPipeline(cmd_buf, pipeline_pack, vk::PipelineBindPoint::eCompute);
+        vkw::CmdBindPipeline(cmd_buf, pipeline_pack,
+                             vk::PipelineBindPoint::eCompute);
         vkw::CmdBindDescSets(cmd_buf, pipeline_pack, {desc_set_pack}, {},
                              vk::PipelineBindPoint::eCompute);
         vkw::CmdDispatch(cmd_buf, IMG_SIZE / 16, IMG_SIZE / 16);
@@ -171,18 +170,22 @@ void RunExampleApp08(const vkw::WindowPtr& window,
     std::vector<float> res_data(IMG_SIZE * IMG_SIZE * 4);
     {
         // Create destination buffer
-        auto buf_dst = vkw::CreateBufferPack(physical_device, device, res_data.size() * sizeof(float),
-                    vk::BufferUsageFlagBits::eTransferDst, vkw::HOST_VISIB_COHER_PROPS);
+        auto buf_dst = vkw::CreateBufferPack(
+                physical_device, device, res_data.size() * sizeof(float),
+                vk::BufferUsageFlagBits::eTransferDst,
+                vkw::HOST_VISIB_COHER_PROPS);
         // Copy from image to buffer
         vkw::BeginCommand(cmd_buf);
-        vkw::CopyImageToBuffer(cmd_buf, out_img_pack, buf_dst, vk::ImageLayout::eGeneral);
+        vkw::CopyImageToBuffer(cmd_buf, out_img_pack, buf_dst,
+                               vk::ImageLayout::eGeneral);
         vkw::EndCommand(cmd_buf);
         // Execute
         auto fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, fence);
         vkw::WaitForFences(device, {fence});
         // Receive from output buffer
-        vkw::RecvFromDevice(device, buf_dst, res_data.data(), res_data.size() * sizeof(float));
+        vkw::RecvFromDevice(device, buf_dst, res_data.data(),
+                            res_data.size() * sizeof(float));
     }
 
     // Check answer
