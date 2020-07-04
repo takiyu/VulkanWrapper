@@ -14,6 +14,7 @@ endif()
 # ----------------------------------- Options ----------------------------------
 # ------------------------------------------------------------------------------
 set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
+set(VKW_LINK_VK_DYNAMIC ON CACHE BOOL "Dynamic link for vulkan.")
 
 # ------------------------------------------------------------------------------
 # ----------------------------------- Common -----------------------------------
@@ -95,15 +96,15 @@ endfunction(setup_target_simple)
 # ------------------------------------------------------------------------------
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 
-if (0)
+if (VKW_LINK_VK_DYNAMIC)
+    # Vulkan (Dynamic)
+    list(APPEND VKW_INCLUDE
+                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
+else()
     # Vulkan (Static)
     find_package(Vulkan REQUIRED)
     list(APPEND VKW_INCLUDE ${Vulkan_INCLUDE_DIRS})
     list(APPEND VKW_LIBRARY ${Vulkan_LIBRARY})
-else()
-    # Vulkan (Dynamic)
-    list(APPEND VKW_INCLUDE
-                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
 endif()
 
 # GLSLang

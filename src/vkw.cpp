@@ -94,7 +94,7 @@ static std::vector<std::string> Split(const std::string &str, char del = '\n') {
 static bool IsVkDebugUtilsAvailable() {
     const std::string DEBUG_UTIL_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
     for (auto &&prop : vk::enumerateInstanceExtensionProperties()) {
-        if (std::string(prop.extensionName) == DEBUG_UTIL_NAME) {
+        if (std::string(prop.extensionName.data()) == DEBUG_UTIL_NAME) {
             return true;
         }
     }
@@ -120,7 +120,7 @@ static std::vector<char const *> GetEnabledLayers(bool debug_enable) {
     std::set<std::string> valid_names;
     for (auto &&prop : vk::enumerateInstanceLayerProperties()) {
         if (prop.layerName) {
-            valid_names.insert(std::string(prop.layerName));
+            valid_names.insert(std::string(prop.layerName.data()));
         }
     }
     std::vector<char const *> ret_names;
