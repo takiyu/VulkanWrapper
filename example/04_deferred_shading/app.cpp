@@ -318,7 +318,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     vkw::AddWriteDescSet(write_desc_set_pack0, desc_set_pack0, 0,
                          {uniform_buf_pack});
     vkw::AddWriteDescSet(write_desc_set_pack0, desc_set_pack0, 1,
-                         {color_tex_pack, bump_tex_pack}, // layout is undef.
+                         {color_tex_pack, bump_tex_pack},  // layout is undef.
                          {vk::ImageLayout::eShaderReadOnlyOptimal,
                           vk::ImageLayout::eShaderReadOnlyOptimal});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack0);
@@ -330,7 +330,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Bind descriptor set with actual buffer
     auto write_desc_set_pack1 = vkw::CreateWriteDescSetPack();
     vkw::AddWriteDescSet(write_desc_set_pack1, desc_set_pack1, 0,
-                         {gbuf_col_img_pack, gbuf_nor_img_pack}, // undef layout
+                         {gbuf_col_img_pack, gbuf_nor_img_pack},  // no layouts
                          {vk::ImageLayout::eShaderReadOnlyOptimal,
                           vk::ImageLayout::eShaderReadOnlyOptimal});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack1);
