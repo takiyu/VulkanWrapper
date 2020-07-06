@@ -248,7 +248,8 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
                          {uniform_buf_pack});
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1,
-                         {color_tex_pack});
+                         {color_tex_pack},  // layout is still undefined.
+                         {vk::ImageLayout::eShaderReadOnlyOptimal});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
     // Create render pass

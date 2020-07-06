@@ -1,6 +1,5 @@
 #include "app.h"
 
-#include <bits/stdint-uintn.h>
 #include <vkw/warning_suppressor.h>
 
 #include "vkw/vkw.h"

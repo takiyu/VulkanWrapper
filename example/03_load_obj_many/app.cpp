@@ -336,7 +336,8 @@ void VkApp::initDescComps(uint32_t uniform_size, uint32_t color_tex_w,
     vkw::AddWriteDescSet(write_desc_set_pack, m_desc_set_pack, 0,
                          {m_uniform_buf_pack});
     vkw::AddWriteDescSet(write_desc_set_pack, m_desc_set_pack, 1,
-                         {m_color_tex_pack});
+                         {m_color_tex_pack},  // layout is still undefined.
+                         {vk::ImageLayout::eShaderReadOnlyOptimal});
     vkw::UpdateDescriptorSets(m_device, write_desc_set_pack);
 }
 

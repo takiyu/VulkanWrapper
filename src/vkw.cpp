@@ -1486,7 +1486,8 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
 void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
                      const DescSetPackPtr &desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<TexturePackPtr> &tex_packs) {
+                     const std::vector<TexturePackPtr> &tex_packs,
+                     const std::vector<vk::ImageLayout> &tex_layouts) {
     // Fetch form and check with DescSetInfo
     const DescSetInfo &desc_set_info =
             desc_set_pack->desc_set_info[binding_idx];
@@ -1497,12 +1498,20 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     }
     // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
 
+    // Check layout argument
+    const bool has_layouts = (tex_layouts.size() == tex_packs.size());
+    if (!has_layouts && !tex_layouts.empty()) {
+        throw std::runtime_error("Invalid number of layout arguments (tex)");
+    }
+
     // Create vector of DescriptorImageInfo in the result pack
     auto &img_infos = EmplaceBackEmpty(write_pack->desc_img_info_vecs);
     // Create DescriptorImageInfo
-    for (auto &&tex_pack : tex_packs) {
-        img_infos.emplace_back(*tex_pack->sampler, *tex_pack->img_pack->view,
-                               tex_pack->img_pack->layout);
+    for (uint32_t tex_idx = 0; tex_idx < tex_packs.size(); tex_idx++) {
+        auto &&tex_pack = tex_packs[tex_idx];
+        auto &&img_pack = tex_pack->img_pack;
+        auto &&layout = has_layouts ? tex_layouts[tex_idx] : img_pack->layout;
+        img_infos.emplace_back(*tex_pack->sampler, *img_pack->view, layout);
     }
 
     // Create and Add WriteDescriptorSet
@@ -1514,7 +1523,8 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
 void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
                      const DescSetPackPtr &desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<ImagePackPtr> &img_packs) {
+                     const std::vector<ImagePackPtr> &img_packs,
+                     const std::vector<vk::ImageLayout> &img_layouts) {
     // Fetch form and check with DescSetInfo
     const DescSetInfo &desc_set_info =
             desc_set_pack->desc_set_info[binding_idx];
@@ -1525,13 +1535,20 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     }
     // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
 
+    // Check layout argument
+    const bool has_layouts = (img_layouts.size() == img_packs.size());
+    if (!has_layouts && !img_layouts.empty()) {
+        throw std::runtime_error("Invalid number of layout arguments (img)");
+    }
+
     // Create vector of DescriptorImageInfo in the result pack
     auto &img_infos = EmplaceBackEmpty(write_pack->desc_img_info_vecs);
     // Create DescriptorImageInfo
-    for (auto &&img_pack : img_packs) {
+    for (uint32_t img_idx = 0; img_idx < img_packs.size(); img_idx++) {
         const vk::Sampler empty_sampler = nullptr;
-        img_infos.emplace_back(empty_sampler, *img_pack->view,
-                               img_pack->layout);
+        auto &&img_pack = img_packs[img_idx];
+        auto &&layout = has_layouts ? img_layouts[img_idx] : img_pack->layout;
+        img_infos.emplace_back(empty_sampler, *img_pack->view, layout);
     }
 
     // Create and Add WriteDescriptorSet
@@ -1871,13 +1888,13 @@ PipelinePackPtr CreateGraphicsPipeline(
 // ----------------------------- Compute Pipeline ------------------------------
 // -----------------------------------------------------------------------------
 PipelinePackPtr CreateComputePipeline(
-        const vk::UniqueDevice& device,
-        const ShaderModulePackPtr& shader_module,
-        const std::vector<DescSetPackPtr>& desc_set_packs) {
+        const vk::UniqueDevice &device,
+        const ShaderModulePackPtr &shader_module,
+        const std::vector<DescSetPackPtr> &desc_set_packs) {
     // Shader stage create infos
     vk::PipelineShaderStageCreateInfo shader_stage_ci = {
-        vk::PipelineShaderStageCreateFlags(),
-        shader_module->stage, shader_module->shader_module.get(), "main"};
+            vk::PipelineShaderStageCreateFlags(), shader_module->stage,
+            shader_module->shader_module.get(), "main"};
 
     // Repack descriptor set layout
     std::vector<vk::DescriptorSetLayout> desc_set_layouts;
@@ -1894,8 +1911,8 @@ PipelinePackPtr CreateComputePipeline(
     // Create pipeline
     auto pipeline = device->createComputePipelineUnique(
             nullptr,  // no pipeline cache
-            {vk::PipelineCreateFlags(),
-             shader_stage_ci, pipeline_layout.get()});
+            {vk::PipelineCreateFlags(), shader_stage_ci,
+             pipeline_layout.get()});
 
     return PipelinePackPtr(
             new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});
@@ -2074,7 +2091,7 @@ void CmdDrawIndexed(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_idxs,
                          first_instance);
 }
 
-void CmdDispatch(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_group_x,
+void CmdDispatch(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_group_x,
                  uint32_t n_group_y, uint32_t n_group_z) {
     cmd_buf->dispatch(n_group_x, n_group_y, n_group_z);
 }

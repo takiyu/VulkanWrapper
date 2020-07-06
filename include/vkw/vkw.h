@@ -328,11 +328,13 @@ void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<TexturePackPtr>& tex_packs);  // For tex
+                     const std::vector<TexturePackPtr>& tex_packs,  // For tex
+                     const std::vector<vk::ImageLayout>& tex_layouts = {});
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
-                     const std::vector<ImagePackPtr>& img_packs);  // For img
+                     const std::vector<ImagePackPtr>& img_packs,  // For img
+                     const std::vector<vk::ImageLayout>& img_layouts = {});
 
 void UpdateDescriptorSets(const vk::UniqueDevice& device,
                           const WriteDescSetPackPtr& write_desc_set_pack);

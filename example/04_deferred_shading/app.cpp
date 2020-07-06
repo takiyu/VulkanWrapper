@@ -45,8 +45,7 @@ layout (set=0, binding = 1) uniform sampler2D texs[2];
 layout (location = 0) in vec3 vtx_normal;
 layout (location = 1) in vec2 vtx_uv;
 
-layout (location = 0) out vec4 frag_color;
-layout (location = 1) out vec4 frag_normal;
+layout (location = 0) out vec4 frag_colors[2];
 
 void main() {
     // Texture fetching
@@ -54,8 +53,8 @@ void main() {
     vec4 color = texture(texs[0], uv);
     float bump = texture(texs[1], uv).r;
 
-    frag_color = color;
-    frag_normal = vec4(vtx_normal, 1.0);
+    frag_colors[0] = color;
+    frag_colors[1] = vec4(vtx_normal, 1.0);
 }
 )";
 
@@ -319,7 +318,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     vkw::AddWriteDescSet(write_desc_set_pack0, desc_set_pack0, 0,
                          {uniform_buf_pack});
     vkw::AddWriteDescSet(write_desc_set_pack0, desc_set_pack0, 1,
-                         {color_tex_pack, bump_tex_pack});
+                         {color_tex_pack, bump_tex_pack}, // layout is undef.
+                         {vk::ImageLayout::eShaderReadOnlyOptimal,
+                          vk::ImageLayout::eShaderReadOnlyOptimal});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack0);
 
     // Create descriptor set 1 for uniform buffer and texture
@@ -329,7 +330,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Bind descriptor set with actual buffer
     auto write_desc_set_pack1 = vkw::CreateWriteDescSetPack();
     vkw::AddWriteDescSet(write_desc_set_pack1, desc_set_pack1, 0,
-                         {gbuf_col_img_pack, gbuf_nor_img_pack});
+                         {gbuf_col_img_pack, gbuf_nor_img_pack}, // undef layout
+                         {vk::ImageLayout::eShaderReadOnlyOptimal,
+                          vk::ImageLayout::eShaderReadOnlyOptimal});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack1);
 
     // Create render pass

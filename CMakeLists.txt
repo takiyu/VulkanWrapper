@@ -14,7 +14,7 @@ endif()
 # ----------------------------------- Options ----------------------------------
 # ------------------------------------------------------------------------------
 set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
-set(VKW_LINK_VK_DYNAMIC ON CACHE BOOL "Dynamic link for vulkan.")
+set(VKW_LINK_DYNAMIC_VK ON CACHE BOOL "Dynamic link for vulkan.")
 
 # ------------------------------------------------------------------------------
 # ----------------------------------- Common -----------------------------------
@@ -96,12 +96,14 @@ endfunction(setup_target_simple)
 # ------------------------------------------------------------------------------
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 
-if (VKW_LINK_VK_DYNAMIC)
+if (VKW_LINK_DYNAMIC_VK)
     # Vulkan (Dynamic)
+    message(STATUS "Build VKW as dynacmic-vk mode")
     list(APPEND VKW_INCLUDE
                 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
 else()
     # Vulkan (Static)
+    message(STATUS "Build VKW as static-vk mode")
     find_package(Vulkan REQUIRED)
     list(APPEND VKW_INCLUDE ${Vulkan_INCLUDE_DIRS})
     list(APPEND VKW_LIBRARY ${Vulkan_LIBRARY})
