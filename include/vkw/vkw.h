@@ -265,6 +265,12 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer& cmd_buf,
                        const vk::ImageLayout& final_layout =
                                vk::ImageLayout::eColorAttachmentOptimal);
 
+void ClearColorImage(
+        const vk::UniqueCommandBuffer& cmd_buf,
+        const ImagePackPtr& src_img_pack, const vk::ClearColorValue& color,
+        const vk::ImageLayout& layout = vk::ImageLayout::eGeneral,
+        const vk::ImageLayout& final_layout = vk::ImageLayout::eGeneral);
+
 // -----------------------------------------------------------------------------
 // ---------------------------------- Texture ----------------------------------
 // -----------------------------------------------------------------------------

@@ -1370,6 +1370,23 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, src_img_pack, final_layout);
 }
 
+void ClearColorImage(const vk::UniqueCommandBuffer& cmd_buf,
+                     const ImagePackPtr& src_img_pack,
+                     const vk::ClearColorValue& color,
+                     const vk::ImageLayout& layout,
+                     const vk::ImageLayout& final_layout) {
+    // Set image layout as general (default) or shared_present or trans_dst
+    SetImageLayout(cmd_buf, src_img_pack, layout);
+
+    // Clear
+    vk::ImageSubresourceRange range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+    cmd_buf->clearColorImage(src_img_pack->img.get(), layout, &color, 1,
+                             &range);
+
+    // Set final image layout
+    SetImageLayout(cmd_buf, src_img_pack, final_layout);
+}
+
 // -----------------------------------------------------------------------------
 // ---------------------------------- Texture ----------------------------------
 // -----------------------------------------------------------------------------
