@@ -44,10 +44,10 @@ void main() {
 }
 )";
 
-const uint32_t COMP_LOCAL_SIZE = 4;  // TODO
+const uint32_t COMP_LOCAL_SIZE = 32;  // TODO
 const std::string COMP_SOURCE = R"(
 #version 460
-layout (local_size_x = 4, local_size_y = 4) in;
+layout (local_size_x = 32, local_size_y = 32) in;
 layout (binding = 0, rg16f) uniform readonly image2D inp_img;
 layout (binding = 1, rg16f) uniform writeonly image2D out_img;
 
