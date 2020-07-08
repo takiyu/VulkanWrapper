@@ -1431,15 +1431,13 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
 // -----------------------------------------------------------------------------
 DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice &device,
                                        const std::vector<DescSetInfo> &infos) {
-    const uint32_t n_bindings = static_cast<uint32_t>(infos.size());
+    uint32_t n_bindings = 0;
 
     // Parse into raw array of bindings, pool sizes
     std::vector<vk::DescriptorSetLayoutBinding> bindings_raw;
     std::vector<vk::DescriptorPoolSize> poolsizes_raw;
-    bindings_raw.reserve(n_bindings);
-    poolsizes_raw.reserve(n_bindings);
     uint32_t desc_cnt_sum = 0;
-    for (uint32_t i = 0; i < n_bindings; i++) {
+    for (uint32_t i = 0; i < infos.size(); i++) {
         // Fetch from tuple
         const vk::DescriptorType &desc_type = std::get<0>(infos[i]);
         const uint32_t &desc_cnt = std::get<1>(infos[i]);
@@ -1447,6 +1445,7 @@ DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice &device,
         if (desc_cnt == 0) {
             continue;
         }
+        n_bindings++;
         // Sum up descriptor count
         desc_cnt_sum += desc_cnt;
         // Push to bindings
@@ -1489,6 +1488,9 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     if (desc_cnt != static_cast<uint32_t>(buf_packs.size())) {
         throw std::runtime_error("Invalid descriptor count to write buffers");
     }
+    if (desc_cnt == 0) {
+        return;  // Skip
+    }
 
     // Create vector of DescriptorBufferInfo in the result pack
     auto &buf_infos = EmplaceBackEmpty(write_pack->desc_buf_info_vecs);
@@ -1515,6 +1517,9 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     const uint32_t desc_cnt = std::get<1>(desc_set_info);
     if (desc_cnt != static_cast<uint32_t>(tex_packs.size())) {
         throw std::runtime_error("Invalid descriptor count to write images");
+    }
+    if (desc_cnt == 0) {
+        return;  // Skip
     }
     // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
 
@@ -1553,7 +1558,10 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     if (desc_cnt != static_cast<uint32_t>(img_packs.size())) {
         throw std::runtime_error("Invalid descriptor count to write images");
     }
-    // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
+    if (desc_cnt == 0) {
+        return;  // Skip
+    }
+    // Note: desc_type should be `vk::DescriptorType::eInputAttachment`
 
     // Check layout argument
     const bool has_layouts = (img_layouts.size() == img_packs.size());
