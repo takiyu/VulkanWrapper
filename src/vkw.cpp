@@ -1763,7 +1763,7 @@ GLSLCompiler::~GLSLCompiler() {
 
 ShaderModulePackPtr GLSLCompiler::compileFromString(
         const vk::UniqueDevice &device, const std::string &source,
-        const vk::ShaderStageFlagBits &stage) {
+        const vk::ShaderStageFlagBits &stage) const {
     // Compile GLSL to SPIRV
     const std::vector<unsigned int> &spv_data = CompileGLSL(stage, source);
     // Create shader module
