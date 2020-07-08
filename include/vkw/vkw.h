@@ -424,7 +424,7 @@ public:
     ShaderModulePackPtr compileFromString(
             const vk::UniqueDevice& device, const std::string& source,
             const vk::ShaderStageFlagBits& stage =
-                    vk::ShaderStageFlagBits::eVertex);
+                    vk::ShaderStageFlagBits::eVertex) const;
 };
 
 // -----------------------------------------------------------------------------
