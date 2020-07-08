@@ -1444,6 +1444,9 @@ DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice &device,
         const vk::DescriptorType &desc_type = std::get<0>(infos[i]);
         const uint32_t &desc_cnt = std::get<1>(infos[i]);
         const vk::ShaderStageFlags &shader_stage = std::get<2>(infos[i]);
+        if (desc_cnt == 0) {
+            continue;
+        }
         // Sum up descriptor count
         desc_cnt_sum += desc_cnt;
         // Push to bindings
