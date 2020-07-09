@@ -1,3 +1,4 @@
+#include <bits/stdint-uintn.h>
 #include "../example/01_rotate_box/app.h"
 #include "../example/02_load_obj/app.h"
 #include "../example/03_load_obj_many/app.h"
@@ -9,25 +10,45 @@
 #include "../example/09_inverse_uv/app.h"
 
 #include <sstream>
+#include <functional>
+#include <vector>
 
+// List of application functions
+const std::vector<std::function<void(const vkw::WindowPtr& window, std::function<void()>)>> APP_FUNCS = {RunExampleApp01, RunExampleApp02, RunExampleApp03,
+                        RunExampleApp04, RunExampleApp05, RunExampleApp06,
+                        RunExampleApp07, RunExampleApp08, RunExampleApp09,
+};
+
+template <typename T>
+std::string AsStr(const T& t) {
+    std::stringstream ss;
+    ss << t;
+    return ss.str();
+}
+
+uint32_t DecideAppID(int argc, char const* argv[]) {
+    // Decide application ID
+    uint32_t app_id = 0;
+    if (2 <= argc) {
+        std::istringstream iss;
+        app_id = static_cast<uint32_t>(std::atoi(argv[1]));
+    }
+    return app_id;
+}
 
 int main(int argc, char const* argv[]) {
     // Decide application ID
-    int app_id = 1;
-    if (2 <= argc) {
-        std::istringstream iss;
-        app_id = std::atoi(argv[1]);
-    }
-    // Print application ID
-    std::stringstream app_id_ss;
-    app_id_ss << app_id;
-    const std::string& app_id_str = app_id_ss.str();
-    vkw::PrintInfo("Application Index: " + app_id_str);
+    const uint32_t app_id = DecideAppID(argc, argv);
+    vkw::PrintInfo("Application Index: " + AsStr(app_id));
 
     // Common variables
-    auto window = vkw::InitGLFWWindow("VKW Example " + app_id_str, 600, 600);
+    auto gen_window = [&]() {
+        return vkw::InitGLFWWindow("VKW Example " + AsStr(app_id), 600, 600);
+    };
+    auto window = gen_window();
     auto draw_hook = [&]() {
         if (glfwWindowShouldClose(window.get())) {
+            window = nullptr;
             throw std::runtime_error("GLFW should be closed");
         }
         glfwPollEvents();
@@ -35,24 +56,22 @@ int main(int argc, char const* argv[]) {
 
     // Run application
     try {
-        if (app_id == 1) {
-            RunExampleApp01(window, draw_hook);
-        } else if (app_id == 2) {
-            RunExampleApp02(window, draw_hook);
-        } else if (app_id == 3) {
-            RunExampleApp03(window, draw_hook);
-        } else if (app_id == 4) {
-            RunExampleApp04(window, draw_hook);
-        } else if (app_id == 5) {
-            RunExampleApp05(window, draw_hook);
-        } else if (app_id == 6) {
-            RunExampleApp06(window, draw_hook);
-        } else if (app_id == 7) {
-            RunExampleApp07(window, draw_hook);
-        } else if (app_id == 8) {
-            RunExampleApp08(window, draw_hook);
-        } else if (app_id == 9) {
-            RunExampleApp09(window, draw_hook);
+        if (app_id == 0) {
+            // Run all applications
+            for (uint32_t i = 0; i < APP_FUNCS.size(); i++) {
+                vkw::PrintInfo("Run application: " + AsStr(app_id));
+                try {
+                    if (!window) {
+                        window = gen_window();
+                    }
+                    APP_FUNCS[i](window, draw_hook);
+                } catch(const std::exception& e) {
+                    vkw::PrintInfo(e.what());
+                }
+            }
+        } else if (app_id <= APP_FUNCS.size()) {
+            // Run one application
+            APP_FUNCS[app_id + 1](window, draw_hook);
         } else {
             vkw::PrintErr("Invalid application ID");
         }
