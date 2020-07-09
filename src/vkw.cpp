@@ -1887,9 +1887,10 @@ PipelinePackPtr CreateGraphicsPipeline(
 
     // Repack descriptor set layout
     std::vector<vk::DescriptorSetLayout> desc_set_layouts;
-    desc_set_layouts.reserve(desc_set_packs.size());
     for (auto &&desc_set_pack : desc_set_packs) {
-        desc_set_layouts.push_back(desc_set_pack->desc_set_layout.get());
+        if (desc_set_pack) {
+            desc_set_layouts.push_back(desc_set_pack->desc_set_layout.get());
+        }
     }
     // Create pipeline layout
     auto pipeline_layout = device->createPipelineLayoutUnique(
@@ -1928,7 +1929,9 @@ PipelinePackPtr CreateComputePipeline(
     std::vector<vk::DescriptorSetLayout> desc_set_layouts;
     desc_set_layouts.reserve(desc_set_packs.size());
     for (auto &&desc_set_pack : desc_set_packs) {
-        desc_set_layouts.push_back(desc_set_pack->desc_set_layout.get());
+        if (desc_set_pack) {
+            desc_set_layouts.push_back(desc_set_pack->desc_set_layout.get());
+        }
     }
     // Create pipeline layout
     auto pipeline_layout = device->createPipelineLayoutUnique(
@@ -2036,9 +2039,10 @@ void CmdBindDescSets(const vk::UniqueCommandBuffer &cmd_buf,
                      const vk::PipelineBindPoint &bind_point) {
     // Repack descriptor set layout
     std::vector<vk::DescriptorSet> desc_sets;
-    desc_sets.reserve(desc_set_packs.size());
     for (auto &&desc_set_pack : desc_set_packs) {
-        desc_sets.push_back(desc_set_pack->desc_set.get());
+        if (desc_set_pack) {
+            desc_sets.push_back(desc_set_pack->desc_set.get());
+        }
     }
     // Bind
     const uint32_t first_set = 0;
