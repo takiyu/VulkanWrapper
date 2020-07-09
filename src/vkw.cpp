@@ -183,35 +183,38 @@ static VKAPI_ATTR VkBool32 DebugMessengerCallback(
     std::stringstream ss;
     ss << "-----------------------------------------------" << std::endl;
     ss << severity_str << ": " << type_str << ":" << std::endl;
-    ss << "  Message ID Name (number) = <" << callback->pMessageIdName << "> ("
-       << callback->messageIdNumber << ")" << std::endl;
-    ss << "  Message = \"" << callback->pMessage << "\"" << std::endl;
+#if 0
+    // Message Name and ID are not important
+    ss << "  * Message ID Name (number) = <" << callback->pMessageIdName
+       << "> (" << callback->messageIdNumber << ")" << std::endl;
+#endif
+    ss << "  * Message = \"" << callback->pMessage << "\"" << std::endl;
     if (0 < callback->queueLabelCount) {
-        ss << "  Queue Labels:" << std::endl;
+        ss << "  * Queue Labels:" << std::endl;
         for (uint8_t i = 0; i < callback->queueLabelCount; i++) {
             const auto &name = callback->pQueueLabels[i].pLabelName;
-            ss << "    " << i << ": " << name << std::endl;
+            ss << "     " << i << ": " << name << std::endl;
         }
     }
     if (0 < callback->cmdBufLabelCount) {
-        ss << "  CommandBuffer Labels:" << std::endl;
+        ss << "  * CommandBuffer Labels:" << std::endl;
         for (uint8_t i = 0; i < callback->cmdBufLabelCount; i++) {
             const auto &name = callback->pCmdBufLabels[i].pLabelName;
-            ss << "    " << i << ": " << name << std::endl;
+            ss << "     " << i << ": " << name << std::endl;
         }
     }
     if (0 < callback->objectCount) {
-        ss << "  Objects:" << std::endl;
+        ss << "  * Objects:" << std::endl;
         for (uint8_t i = 0; i < callback->objectCount; i++) {
             const auto &type = vk::to_string(static_cast<vk::ObjectType>(
                     callback->pObjects[i].objectType));
             const auto &handle = callback->pObjects[i].objectHandle;
-            ss << "    " << static_cast<int>(i) << ":" << std::endl;
-            ss << "      objectType   = " << type << std::endl;
-            ss << "      objectHandle = " << handle << std::endl;
+            ss << "     " << static_cast<int>(i) << ":" << std::endl;
+            ss << "       - objectType   = " << type << std::endl;
+            ss << "       - objectHandle = " << handle << std::endl;
             if (callback->pObjects[i].pObjectName) {
                 const auto &on = callback->pObjects[i].pObjectName;
-                ss << "      objectName   = <" << on << ">" << std::endl;
+                ss << "       - objectName   = <" << on << ">" << std::endl;
             }
         }
     }
@@ -512,12 +515,12 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
-                         const DescSetPackPtr &desc_set_pack,
-                         const uint32_t binding_idx,
-                         const size_t n_infos,
-                         const vk::DescriptorBufferInfo* buf_info_p,
-                         const vk::DescriptorImageInfo* img_info_p) {
+static void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
+                                const DescSetPackPtr &desc_set_pack,
+                                const uint32_t binding_idx,
+                                const size_t n_infos,
+                                const vk::DescriptorBufferInfo* buf_info_p,
+                                const vk::DescriptorImageInfo* img_info_p) {
     // Fetch form and check with DescSetInfo
     const DescSetInfo &desc_set_info =
             desc_set_pack->desc_set_info[binding_idx];
@@ -757,51 +760,51 @@ void PrintFps(std::function<void(float)> print_func, float show_interval_sec) {
 union Float32 {
     uint32_t u;
     float f;
-    struct {
+    struct Rep {
         uint32_t coeff : 23;
         uint32_t exp : 8;
         uint32_t sign : 1;
-    };
+    } rep;
 };
 
 union Float16 {
     uint16_t u;
-    struct {
+    struct Rep {
         uint16_t coeff : 10;
         uint16_t exp : 5;
         uint16_t sign : 1;
-    };
+    } rep;
 };
 
 uint16_t CastFloat32To16(const float &f32_raw) {
     const Float32 &f32 = reinterpret_cast<const Float32 &>(f32_raw);
     Float16 ret = {0};
 
-    if (f32.exp == 255) {
-        ret.exp = 31;
-        ret.coeff = f32.coeff ? 0x200 : 0;
+    if (f32.rep.exp == 255) {
+        ret.rep.exp = 31;
+        ret.rep.coeff = f32.rep.coeff ? 0x200 : 0;
     } else {
-        const int32_t newexp = f32.exp - 127 + 15;
+        const int32_t newexp = f32.rep.exp - 127 + 15;
         if (31 <= newexp) {
-            ret.exp = 31;
+            ret.rep.exp = 31;
         } else if (newexp <= 0) {
             if ((14 - newexp) <= 24) {
-                uint32_t mant = f32.coeff | 0x800000;
-                ret.coeff = static_cast<uint16_t>(mant >> (14 - newexp));
+                uint32_t mant = f32.rep.coeff | 0x800000;
+                ret.rep.coeff = static_cast<uint16_t>(mant >> (14 - newexp));
                 if ((mant >> (13 - newexp)) & 1) {
                     ret.u++;
                 }
             }
         } else {
-            ret.exp = static_cast<uint16_t>(newexp);
-            ret.coeff = f32.coeff >> 13;
-            if (f32.coeff & 0x1000) {
+            ret.rep.exp = static_cast<uint16_t>(newexp);
+            ret.rep.coeff = f32.rep.coeff >> 13;
+            if (f32.rep.coeff & 0x1000) {
                 ret.u++;
             }
         }
     }
 
-    ret.sign = f32.sign;
+    ret.rep.sign = f32.rep.sign;
 
     return ret.u;
 }
