@@ -40,7 +40,7 @@ void DrawHook() {
 
 #include <iostream>
 static uint32_t g_draw_cnt = 0;
-const uint32_t N_LIMITED_DRAW_MAX = 100;
+const uint32_t N_LIMITED_DRAW_MAX = 30;
 void LimitedDrawHook() {
     // Draw normally
     DrawHook();
@@ -81,7 +81,7 @@ int main(int argc, char const* argv[]) {
         if (app_id == 0) {
             // Run all applications
             for (uint32_t i = 0; i < APP_FUNCS.size(); i++) {
-                vkw::PrintInfo("Run application: " + AsStr(app_id));
+                vkw::PrintInfo("Run application: " + AsStr(i));
                 try {
                     // Create window
                     InitWindow("Example App " + AsStr(i));
@@ -96,7 +96,7 @@ int main(int argc, char const* argv[]) {
         } else if (app_id <= APP_FUNCS.size()) {
             // Run one application
             InitWindow("Example App " + AsStr(app_id));
-            APP_FUNCS[app_id + 1](g_window, DrawHook);
+            APP_FUNCS[app_id - 1](g_window, DrawHook);
         } else {
             vkw::PrintErr("Invalid application ID");
         }
