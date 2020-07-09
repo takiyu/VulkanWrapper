@@ -512,6 +512,33 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
+                         const DescSetPackPtr &desc_set_pack,
+                         const uint32_t binding_idx,
+                         const size_t n_infos,
+                         const vk::DescriptorBufferInfo* buf_info_p,
+                         const vk::DescriptorImageInfo* img_info_p) {
+    // Fetch form and check with DescSetInfo
+    const DescSetInfo &desc_set_info =
+            desc_set_pack->desc_set_info[binding_idx];
+    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
+    const uint32_t desc_cnt = std::get<1>(desc_set_info);
+    if (desc_cnt != static_cast<uint32_t>(n_infos)) {
+        throw std::runtime_error("Invalid descriptor count to write images");
+    }
+    if (desc_cnt == 0) {
+        return;  // Skip
+    }
+
+    // Create and Add WriteDescriptorSet
+    write_pack->write_desc_sets.emplace_back(
+            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
+            img_info_p, buf_info_p, nullptr);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
                         const std::vector<ImagePackPtr> &imgs,
                         const vk::Extent2D &size_org) {
@@ -550,7 +577,6 @@ auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-
 EShLanguage CvtShaderStage(const vk::ShaderStageFlagBits &stage) {
     switch (stage) {
         case vk::ShaderStageFlagBits::eVertex: return EShLangVertex;
@@ -1480,18 +1506,6 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
                      const DescSetPackPtr &desc_set_pack,
                      const uint32_t binding_idx,
                      const std::vector<BufferPackPtr> &buf_packs) {
-    // Fetch form and check with DescSetInfo
-    const DescSetInfo &desc_set_info =
-            desc_set_pack->desc_set_info[binding_idx];
-    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
-    const uint32_t desc_cnt = std::get<1>(desc_set_info);
-    if (desc_cnt != static_cast<uint32_t>(buf_packs.size())) {
-        throw std::runtime_error("Invalid descriptor count to write buffers");
-    }
-    if (desc_cnt == 0) {
-        return;  // Skip
-    }
-
     // Create vector of DescriptorBufferInfo in the result pack
     auto &buf_infos = EmplaceBackEmpty(write_pack->desc_buf_info_vecs);
     // Create DescriptorBufferInfo
@@ -1500,9 +1514,8 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     }
 
     // Create and Add WriteDescriptorSet
-    write_pack->write_desc_sets.emplace_back(
-            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
-            nullptr, buf_infos.data(), nullptr);  // TODO: buffer view
+    AddWriteDescSetImpl(write_pack, desc_set_pack, binding_idx,
+                        buf_infos.size(), buf_infos.data(), nullptr);
 }
 
 void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
@@ -1510,17 +1523,6 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
                      const uint32_t binding_idx,
                      const std::vector<TexturePackPtr> &tex_packs,
                      const std::vector<vk::ImageLayout> &tex_layouts) {
-    // Fetch form and check with DescSetInfo
-    const DescSetInfo &desc_set_info =
-            desc_set_pack->desc_set_info[binding_idx];
-    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
-    const uint32_t desc_cnt = std::get<1>(desc_set_info);
-    if (desc_cnt != static_cast<uint32_t>(tex_packs.size())) {
-        throw std::runtime_error("Invalid descriptor count to write images");
-    }
-    if (desc_cnt == 0) {
-        return;  // Skip
-    }
     // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
 
     // Check layout argument
@@ -1540,9 +1542,8 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     }
 
     // Create and Add WriteDescriptorSet
-    write_pack->write_desc_sets.emplace_back(
-            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
-            img_infos.data(), nullptr, nullptr);
+    AddWriteDescSetImpl(write_pack, desc_set_pack, binding_idx,
+                        img_infos.size(), nullptr, img_infos.data());
 }
 
 void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
@@ -1550,17 +1551,6 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
                      const uint32_t binding_idx,
                      const std::vector<ImagePackPtr> &img_packs,
                      const std::vector<vk::ImageLayout> &img_layouts) {
-    // Fetch form and check with DescSetInfo
-    const DescSetInfo &desc_set_info =
-            desc_set_pack->desc_set_info[binding_idx];
-    const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
-    const uint32_t desc_cnt = std::get<1>(desc_set_info);
-    if (desc_cnt != static_cast<uint32_t>(img_packs.size())) {
-        throw std::runtime_error("Invalid descriptor count to write images");
-    }
-    if (desc_cnt == 0) {
-        return;  // Skip
-    }
     // Note: desc_type should be `vk::DescriptorType::eInputAttachment`
 
     // Check layout argument
@@ -1580,9 +1570,8 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     }
 
     // Create and Add WriteDescriptorSet
-    write_pack->write_desc_sets.emplace_back(
-            *desc_set_pack->desc_set, binding_idx, 0, desc_cnt, desc_type,
-            img_infos.data(), nullptr, nullptr);
+    AddWriteDescSetImpl(write_pack, desc_set_pack, binding_idx,
+                        img_infos.size(), nullptr, img_infos.data());
 }
 
 void UpdateDescriptorSets(const vk::UniqueDevice &device,
