@@ -519,8 +519,8 @@ static void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
                                 const DescSetPackPtr &desc_set_pack,
                                 const uint32_t binding_idx,
                                 const size_t n_infos,
-                                const vk::DescriptorBufferInfo* buf_info_p,
-                                const vk::DescriptorImageInfo* img_info_p) {
+                                const vk::DescriptorBufferInfo *buf_info_p,
+                                const vk::DescriptorImageInfo *img_info_p) {
     // Fetch form and check with DescSetInfo
     const DescSetInfo &desc_set_info =
             desc_set_pack->desc_set_info[binding_idx];
@@ -1366,8 +1366,7 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
     const auto &extent = dst_img_pack->size;
     vk::BufferImageCopy copy_region(
             0, extent.width, extent.height,
-            vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0,
-                                       1),
+            {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
             vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
     cmd_buf->copyBufferToImage(src_buf_pack->buf.get(), dst_img_pack->img.get(),
                                vk::ImageLayout::eTransferDstOptimal,
@@ -1388,8 +1387,7 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
     const auto &extent = src_img_pack->size;
     vk::BufferImageCopy copy_region(
             0, extent.width, extent.height,
-            vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0,
-                                       1),
+            {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
             vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
     cmd_buf->copyImageToBuffer(src_img_pack->img.get(),
                                vk::ImageLayout::eTransferSrcOptimal,
@@ -1399,18 +1397,17 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, src_img_pack, final_layout);
 }
 
-void ClearColorImage(const vk::UniqueCommandBuffer& cmd_buf,
-                     const ImagePackPtr& src_img_pack,
-                     const vk::ClearColorValue& color,
-                     const vk::ImageLayout& layout,
-                     const vk::ImageLayout& final_layout) {
+void ClearColorImage(const vk::UniqueCommandBuffer &cmd_buf,
+                     const ImagePackPtr &src_img_pack,
+                     const vk::ClearColorValue &color,
+                     const vk::ImageLayout &layout,
+                     const vk::ImageLayout &final_layout) {
     // Set image layout as general (default) or shared_present or trans_dst
     SetImageLayout(cmd_buf, src_img_pack, layout);
 
     // Clear
-    vk::ImageSubresourceRange range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
-    cmd_buf->clearColorImage(src_img_pack->img.get(), layout, &color, 1,
-                             &range);
+    cmd_buf->clearColorImage(src_img_pack->img.get(), layout, color,
+                             {{vk::ImageAspectFlagBits::eColor, 0, 0, 1}});
 
     // Set final image layout
     SetImageLayout(cmd_buf, src_img_pack, final_layout);
