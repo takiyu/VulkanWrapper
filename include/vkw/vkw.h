@@ -32,6 +32,8 @@ END_VKW_SUPPRESS_WARNING
 // -----------------------------------------------------------------------------
 
 #include <functional>
+#include <string>
+#include <vector>
 
 namespace vkw {
 
@@ -121,6 +123,12 @@ vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
 // -------------------------------- Queue Family -------------------------------
 // -----------------------------------------------------------------------------
 std::vector<uint32_t> GetQueueFamilyIdxs(
+        const vk::PhysicalDevice& physical_device,
+        const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics |
+                                            vk::QueueFlagBits::eCompute |
+                                            vk::QueueFlagBits::eTransfer);
+
+uint32_t GetQueueFamilyIdx(
         const vk::PhysicalDevice& physical_device,
         const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics |
                                             vk::QueueFlagBits::eCompute |
@@ -313,7 +321,7 @@ struct DescSetPack {
     vk::UniqueDescriptorSetLayout desc_set_layout;
     vk::UniqueDescriptorPool desc_pool;
     vk::UniqueDescriptorSet desc_set;
-    std::vector<DescSetInfo> desc_set_info;
+    std::vector<DescSetInfo> desc_set_infos;
 };
 using DescSetPackPtr = std::shared_ptr<DescSetPack>;
 DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice& device,
@@ -341,6 +349,16 @@ void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const uint32_t binding_idx,
                      const std::vector<ImagePackPtr>& img_packs,  // For img
                      const std::vector<vk::ImageLayout>& img_layouts = {});
+void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
+                     const DescSetPackPtr& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<TexturePackPtr>& tex_packs,
+                     const vk::ImageLayout tex_layout);   // For tex (+layout)
+void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
+                     const DescSetPackPtr& desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<ImagePackPtr>& img_packs,
+                     const vk::ImageLayout img_layout);  // For img (+layout)
 
 void UpdateDescriptorSets(const vk::UniqueDevice& device,
                           const WriteDescSetPackPtr& write_desc_set_pack);

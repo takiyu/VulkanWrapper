@@ -1,7 +1,5 @@
 #include <vkw/vkw.h>
 
-#include "vulkan/vulkan.hpp"
-
 // -----------------------------------------------------------------------------
 // ------------------------- Begin third party include -------------------------
 // -----------------------------------------------------------------------------
@@ -523,11 +521,11 @@ static void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
                                 const vk::DescriptorImageInfo *img_info_p) {
     // Fetch form and check with DescSetInfo
     const DescSetInfo &desc_set_info =
-            desc_set_pack->desc_set_info[binding_idx];
+            desc_set_pack->desc_set_infos[binding_idx];
     const vk::DescriptorType desc_type = std::get<0>(desc_set_info);
     const uint32_t desc_cnt = std::get<1>(desc_set_info);
     if (desc_cnt != static_cast<uint32_t>(n_infos)) {
-        throw std::runtime_error("Invalid descriptor count to write images");
+        throw std::runtime_error("Invalid descriptor count to write imgs/bufs");
     }
     if (desc_cnt == 0) {
         return;  // Skip
@@ -1044,11 +1042,23 @@ std::vector<uint32_t> GetQueueFamilyIdxs(
     return queue_family_idxs;
 }
 
+uint32_t GetQueueFamilyIdx(const vk::PhysicalDevice &physical_device,
+                           const vk::QueueFlags &queue_flags) {
+    // Get available queue family indices
+    auto idxs = GetQueueFamilyIdxs(physical_device, queue_flags);
+    // Check status
+    if (idxs.size() == 0) {
+        throw std::runtime_error("No sufficient queue family");
+    }
+    // Return the first index
+    return idxs.front();
+}
+
 uint32_t GetGraphicPresentQueueFamilyIdx(
         const vk::PhysicalDevice &physical_device,
         const vk::UniqueSurfaceKHR &surface,
         const vk::QueueFlags &queue_flags) {
-    // Get graphics queue family indices
+    // Get available queue family indices
     auto graphic_idxs = GetQueueFamilyIdxs(physical_device, queue_flags);
 
     // Extract present queue indices
@@ -1061,7 +1071,7 @@ uint32_t GetGraphicPresentQueueFamilyIdx(
 
     // Check status
     if (graphic_present_idxs.size() == 0) {
-        throw std::runtime_error("No sufficient queue for graphic present");
+        throw std::runtime_error("No sufficient queue family for present");
     }
     // Return the first index
     return graphic_present_idxs.front();
@@ -1364,10 +1374,10 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Transfer from buffer to image
     const auto &extent = dst_img_pack->size;
-    vk::BufferImageCopy copy_region(
-            0, extent.width, extent.height,
-            {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
-            vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
+    vk::BufferImageCopy copy_region(0, extent.width, extent.height,
+                                    {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                                    vk::Offset3D(0, 0, 0),
+                                    vk::Extent3D(extent, 1));
     cmd_buf->copyBufferToImage(src_buf_pack->buf.get(), dst_img_pack->img.get(),
                                vk::ImageLayout::eTransferDstOptimal,
                                copy_region);
@@ -1385,10 +1395,10 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Transfer from image to buffer
     const auto &extent = src_img_pack->size;
-    vk::BufferImageCopy copy_region(
-            0, extent.width, extent.height,
-            {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
-            vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
+    vk::BufferImageCopy copy_region(0, extent.width, extent.height,
+                                    {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                                    vk::Offset3D(0, 0, 0),
+                                    vk::Extent3D(extent, 1));
     cmd_buf->copyImageToBuffer(src_img_pack->img.get(),
                                vk::ImageLayout::eTransferSrcOptimal,
                                dst_buf_pack->buf.get(), copy_region);
@@ -1567,6 +1577,48 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
         auto &&img_pack = img_packs[img_idx];
         auto &&layout = has_layouts ? img_layouts[img_idx] : img_pack->layout;
         img_infos.emplace_back(empty_sampler, *img_pack->view, layout);
+    }
+
+    // Create and Add WriteDescriptorSet
+    AddWriteDescSetImpl(write_pack, desc_set_pack, binding_idx,
+                        img_infos.size(), nullptr, img_infos.data());
+}
+
+void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
+                     const DescSetPackPtr &desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<TexturePackPtr> &tex_packs,
+                     const vk::ImageLayout tex_layout) {
+    // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
+
+    // Create vector of DescriptorImageInfo in the result pack
+    auto &img_infos = EmplaceBackEmpty(write_pack->desc_img_info_vecs);
+    // Create DescriptorImageInfo
+    for (uint32_t tex_idx = 0; tex_idx < tex_packs.size(); tex_idx++) {
+        auto &&tex_pack = tex_packs[tex_idx];
+        auto &&img_pack = tex_pack->img_pack;
+        img_infos.emplace_back(*tex_pack->sampler, *img_pack->view, tex_layout);
+    }
+
+    // Create and Add WriteDescriptorSet
+    AddWriteDescSetImpl(write_pack, desc_set_pack, binding_idx,
+                        img_infos.size(), nullptr, img_infos.data());
+}
+
+void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
+                     const DescSetPackPtr &desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<ImagePackPtr> &img_packs,
+                     const vk::ImageLayout img_layout) {
+    // Note: desc_type should be `vk::DescriptorType::eInputAttachment`
+
+    // Create vector of DescriptorImageInfo in the result pack
+    auto &img_infos = EmplaceBackEmpty(write_pack->desc_img_info_vecs);
+    // Create DescriptorImageInfo
+    for (uint32_t img_idx = 0; img_idx < img_packs.size(); img_idx++) {
+        const vk::Sampler empty_sampler = nullptr;
+        auto &&img_pack = img_packs[img_idx];
+        img_infos.emplace_back(empty_sampler, *img_pack->view, img_layout);
     }
 
     // Create and Add WriteDescriptorSet

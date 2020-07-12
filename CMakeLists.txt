@@ -165,6 +165,8 @@ endif()
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(vkw
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vkw.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vkw_context.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vkw_deferer.cpp
 )
 setup_target(vkw "${VKW_INCLUDE}" "${VKW_LIBRARY}")
 list(APPEND VKW_LIBRARY vkw)
@@ -192,6 +194,7 @@ if (VKW_BUILD_EXAMPLES)
         ${CMAKE_CURRENT_SOURCE_DIR}/example/07_image_transfer/app.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/example/08_comp_shader/app.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/example/09_inverse_uv/app.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/example/10_deferer/app.cpp
     )
 
     if (ANDROID)

@@ -1,8 +1,3 @@
-#include <functional>
-#include <sstream>
-#include <stdexcept>
-#include <vector>
-
 #include "../example/01_rotate_box/app.h"
 #include "../example/02_load_obj/app.h"
 #include "../example/03_load_obj_many/app.h"
@@ -12,7 +7,12 @@
 #include "../example/07_image_transfer/app.h"
 #include "../example/08_comp_shader/app.h"
 #include "../example/09_inverse_uv/app.h"
-#include "vkw/vkw.h"
+#include "../example/10_deferer/app.h"
+
+#include <functional>
+#include <sstream>
+#include <stdexcept>
+#include <vector>
 
 // List of application functions
 using APP_FUNC_TYPE = std::function<void(const vkw::WindowPtr& window,
@@ -21,6 +21,7 @@ const std::vector<APP_FUNC_TYPE> APP_FUNCS = {
         RunExampleApp01, RunExampleApp02, RunExampleApp03,
         RunExampleApp04, RunExampleApp05, RunExampleApp06,
         RunExampleApp07, RunExampleApp08, RunExampleApp09,
+        RunExampleApp10,
 };
 
 // Window
@@ -31,14 +32,16 @@ void InitWindow(const std::string& title) {
 }
 
 void DrawHook() {
-    if (glfwWindowShouldClose(g_window.get())) {
+    if (glfwWindowShouldClose(g_window.get()) ||
+        glfwGetKey(g_window.get(), GLFW_KEY_Q) == GLFW_PRESS ||
+        glfwGetKey(g_window.get(), GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+        // Close window
         g_window = nullptr;
         throw std::runtime_error("GLFW should be closed");
     }
     glfwPollEvents();
 }
 
-#include <iostream>
 static uint32_t g_draw_cnt = 0;
 const uint32_t N_LIMITED_DRAW_MAX = 30;
 void LimitedDrawHook() {
