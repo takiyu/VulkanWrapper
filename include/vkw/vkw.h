@@ -316,8 +316,9 @@ struct DescSetPack {
     std::vector<DescSetInfo> desc_set_info;
 };
 using DescSetPackPtr = std::shared_ptr<DescSetPack>;
-DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice& device,
-                                       const std::vector<DescSetInfo>& info);
+DescSetPackPtr CreateDescriptorSetPack(
+        const vk::UniqueDevice& device,
+        const std::vector<DescSetInfo>& binding_infos);
 
 struct WriteDescSetPack {
     std::vector<vk::WriteDescriptorSet> write_desc_sets;
