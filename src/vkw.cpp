@@ -1407,7 +1407,7 @@ void ClearColorImage(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Clear
     cmd_buf->clearColorImage(src_img_pack->img.get(), layout, color,
-                             {{vk::ImageAspectFlagBits::eColor, 0, 0, 1}});
+                             {{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}});
 
     // Set final image layout
     SetImageLayout(cmd_buf, src_img_pack, final_layout);
