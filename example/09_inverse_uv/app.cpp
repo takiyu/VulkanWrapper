@@ -17,6 +17,7 @@ END_VKW_SUPPRESS_WARNING
 #include <iostream>
 #include <sstream>
 
+namespace {
 // -----------------------------------------------------------------------------
 const std::string VERT_SOURCE1 = R"(
 #version 460
@@ -130,7 +131,7 @@ static Mesh LoadObj(const std::string& filename, const float scale) {
 
     return ret_mesh;
 }
-
+}
 // -----------------------------------------------------------------------------
 
 void RunExampleApp09(const vkw::WindowPtr& window,
