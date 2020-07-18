@@ -324,8 +324,9 @@ struct DescSetPack {
     std::vector<DescSetInfo> desc_set_infos;
 };
 using DescSetPackPtr = std::shared_ptr<DescSetPack>;
-DescSetPackPtr CreateDescriptorSetPack(const vk::UniqueDevice& device,
-                                       const std::vector<DescSetInfo>& info);
+DescSetPackPtr CreateDescriptorSetPack(
+        const vk::UniqueDevice& device,
+        const std::vector<DescSetInfo>& binding_infos);
 
 struct WriteDescSetPack {
     std::vector<vk::WriteDescriptorSet> write_desc_sets;
@@ -381,7 +382,8 @@ void AddAttachientDesc(
         const vk::Format& format = vk::Format::eB8G8R8A8Unorm,
         const vk::AttachmentLoadOp& load_op = vk::AttachmentLoadOp::eClear,
         const vk::AttachmentStoreOp& store_op = vk::AttachmentStoreOp::eStore,
-        const vk::ImageLayout& final_layout = vk::ImageLayout::ePresentSrcKHR);
+        const vk::ImageLayout& final_layout = vk::ImageLayout::ePresentSrcKHR,
+        const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined);
 
 using AttachmentIdx = uint32_t;
 using AttachmentRefInfo = std::tuple<AttachmentIdx, vk::ImageLayout>;

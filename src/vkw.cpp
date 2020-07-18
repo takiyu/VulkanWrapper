@@ -1417,7 +1417,7 @@ void ClearColorImage(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Clear
     cmd_buf->clearColorImage(src_img_pack->img.get(), layout, color,
-                             {{vk::ImageAspectFlagBits::eColor, 0, 0, 1}});
+                             {{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}});
 
     // Set final image layout
     SetImageLayout(cmd_buf, src_img_pack, final_layout);
@@ -1642,11 +1642,11 @@ void AddAttachientDesc(RenderPassPackPtr &render_pass_pack,
                        const vk::Format &format,
                        const vk::AttachmentLoadOp &load_op,
                        const vk::AttachmentStoreOp &store_op,
-                       const vk::ImageLayout &final_layout) {
+                       const vk::ImageLayout &final_layout,
+                       const vk::ImageLayout &init_layout) {
     const auto sample_cnt = vk::SampleCountFlagBits::e1;
     const auto stencil_load_op = vk::AttachmentLoadOp::eDontCare;
-    const auto stencil_store_op = vk::AttachmentStoreOp::eDontCare;
-    const auto init_layout = vk::ImageLayout::eUndefined;
+    const auto stencil_store_op = vk::AttachmentStoreOp::eDontCare;;
 
     // Add attachment description
     render_pass_pack->attachment_descs.emplace_back(
