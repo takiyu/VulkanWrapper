@@ -79,6 +79,41 @@ auto CreateDescriptorSetPair(const ContextPtr& vk_ctx, const DefererStageInfo& c
 
     return std::make_tuple(desc_set_pack, write_desc_set_pack);
 }
+
+std::vector<std::vector<uint32_t>> ResolveDepends(const std::vector<DefererStageInfo>& staged_cis) {
+    // Enumerate all output images
+    std::unordered_map<vkw::ImagePackPtr, uint32_t> out_img_stages;
+    for (uint32_t stage_idx = 0; stage_idx < staged_cis.size(); stage_idx++) {
+        const auto& out_imgs = staged_cis[stage_idx].out_imgs;
+        for (auto&& out_img : out_imgs) {
+            out_img_stages[out_img] = stage_idx;
+        }
+    }
+
+    // Resolve dependency
+    std::vector<std::vector<uint32_t>> stage_depends;  // depends[dst] = srcs
+    for (uint32_t stage_idx = 0; stage_idx < staged_cis.size(); stage_idx++) {
+        // Add input attachment's dependency
+        const auto& inp_imgs = staged_cis[stage_idx].inp_imgs;
+        for (auto&& inp_img : inp_imgs) {
+            auto it = out_img_stages.find(inp_img);
+            if (it != out_img_stages.end()) {
+                stage_depends[stage_idx].push_back(it->second);
+            }
+        }
+        // Add texture input's dependency
+        const auto& inp_texs = staged_cis[stage_idx].inp_texs;
+        for (auto&& inp_tex : inp_texs) {
+            auto it = out_img_stages.find(inp_tex->img_pack);
+            if (it != out_img_stages.end()) {
+                stage_depends[stage_idx].push_back(it->second);
+            }
+        }
+    }
+
+    return stage_depends;
+}
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -107,22 +142,15 @@ void Deferer::init(const ContextPtr& vk_ctx, const vk::Extent2D& size,
         m_write_desc_set_packs.push_back(std::move(std::get<1>(desc_set_pair)));
     }
 
-    // Resolve dependency
-    std::unordered_map<vkw::ImagePackPtr, uint32_t> out_img_stages;
-    for (uint32_t stage_idx = 0; stage_idx < m_n_stages; stage_idx++) {
-        const auto& out_imgs = staged_cis[stage_idx].out_imgs;
-        for (auto&& out_img : out_imgs) {
-            out_img_stages[out_img] = stage_idx;
-        }
-    }
-    std::cout << out_img_stages.size() << std::endl;
+    // Resolve dependency  (depends[dst] = srcs)
+    const std::vector<std::vector<uint32_t>>& depends = ResolveDepends(staged_cis);
 
     // Create render pass
     m_render_pass_packs.clear();
     m_render_pass_packs.reserve(m_n_stages);
     for (auto&& ci : staged_cis) {
-//     // Create render pass
-//     auto render_pass_pack = vkw::CreateRenderPassPack();
+        // Create render pass
+        auto render_pass_pack = vkw::CreateRenderPassPack();
 //     // 0) Add color attachment for surface
 //     vkw::AddAttachientDesc(
 //             render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
