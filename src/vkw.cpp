@@ -1756,16 +1756,16 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
 // -----------------------------------------------------------------------------
 // -------------------------------- ShaderModule -------------------------------
 // -----------------------------------------------------------------------------
-GLSLCompiler::GLSLCompiler(bool enable_optim_, bool enable_optim_size_,
-                           bool enable_gen_debug_) {
+GLSLCompiler::GLSLCompiler(bool enable_optim_arg, bool enable_optim_size_arg,
+                           bool enable_gen_debug_arg) {
     // Global initialize
     if (s_n_compiler++ == 0) {
         glslang::InitializeProcess();
     }
     // Set members
-    enable_optim = enable_optim_;
-    enable_optim_size = enable_optim_size_;
-    enable_gen_debug = enable_gen_debug_;
+    enable_optim = enable_optim_arg;
+    enable_optim_size = enable_optim_size_arg;
+    enable_gen_debug = enable_gen_debug_arg;
 }
 
 GLSLCompiler::~GLSLCompiler() {
