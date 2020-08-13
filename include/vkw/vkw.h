@@ -423,7 +423,7 @@ using ShaderModulePackPtr = std::shared_ptr<ShaderModulePack>;
 
 class GLSLCompiler {
 public:
-    GLSLCompiler(bool enable_optim = false, bool enable_optim_size = false,
+    GLSLCompiler(bool enable_optim = true, bool enable_optim_size = false,
                  bool enable_gen_debug = false);
     ~GLSLCompiler();
     ShaderModulePackPtr compileFromString(
