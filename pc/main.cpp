@@ -2,6 +2,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <vector>
+#include <iostream>
 
 #include "../example/01_rotate_box/app.h"
 #include "../example/02_load_obj/app.h"

@@ -116,7 +116,7 @@ set(ENABLE_HLSL OFF CACHE BOOL "")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
-                        OGLCompiler)
+                        OGLCompiler SPIRV-Tools-opt)
 
 # GLM
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)

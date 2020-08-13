@@ -1,7 +1,5 @@
 #include <vkw/vkw.h>
 
-#include "vulkan/vulkan.hpp"
-
 // -----------------------------------------------------------------------------
 // ------------------------- Begin third party include -------------------------
 // -----------------------------------------------------------------------------
@@ -603,10 +601,29 @@ EShLanguage CvtShaderStage(const vk::ShaderStageFlagBits &stage) {
     }
 }
 
-std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
-                                      const std::string &source) {
+void ThrowShaderErr(const std::string &tag, glslang::TShader &shader,
+                    const std::string &source) {
+    // Create error message
+    std::stringstream err_ss;
+    err_ss << tag << std::endl;
+    err_ss << shader.getInfoLog() << std::endl;
+    err_ss << shader.getInfoDebugLog() << std::endl;
+    err_ss << " Shader Source:" << std::endl;
+    std::vector<std::string> source_lines = Split(source);
+    for (size_t i = 0; i < source_lines.size(); i++) {
+        err_ss << "  " << (i + 1) << ": " << source_lines[i] << std::endl;
+    }
+
+    // Throw
+    throw std::runtime_error(err_ss.str());
+}
+
+std::vector<uint32_t> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
+                                  const std::string &source, bool enable_optim,
+                                  bool enable_optim_size,
+                                  bool enable_gen_debug) {
     const EShLanguage stage = CvtShaderStage(vk_stage);
-    const EShMessages rules =
+    static const EShMessages RULES =
             static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
 
     // Set source string
@@ -614,35 +631,28 @@ std::vector<unsigned int> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
     const char *source_strs[1] = {source.data()};
     shader.setStrings(source_strs, 1);
 
-    // Error handling function
-    auto throw_shader_err = [&](const std::string &tag) {
-        std::stringstream err_ss;
-        err_ss << tag << std::endl;
-        err_ss << shader.getInfoLog() << std::endl;
-        err_ss << shader.getInfoDebugLog() << std::endl;
-        err_ss << " Shader Source:" << std::endl;
-        std::vector<std::string> source_lines = Split(source);
-        for (size_t i = 0; i < source_lines.size(); i++) {
-            err_ss << "  " << (i + 1) << ": " << source_lines[i] << std::endl;
-        }
-        throw std::runtime_error(err_ss.str());
-    };
-
     // Parse GLSL with SPIR-V and Vulkan rules
-    if (!shader.parse(&glslang::DefaultTBuiltInResource, 100, false, rules)) {
-        throw_shader_err("Failed to parse GLSL");
+    if (!shader.parse(&glslang::DefaultTBuiltInResource, 100, false, RULES)) {
+        ThrowShaderErr("Failed to parse GLSL", shader, source);
     }
 
     // Link to program
     glslang::TProgram program;
     program.addShader(&shader);
-    if (!program.link(rules)) {
-        throw_shader_err("Failed to link GLSL");
+    if (!program.link(RULES)) {
+        ThrowShaderErr("Failed to link GLSL", shader, source);
     }
 
+    // Parse compile-flags
+    glslang::SpvOptions spv_options;
+    spv_options.disableOptimizer = !enable_optim;
+    spv_options.optimizeSize = enable_optim_size;
+    spv_options.generateDebugInfo = enable_gen_debug;
+
     // Convert GLSL to SPIRV
-    std::vector<unsigned int> spv_data;
-    glslang::GlslangToSpv(*program.getIntermediate(stage), spv_data);
+    std::vector<uint32_t> spv_data;
+    glslang::GlslangToSpv(*program.getIntermediate(stage), spv_data,
+                          &spv_options);
     return spv_data;
 }
 
@@ -789,7 +799,7 @@ uint16_t CastFloat32To16(const float &f32_raw) {
             ret.rep.exp = 31;
         } else if (newexp <= 0) {
             if ((14 - newexp) <= 24) {
-                uint32_t mant = f32.rep.coeff | 0x800000;
+                uint32_t mant = f32.rep.coeff | 0x800000u;
                 ret.rep.coeff = static_cast<uint16_t>(mant >> (14 - newexp));
                 if ((mant >> (13 - newexp)) & 1) {
                     ret.u++;
@@ -1197,8 +1207,12 @@ uint32_t AcquireNextImage(const vk::UniqueDevice &device,
     vk::Fence fence_raw = signal_fence ? signal_fence->get() : vk::Fence();
 
     // Acquire (may throw exception)
-    return device->acquireNextImageKHR(swapchain_pack->swapchain.get(), timeout,
-                                       semaphore_raw, fence_raw);
+    const auto ret_val = device->acquireNextImageKHR(
+            swapchain_pack->swapchain.get(), timeout, semaphore_raw, fence_raw);
+    if (ret_val.result != vk::Result::eSuccess) {
+        vk::throwResultException(ret_val.result, "AcquireNextImage");
+    }
+    return ret_val.value;
 }
 
 // -----------------------------------------------------------------------------
@@ -1364,10 +1378,10 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Transfer from buffer to image
     const auto &extent = dst_img_pack->size;
-    vk::BufferImageCopy copy_region(
-            0, extent.width, extent.height,
-            {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
-            vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
+    vk::BufferImageCopy copy_region(0, extent.width, extent.height,
+                                    {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                                    vk::Offset3D(0, 0, 0),
+                                    vk::Extent3D(extent, 1));
     cmd_buf->copyBufferToImage(src_buf_pack->buf.get(), dst_img_pack->img.get(),
                                vk::ImageLayout::eTransferDstOptimal,
                                copy_region);
@@ -1385,10 +1399,10 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Transfer from image to buffer
     const auto &extent = src_img_pack->size;
-    vk::BufferImageCopy copy_region(
-            0, extent.width, extent.height,
-            {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
-            vk::Offset3D(0, 0, 0), vk::Extent3D(extent, 1));
+    vk::BufferImageCopy copy_region(0, extent.width, extent.height,
+                                    {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                                    vk::Offset3D(0, 0, 0),
+                                    vk::Extent3D(extent, 1));
     cmd_buf->copyImageToBuffer(src_img_pack->img.get(),
                                vk::ImageLayout::eTransferSrcOptimal,
                                dst_buf_pack->buf.get(), copy_region);
@@ -1594,7 +1608,7 @@ void AddAttachientDesc(RenderPassPackPtr &render_pass_pack,
                        const vk::ImageLayout &init_layout) {
     const auto sample_cnt = vk::SampleCountFlagBits::e1;
     const auto stencil_load_op = vk::AttachmentLoadOp::eDontCare;
-    const auto stencil_store_op = vk::AttachmentStoreOp::eDontCare;;
+    const auto stencil_store_op = vk::AttachmentStoreOp::eDontCare;
 
     // Add attachment description
     render_pass_pack->attachment_descs.emplace_back(
@@ -1742,26 +1756,40 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
 // -----------------------------------------------------------------------------
 // -------------------------------- ShaderModule -------------------------------
 // -----------------------------------------------------------------------------
-GLSLCompiler::GLSLCompiler() {
-    glslang::InitializeProcess();
+GLSLCompiler::GLSLCompiler(bool enable_optim_, bool enable_optim_size_,
+                           bool enable_gen_debug_) {
+    // Global initialize
+    if (s_n_compiler++ == 0) {
+        glslang::InitializeProcess();
+    }
+    // Set members
+    enable_optim = enable_optim_;
+    enable_optim_size = enable_optim_size_;
+    enable_gen_debug = enable_gen_debug_;
 }
 
 GLSLCompiler::~GLSLCompiler() {
-    glslang::FinalizeProcess();
+    // Global finalize
+    if (--s_n_compiler == 0) {
+        glslang::FinalizeProcess();
+    }
 }
 
 ShaderModulePackPtr GLSLCompiler::compileFromString(
         const vk::UniqueDevice &device, const std::string &source,
         const vk::ShaderStageFlagBits &stage) const {
     // Compile GLSL to SPIRV
-    const std::vector<unsigned int> &spv_data = CompileGLSL(stage, source);
+    const std::vector<uint32_t> &spv_data = CompileGLSL(
+            stage, source, enable_optim, enable_optim_size, enable_gen_debug);
     // Create shader module
     auto shader_module = device->createShaderModuleUnique(
-            {vk::ShaderModuleCreateFlags(),
-             spv_data.size() * sizeof(unsigned int), spv_data.data()});
-    return ShaderModulePackPtr(
-            new ShaderModulePack{std::move(shader_module), stage});
+            {vk::ShaderModuleCreateFlags(), spv_data.size() * sizeof(uint32_t),
+             spv_data.data()});
+    return ShaderModulePackPtr(new ShaderModulePack{std::move(shader_module),
+                                                    stage, spv_data.size()});
 }
+
+std::atomic<uint32_t> GLSLCompiler::s_n_compiler = {0};
 
 // -----------------------------------------------------------------------------
 // ----------------------------- Graphics Pipeline -----------------------------
@@ -1888,7 +1916,7 @@ PipelinePackPtr CreateGraphicsPipeline(
              desc_set_layouts.data()});
 
     // Create pipeline
-    auto pipeline = device->createGraphicsPipelineUnique(
+    auto pipeline_ret = device->createGraphicsPipelineUnique(
             nullptr,  // no pipeline cache
             {vk::PipelineCreateFlags(),
              static_cast<uint32_t>(shader_stage_cis.size()),
@@ -1897,9 +1925,12 @@ PipelinePackPtr CreateGraphicsPipeline(
              &multisample_state_ci, &depth_stencil_state_ci,
              &color_blend_state_ci, &dynamic_state_ci, pipeline_layout.get(),
              render_pass_pack->render_pass.get(), subpass_idx});
+    if (pipeline_ret.result != vk::Result::eSuccess) {
+        vk::throwResultException(pipeline_ret.result, "CreateGraphicsPipeline");
+    }
 
-    return PipelinePackPtr(
-            new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});
+    return PipelinePackPtr(new PipelinePack{std::move(pipeline_layout),
+                                            std::move(pipeline_ret.value)});
 }
 
 // -----------------------------------------------------------------------------
@@ -1909,11 +1940,6 @@ PipelinePackPtr CreateComputePipeline(
         const vk::UniqueDevice &device,
         const ShaderModulePackPtr &shader_module,
         const std::vector<DescSetPackPtr> &desc_set_packs) {
-    // Shader stage create infos
-    vk::PipelineShaderStageCreateInfo shader_stage_ci = {
-            vk::PipelineShaderStageCreateFlags(), shader_module->stage,
-            shader_module->shader_module.get(), "main"};
-
     // Repack descriptor set layout
     std::vector<vk::DescriptorSetLayout> desc_set_layouts;
     desc_set_layouts.reserve(desc_set_packs.size());
@@ -1929,13 +1955,18 @@ PipelinePackPtr CreateComputePipeline(
              desc_set_layouts.data()});
 
     // Create pipeline
-    auto pipeline = device->createComputePipelineUnique(
+    auto pipeline_ret = device->createComputePipelineUnique(
             nullptr,  // no pipeline cache
-            {vk::PipelineCreateFlags(), shader_stage_ci,
+            {vk::PipelineCreateFlags(),
+             {vk::PipelineShaderStageCreateFlags(), shader_module->stage,
+              shader_module->shader_module.get(), "main"},
              pipeline_layout.get()});
+    if (pipeline_ret.result != vk::Result::eSuccess) {
+        vk::throwResultException(pipeline_ret.result, "CreateComputePipeline");
+    }
 
-    return PipelinePackPtr(
-            new PipelinePack{std::move(pipeline_layout), std::move(pipeline)});
+    return PipelinePackPtr(new PipelinePack{std::move(pipeline_layout),
+                                            std::move(pipeline_ret.value)});
 }
 
 // -----------------------------------------------------------------------------

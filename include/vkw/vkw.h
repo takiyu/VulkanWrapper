@@ -31,6 +31,7 @@ END_VKW_SUPPRESS_WARNING
 // -------------------------- End third party include --------------------------
 // -----------------------------------------------------------------------------
 
+#include <atomic>
 #include <functional>
 
 namespace vkw {
@@ -416,17 +417,27 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
 struct ShaderModulePack {
     vk::UniqueShaderModule shader_module;
     vk::ShaderStageFlagBits stage;
+    size_t spv_size = 0;
 };
 using ShaderModulePackPtr = std::shared_ptr<ShaderModulePack>;
 
 class GLSLCompiler {
 public:
-    GLSLCompiler();
+    GLSLCompiler(bool enable_optim = false, bool enable_optim_size = false,
+                 bool enable_gen_debug = false);
     ~GLSLCompiler();
     ShaderModulePackPtr compileFromString(
             const vk::UniqueDevice& device, const std::string& source,
             const vk::ShaderStageFlagBits& stage =
                     vk::ShaderStageFlagBits::eVertex) const;
+
+    // Compile flags
+    bool enable_optim;
+    bool enable_optim_size;
+    bool enable_gen_debug;
+
+private:
+    static std::atomic<uint32_t> s_n_compiler;
 };
 
 // -----------------------------------------------------------------------------

@@ -400,8 +400,11 @@ void RunExampleApp04(const vkw::WindowPtr& window,
 
     // Compile shaders
     vkw::GLSLCompiler glsl_compiler;
+    glsl_compiler.enable_optim = true;
+    glsl_compiler.enable_optim_size = true;
     auto vert_shader_module_pack1 = glsl_compiler.compileFromString(
             device, VERT_SOURCE1, vk::ShaderStageFlagBits::eVertex);
+    std::cout << vert_shader_module_pack1->spv_size << std::endl;
     auto frag_shader_module_pack1 = glsl_compiler.compileFromString(
             device, FRAG_SOURCE1, vk::ShaderStageFlagBits::eFragment);
     auto vert_shader_module_pack2 = glsl_compiler.compileFromString(
