@@ -109,6 +109,21 @@ else()
     list(APPEND VKW_LIBRARY ${Vulkan_LIBRARY})
 endif()
 
+# SPIRV-Headers
+set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "")
+set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE BOOL "")
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/SPIRV-Headers)
+list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SPIRV-Headers/include)
+list(APPEND VKW_LIBRARY SPIRV-Tools-opt)
+
+# SPIRV-Tools
+set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE BOOL "")
+set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "")
+# set(SPIRV_CHECK_CONTEXT ON CACHE BOOL "")
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/SPIRV-Tools)
+list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SPIRV-Tools/include)
+list(APPEND VKW_LIBRARY SPIRV-Tools-opt)
+
 # GLSLang
 set(ENABLE_GLSLANG_BINARIES ON CACHE BOOL "")
 set(ENABLE_SPVREMAPPER OFF CACHE BOOL "")
@@ -116,7 +131,7 @@ set(ENABLE_HLSL OFF CACHE BOOL "")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
-                        OGLCompiler SPIRV-Tools-opt)
+                        OGLCompiler)
 
 # GLM
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
