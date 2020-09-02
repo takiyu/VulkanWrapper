@@ -1159,10 +1159,8 @@ SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
                                      const vk::UniqueDevice &device,
                                      const vk::UniqueSurfaceKHR &surface,
                                      const vk::Format &surface_format_raw,
-                                     const vk::ImageUsageFlags &usage) {
-    // Set swapchain present mode
-    const vk::PresentModeKHR swapchain_present_mode = vk::PresentModeKHR::eFifo;
-
+                                     const vk::ImageUsageFlags &usage,
+                                     const vk::PresentModeKHR &present_mode) {
     // Get the supported surface VkFormats
     auto surface_format = (surface_format_raw == vk::Format::eUndefined) ?
                                   GetSurfaceFormat(physical_device, surface) :
@@ -1180,8 +1178,7 @@ SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
             {vk::SwapchainCreateFlagsKHR(), surface.get(), min_img_cnt,
              surface_format, vk::ColorSpaceKHR::eSrgbNonlinear,
              swapchain_extent, 1, usage, vk::SharingMode::eExclusive, 0,
-             nullptr, pre_trans, composite_alpha, swapchain_present_mode, true,
-             nullptr});
+             nullptr, pre_trans, composite_alpha, present_mode, true, nullptr});
 
     // Create image views
     auto swapchain_imgs = device->getSwapchainImagesKHR(swapchain.get());
