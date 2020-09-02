@@ -95,7 +95,7 @@ void RunExampleApp08(const vkw::WindowPtr& window,
     // Create input image
     auto inp_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32G32B32A32Sfloat,
-            {IMG_SIZE, IMG_SIZE},
+            {IMG_SIZE, IMG_SIZE}, 1,
             vk::ImageUsageFlagBits::eStorage |
                     vk::ImageUsageFlagBits::eTransferDst,
             {}, true, vk::ImageAspectFlagBits::eColor);
@@ -123,7 +123,7 @@ void RunExampleApp08(const vkw::WindowPtr& window,
     // Create output image
     auto out_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32G32B32A32Sfloat,
-            {IMG_SIZE, IMG_SIZE},
+            {IMG_SIZE, IMG_SIZE}, 1,
             vk::ImageUsageFlagBits::eStorage |
                     vk::ImageUsageFlagBits::eTransferSrc,
             {}, true, vk::ImageAspectFlagBits::eColor);

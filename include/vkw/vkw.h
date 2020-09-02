@@ -223,6 +223,7 @@ struct ImagePack {
     vk::UniqueImageView view;
     vk::Format format;
     vk::Extent2D size;
+    uint32_t n_layers;
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
     vk::ImageUsageFlags usage;
@@ -237,7 +238,7 @@ ImagePackPtr CreateImagePack(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueDevice& device,
         const vk::Format& format = vk::Format::eR8G8B8A8Uint,
-        const vk::Extent2D& size = {256, 256},
+        const vk::Extent2D& size = {256, 256}, const uint32_t n_layers = 1,
         const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
         const vk::MemoryPropertyFlags& mem_prop = {}, bool is_tiling = true,
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,

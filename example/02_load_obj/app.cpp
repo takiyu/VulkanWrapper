@@ -221,7 +221,7 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     // Create depth buffer
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
-            physical_device, device, depth_format, swapchain_pack->size,
+            physical_device, device, depth_format, swapchain_pack->size, 1,
             vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
             true,  // tiling
             vk::ImageAspectFlagBits::eDepth);
@@ -236,7 +236,7 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     // Create color texture
     auto color_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32G32B32A32Sfloat,
-            {mesh.color_tex_w, mesh.color_tex_h},
+            {mesh.color_tex_w, mesh.color_tex_h}, 1,
             vk::ImageUsageFlagBits::eSampled |
                     vk::ImageUsageFlagBits::eTransferDst,
             {}, true,  // tiling

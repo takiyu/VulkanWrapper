@@ -188,7 +188,7 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Create depth buffer
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
-            physical_device, device, depth_format, swapchain_pack->size,
+            physical_device, device, depth_format, swapchain_pack->size, 1,
             vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
             true,  // tiling
             vk::ImageAspectFlagBits::eDepth);
@@ -196,7 +196,7 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // UV image (mid)
     auto uv_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR16G16Sfloat,
-            swapchain_pack->size,
+            swapchain_pack->size, 1,
             vk::ImageUsageFlagBits::eStorage |
                     vk::ImageUsageFlagBits::eColorAttachment,
             {}, true, vk::ImageAspectFlagBits::eColor);
@@ -204,7 +204,7 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Result image
     auto result_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR16G16Sfloat,
-            swapchain_pack->size,
+            swapchain_pack->size, 1,
             vk::ImageUsageFlagBits::eStorage |
                     vk::ImageUsageFlagBits::eTransferDst |
                     vk::ImageUsageFlagBits::eInputAttachment,
