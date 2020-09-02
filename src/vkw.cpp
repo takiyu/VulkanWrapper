@@ -556,16 +556,25 @@ auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
         throw std::runtime_error("n_imgs != n_att_descs (FrameBuffer)");
     }
 
-    // Extract size from the first image
+    // Obtain and check image sizes and layer counts
     vk::Extent2D size = size_org;
-    if (size.width == 0 || size.height == 0) {
-        size = imgs[0]->size;
-    }
-
-    // Check image sizes
+    uint32_t n_layers = 0;
     for (uint32_t i = 0; i < imgs.size(); i++) {
-        if (imgs[i] && imgs[i]->size != size) {
+        if (!imgs[i]) {
+            continue;  // skip empty image
+        }
+        // Image size
+        if (size.width == 0 || size.height == 0) {
+            size = imgs[i]->size;
+        } else if (imgs[i]->size != size) {
             throw std::runtime_error("Image sizes are not match (FrameBuffer)");
+        }
+        // Layer count
+        if (n_layers == 0) {
+            n_layers = imgs[i]->n_layers;
+        } else if (imgs[i]->n_layers != n_layers) {
+            throw std::runtime_error(
+                    "Image n_layers are not match (FrameBuffer)");
         }
     }
 
@@ -579,7 +588,7 @@ auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
             attachments.emplace_back();
         }
     }
-    return std::make_tuple(size, std::move(attachments));
+    return std::make_tuple(size, n_layers, std::move(attachments));
 }
 
 // -----------------------------------------------------------------------------
@@ -1748,8 +1757,8 @@ FrameBufferPackPtr CreateFrameBuffer(const vk::UniqueDevice &device,
     // Prepare frame buffer creation
     auto info = PrepareFrameBuffer(render_pass_pack, imgs, size_org);
     const vk::Extent2D &size = std::get<0>(info);
-    const std::vector<vk::ImageView> &attachments = std::get<1>(info);
-    const uint32_t n_layers = 1;
+    const uint32_t &n_layers = std::get<1>(info);
+    const std::vector<vk::ImageView> &attachments = std::get<2>(info);
 
     // Create Frame Buffer
     auto frame_buffer = device->createFramebufferUnique(
@@ -1769,8 +1778,8 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
     // Prepare frame buffer creation
     auto info = PrepareFrameBuffer(render_pass_pack, imgs, swapchain->size);
     const vk::Extent2D &size = std::get<0>(info);
-    std::vector<vk::ImageView> &attachments = std::get<1>(info);
-    const uint32_t n_layers = 1;
+    const uint32_t &n_layers = std::get<1>(info);
+    std::vector<vk::ImageView> &attachments = std::get<2>(info);
 
     // Find attachment index
     uint32_t attach_idx = uint32_t(~0);
