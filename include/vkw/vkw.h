@@ -267,6 +267,25 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer& cmd_buf,
                        const vk::ImageLayout& final_layout =
                                vk::ImageLayout::eColorAttachmentOptimal);
 
+void CopyImage(const vk::UniqueCommandBuffer& cmd_buf,
+               const ImagePackPtr& src_img_pack,
+               const ImagePackPtr& dst_img_pack,
+               const vk::ImageLayout& src_final_layout =
+                       vk::ImageLayout::eColorAttachmentOptimal,
+               const vk::ImageLayout& dst_final_layout =
+                       vk::ImageLayout::eColorAttachmentOptimal);
+
+void BlitImage(const vk::UniqueCommandBuffer& cmd_buf,
+               const ImagePackPtr& src_img_pack,
+               const ImagePackPtr& dst_img_pack,
+               const std::array<vk::Offset2D, 2>& src_offsets,
+               const std::array<vk::Offset2D, 2>& dst_offsets,
+               const vk::Filter& filter = vk::Filter::eLinear,
+               const vk::ImageLayout& src_final_layout =
+                       vk::ImageLayout::eColorAttachmentOptimal,
+               const vk::ImageLayout& dst_final_layout =
+                       vk::ImageLayout::eColorAttachmentOptimal);
+
 void ClearColorImage(
         const vk::UniqueCommandBuffer& cmd_buf,
         const ImagePackPtr& src_img_pack, const vk::ClearColorValue& color,
@@ -289,21 +308,6 @@ TexturePackPtr CreateTexturePack(
         const vk::SamplerAddressMode& addr_u = vk::SamplerAddressMode::eRepeat,
         const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
         const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat);
-
-void SendToDevice(const vk::UniqueDevice& device,
-                  const TexturePackPtr& tex_pack, const void* data,
-                  uint64_t n_bytes);
-
-void SetImageLayout(const vk::UniqueCommandBuffer& cmd_buf,
-                    const TexturePackPtr& tex_pack,
-                    const vk::ImageLayout& new_layout =
-                            vk::ImageLayout::eShaderReadOnlyOptimal);
-
-void CopyBufferToImage(const vk::UniqueCommandBuffer& cmd_buf,
-                       const BufferPackPtr& src_buf_pack,
-                       const TexturePackPtr& dst_tex_pack,
-                       const vk::ImageLayout& final_layout =
-                               vk::ImageLayout::eShaderReadOnlyOptimal);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- DescriptorSet -------------------------------

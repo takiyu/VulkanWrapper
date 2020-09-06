@@ -458,7 +458,8 @@ void RunExampleApp04(const vkw::WindowPtr& window,
         vkw::SendToDevice(device, src_trans_buf_pack, mesh.color_tex.data(),
                           tex_n_bytes);
         vkw::BeginCommand(cmd_buf);
-        vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack, color_tex_pack);
+        vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack,
+                               color_tex_pack->img_pack);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
@@ -477,7 +478,8 @@ void RunExampleApp04(const vkw::WindowPtr& window,
         vkw::SendToDevice(device, src_trans_buf_pack, mesh.bump_tex.data(),
                           tex_n_bytes);
         vkw::BeginCommand(cmd_buf);
-        vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack, bump_tex_pack);
+        vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack,
+                               bump_tex_pack->img_pack);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});

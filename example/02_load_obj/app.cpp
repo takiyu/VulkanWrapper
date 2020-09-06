@@ -366,7 +366,8 @@ void RunExampleApp02(const vkw::WindowPtr& window,
             vkw::SendToDevice(device, trans_buf_pack, mesh.color_tex.data(),
                               tex_n_bytes);
             // Send buffer to image
-            vkw::CopyBufferToImage(cmd_buf, trans_buf_pack, color_tex_pack);
+            vkw::CopyBufferToImage(cmd_buf, trans_buf_pack,
+                                   color_tex_pack->img_pack);
         }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};

@@ -444,7 +444,8 @@ void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
 
     // Copy from buffer to image
     vkw::BeginCommand(cmd_buf);
-    vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack, m_color_tex_pack);
+    vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack,
+                           m_color_tex_pack->img_pack);
     vkw::EndCommand(cmd_buf);
 
     // Send

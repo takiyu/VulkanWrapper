@@ -386,7 +386,8 @@ void RunExampleApp05(const vkw::WindowPtr& window,
         // Send color texture to GPU
         if (!is_col_tex_sent) {
             is_col_tex_sent = true;
-            vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack, color_tex_pack);
+            vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack,
+                                   color_tex_pack->img_pack);
         }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};

@@ -1408,6 +1408,63 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, src_img_pack, final_layout);
 }
 
+void CopyImage(const vk::UniqueCommandBuffer &cmd_buf,
+               const ImagePackPtr &src_img_pack,
+               const ImagePackPtr &dst_img_pack,
+               const vk::ImageLayout &src_final_layout,
+               const vk::ImageLayout &dst_final_layout) {
+    // Set image layout as transfer source and destination
+    SetImageLayout(cmd_buf, src_img_pack, vk::ImageLayout::eTransferSrcOptimal);
+    SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
+
+    // Transfer from image to buffer
+    const auto &extent_src = src_img_pack->size;
+    const auto &extent_dst = dst_img_pack->size;
+    if (extent_src != extent_dst) {
+        throw std::runtime_error("Image size is not same (CopyImage)");
+    }
+    vk::ImageCopy copy_region(
+            {vk::ImageAspectFlagBits::eColor, 0, 0, 1}, vk::Offset3D(0, 0, 0),
+            {vk::ImageAspectFlagBits::eColor, 0, 0, 1}, vk::Offset3D(0, 0, 0),
+            vk::Extent3D(extent_src, 1));
+    cmd_buf->copyImage(src_img_pack->img.get(),
+                       vk::ImageLayout::eTransferSrcOptimal,
+                       dst_img_pack->img.get(),
+                       vk::ImageLayout::eTransferDstOptimal, copy_region);
+
+    // Set final image layouts
+    SetImageLayout(cmd_buf, src_img_pack, src_final_layout);
+    SetImageLayout(cmd_buf, dst_img_pack, dst_final_layout);
+}
+
+void BlitImage(const vk::UniqueCommandBuffer &cmd_buf,
+               const ImagePackPtr &src_img_pack,
+               const ImagePackPtr &dst_img_pack,
+               const std::array<vk::Offset2D, 2> &src_offsets,
+               const std::array<vk::Offset2D, 2> &dst_offsets,
+               const vk::Filter &filter,
+               const vk::ImageLayout &src_final_layout,
+               const vk::ImageLayout &dst_final_layout) {
+    // Set image layout as transfer source and destination
+    SetImageLayout(cmd_buf, src_img_pack, vk::ImageLayout::eTransferSrcOptimal);
+    SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
+
+    // Transfer from image to buffer
+    vk::ImageBlit blit_region(
+            {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+            {vk::Offset3D(src_offsets[0], 0), vk::Offset3D(src_offsets[1], 1)},
+            {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+            {vk::Offset3D(dst_offsets[0], 0), vk::Offset3D(dst_offsets[1], 1)});
+    cmd_buf->blitImage(
+            src_img_pack->img.get(), vk::ImageLayout::eTransferSrcOptimal,
+            dst_img_pack->img.get(), vk::ImageLayout::eTransferDstOptimal,
+            blit_region, filter);
+
+    // Set final image layouts
+    SetImageLayout(cmd_buf, src_img_pack, src_final_layout);
+    SetImageLayout(cmd_buf, dst_img_pack, dst_final_layout);
+}
+
 void ClearColorImage(const vk::UniqueCommandBuffer &cmd_buf,
                      const ImagePackPtr &src_img_pack,
                      const vk::ClearColorValue &color,
@@ -1441,26 +1498,6 @@ TexturePackPtr CreateTexturePack(const ImagePackPtr &img_pack,
 
     // Construct texture pack
     return TexturePackPtr(new TexturePack{img_pack, std::move(sampler)});
-}
-
-void SendToDevice(const vk::UniqueDevice &device,
-                  const TexturePackPtr &tex_pack, const void *data,
-                  uint64_t n_bytes) {
-    SendToDevice(device, tex_pack->img_pack, data, n_bytes);
-}
-
-void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
-                    const TexturePackPtr &tex_pack,
-                    const vk::ImageLayout &new_layout) {
-    SetImageLayout(cmd_buf, tex_pack->img_pack, new_layout);
-}
-
-void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
-                       const BufferPackPtr &src_buf_pack,
-                       const TexturePackPtr &dst_tex_pack,
-                       const vk::ImageLayout &final_layout) {
-    CopyBufferToImage(cmd_buf, src_buf_pack, dst_tex_pack->img_pack,
-                      final_layout);
 }
 
 // -----------------------------------------------------------------------------
