@@ -20,8 +20,13 @@ END_VKW_SUPPRESS_WARNING
 #include <sstream>
 #include <stdexcept>
 
-// Storage for dispatcher
+#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
+// Global Storage for Dynamic loader
+vk::DynamicLoader g_dynamic_loader;
+// Global Storage for Dispatcher
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+#else
+#endif
 
 namespace vkw {
 
@@ -925,13 +930,14 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
                                   const std::string &engine_name,
                                   uint32_t engine_version, bool debug_enable,
                                   bool surface_enable) {
+#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
     PFN_vkGetInstanceProcAddr get_vk_instance_proc_addr =
-            vk::DynamicLoader()
-                    .template getProcAddress<PFN_vkGetInstanceProcAddr>(
-                            "vkGetInstanceProcAddr");
+            g_dynamic_loader.template getProcAddress<PFN_vkGetInstanceProcAddr>(
+                    "vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(get_vk_instance_proc_addr);
+#endif
 
     // Decide Vulkan layer and extensions
     const auto &enabled_layer = GetEnabledLayers(debug_enable);
@@ -948,8 +954,10 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
              static_cast<uint32_t>(enabled_exts.size()),
              DataSafety(enabled_exts)});
 
+#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
     // Initialize dispatcher with Instance to get all the other function ptrs.
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
+#endif
 
     // Create debug messenger or debug report
     if (debug_enable) {
@@ -1104,8 +1112,10 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
             {vk::DeviceCreateFlags(), 1, &device_queue_create_info, 0, nullptr,
              n_device_exts, DataSafety(device_exts), features.get()});
 
+#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
     // Initialize dispatcher for device
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device.get());
+#endif
 
     return device;
 }
