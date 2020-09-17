@@ -186,8 +186,9 @@ uint32_t AcquireNextImage(const vk::UniqueDevice& device,
 // -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
-const auto HOST_VISIB_COHER_PROPS = vk::MemoryPropertyFlagBits::eHostCoherent |
-                                    vk::MemoryPropertyFlagBits::eHostVisible;
+static constexpr auto HOST_VISIB_COHER_PROPS =
+        vk::MemoryPropertyFlagBits::eHostCoherent |
+        vk::MemoryPropertyFlagBits::eHostVisible;
 
 struct BufferPack {
     vk::UniqueBuffer buf;
@@ -216,11 +217,14 @@ void RecvFromDevice(const vk::UniqueDevice& device,
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
+static constexpr uint32_t AUTO_MIP_LEVEL = uint32_t(~0);
+
 struct ImagePack {
     vk::UniqueImage img;
     vk::UniqueImageView view;
     vk::Format format;
     vk::Extent2D size;
+    uint32_t mip_levels;
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
     vk::ImageUsageFlags usage;
@@ -235,7 +239,7 @@ ImagePackPtr CreateImagePack(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueDevice& device,
         const vk::Format& format = vk::Format::eR8G8B8A8Uint,
-        const vk::Extent2D& size = {256, 256},
+        const vk::Extent2D& size = {256, 256}, uint32_t mip_levels = 1,
         const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
         const vk::MemoryPropertyFlags& mem_prop = {}, bool is_tiling = true,
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,

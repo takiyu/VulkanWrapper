@@ -59,7 +59,7 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // Create target image
     auto img = vkw::CreateImagePack(
-            physical_device, device, vk::Format::eR8G8B8A8Uint, {10, 10},
+            physical_device, device, vk::Format::eR8G8B8A8Uint, {10, 10}, 1,
             vk::ImageUsageFlagBits::eSampled |
             vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eTransferDst |

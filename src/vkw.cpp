@@ -15,6 +15,7 @@ END_VKW_SUPPRESS_WARNING
 // -----------------------------------------------------------------------------
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <set>
 #include <sstream>
@@ -355,11 +356,12 @@ vk::UniqueDeviceMemory AllocMemory(
 static vk::UniqueImageView CreateImageView(const vk::Image &img,
                                            const vk::Format &format,
                                            const vk::ImageAspectFlags &aspects,
+                                           const uint32_t mip_levels,
                                            const vk::UniqueDevice &device) {
     const vk::ComponentMapping comp_mapping(
             vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
             vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA);
-    vk::ImageSubresourceRange sub_res_range(aspects, 0, 1, 0, 1);
+    vk::ImageSubresourceRange sub_res_range(aspects, 0, mip_levels, 0, 1);
     auto view = device->createImageViewUnique({vk::ImageViewCreateFlags(), img,
                                                vk::ImageViewType::e2D, format,
                                                comp_mapping, sub_res_range});
@@ -508,7 +510,8 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
     }();
 
     // Set image layout
-    vk::ImageSubresourceRange img_subresource_range(aspect_mask, 0, 1, 0, 1);
+    vk::ImageSubresourceRange img_subresource_range(aspect_mask, 0,
+                                                    img_pack->mip_levels, 0, 1);
     vk::ImageMemoryBarrier img_memory_barrier(
             src_access_mask, dst_access_mask, old_img_layout, new_img_layout,
             VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
@@ -1197,8 +1200,9 @@ SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
     std::vector<vk::UniqueImageView> img_views;
     img_views.reserve(swapchain_imgs.size());
     for (auto img : swapchain_imgs) {
-        auto img_view = CreateImageView(
-                img, surface_format, vk::ImageAspectFlagBits::eColor, device);
+        auto img_view =
+                CreateImageView(img, surface_format,
+                                vk::ImageAspectFlagBits::eColor, 1, device);
         img_views.push_back(std::move(img_view));
     }
 
@@ -1282,6 +1286,7 @@ void RecvFromDevice(const vk::UniqueDevice &device,
 ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
                              const vk::UniqueDevice &device,
                              const vk::Format &format, const vk::Extent2D &size,
+                             uint32_t mip_levels,
                              const vk::ImageUsageFlags &usage,
                              const vk::MemoryPropertyFlags &mem_prop,
                              bool is_tiling,
@@ -1296,11 +1301,16 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     const vk::SharingMode shared = is_shared ? vk::SharingMode::eConcurrent :
                                                vk::SharingMode::eExclusive;
 
+    // Mipmap level
+    const auto max_mip_levels =
+            std::floor(std::log2(std::max(size.width, size.height))) + 1;
+    mip_levels = std::min(mip_levels, static_cast<uint32_t>(max_mip_levels));
+
     // Create image
     auto img = device->createImageUnique(
             {vk::ImageCreateFlags(), vk::ImageType::e2D, format,
-             vk::Extent3D(size, 1), 1, 1, vk::SampleCountFlagBits::e1, tiling,
-             usage, shared, 0, nullptr, init_layout});
+             vk::Extent3D(size, 1), mip_levels, 1, vk::SampleCountFlagBits::e1,
+             tiling, usage, shared, 0, nullptr, init_layout});
 
     // Allocate memory
     auto memory_requs = device->getImageMemoryRequirements(*img);
@@ -1312,13 +1322,13 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     device->bindImageMemory(img.get(), device_mem.get(), 0);
 
     // Create image view
-    auto img_view = CreateImageView(*img, format, aspects, device);
+    auto img_view = CreateImageView(*img, format, aspects, mip_levels, device);
 
     // Construct image pack
-    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
-                                      format, size, std::move(device_mem),
-                                      dev_mem_size, usage, mem_prop, is_tiling,
-                                      aspects, init_layout, is_shared});
+    return ImagePackPtr(new ImagePack{
+            std::move(img), std::move(img_view), format, size, mip_levels,
+            std::move(device_mem), dev_mem_size, usage, mem_prop, is_tiling,
+            aspects, init_layout, is_shared});
 }
 
 void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,

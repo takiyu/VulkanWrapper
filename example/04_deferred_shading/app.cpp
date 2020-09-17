@@ -269,7 +269,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Create G buffer 0 (color)
     const auto gbuf_col_format = vk::Format::eA8B8G8R8SnormPack32;
     auto gbuf_col_img_pack = vkw::CreateImagePack(
-            physical_device, device, gbuf_col_format, swapchain_pack->size,
+            physical_device, device, gbuf_col_format, swapchain_pack->size, 1,
             vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eInputAttachment,
             {}, true, vk::ImageAspectFlagBits::eColor);
@@ -277,7 +277,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Create G buffer 1 (normal)
     const auto gbuf_nor_format = vk::Format::eA8B8G8R8SnormPack32;
     auto gbuf_nor_img_pack = vkw::CreateImagePack(
-            physical_device, device, gbuf_nor_format, swapchain_pack->size,
+            physical_device, device, gbuf_nor_format, swapchain_pack->size, 1,
             vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eInputAttachment,
             {}, true, vk::ImageAspectFlagBits::eColor);
@@ -285,7 +285,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Create depth buffer
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
-            physical_device, device, depth_format, swapchain_pack->size,
+            physical_device, device, depth_format, swapchain_pack->size, 1,
             vk::ImageUsageFlagBits::eDepthStencilAttachment, {}, true,
             vk::ImageAspectFlagBits::eDepth);
 
@@ -299,7 +299,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Create color texture
     auto color_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32G32B32A32Sfloat,
-            {mesh.color_tex_w, mesh.color_tex_h},
+            {mesh.color_tex_w, mesh.color_tex_h}, 1,
             vk::ImageUsageFlagBits::eSampled |
                     vk::ImageUsageFlagBits::eTransferDst,
             {}, true, vk::ImageAspectFlagBits::eColor);
@@ -308,7 +308,7 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     // Create bump texture
     auto bump_img_pack = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR32Sfloat,
-            {mesh.color_tex_w, mesh.color_tex_h},
+            {mesh.color_tex_w, mesh.color_tex_h}, 1,
             vk::ImageUsageFlagBits::eSampled |
                     vk::ImageUsageFlagBits::eTransferDst,
             {}, true, vk::ImageAspectFlagBits::eColor);
