@@ -101,17 +101,18 @@ if (VKW_LINK_DYNAMIC_VK)
     message(STATUS "Build VKW as dynacmic-vk mode")
     list(APPEND VKW_INCLUDE
                 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
-    add_definitions(-DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1)  # dlopen tool
-    add_definitions(-DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # Dynamic dispatch
+    list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
+                           -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
 else()
     # Vulkan (Static)
     message(STATUS "Build VKW as static-vk mode")
     find_package(Vulkan REQUIRED)
     list(APPEND VKW_INCLUDE ${Vulkan_INCLUDE_DIRS})
     list(APPEND VKW_LIBRARY ${Vulkan_LIBRARY})
-    add_definitions(-DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=0)  # No dlopen tool
-    add_definitions(-DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=0)  # Static dispatch
+    list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
+                           -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
 endif()
+add_definitions(${VKW_DEFINE})
 
 # SPIRV-Headers
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "")
@@ -196,6 +197,7 @@ list(APPEND VKW_LIBRARY vkw)
 if(HAS_PARENT)
     set(VKW_INCLUDE ${VKW_INCLUDE} PARENT_SCOPE)
     set(VKW_LIBRARY ${VKW_LIBRARY} PARENT_SCOPE)
+    set(VKW_DEFINE ${VKW_DEFINE} PARENT_SCOPE)
 endif()
 
 # ------------------------------------------------------------------------------
