@@ -136,7 +136,7 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     // Initialize with display environment
     const bool display_enable = true;
     const bool debug_enable = true;
-    const uint32_t n_queues = 2;
+    const uint32_t n_queues = 1;
 
     // Create instance
     auto instance = vkw::CreateInstance("VKW Example 06", 1, "VKW", 0,
@@ -332,7 +332,7 @@ void RunExampleApp06(const vkw::WindowPtr& window,
                            vk::PipelineStageFlagBits::eColorAttachmentOutput}},
                          {});
 
-        vkw::QueuePresent(queues[1], swapchain_pack, curr_img_idx);
+        vkw::QueuePresent(queues[0], swapchain_pack, curr_img_idx);
 
         vkw::WaitForFences(device, {draw_fence});
 
