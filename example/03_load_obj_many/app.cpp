@@ -325,7 +325,7 @@ void VkApp::initDescComps(uint32_t uniform_size, uint32_t color_tex_w,
 #else
             m_physical_device, m_device, vk::Format::eR32G32B32A32Sfloat,
 #endif
-            {color_tex_w, color_tex_h},
+            {color_tex_w, color_tex_h}, 1,
             vk::ImageUsageFlagBits::eSampled |
                     vk::ImageUsageFlagBits::eTransferDst,
             {}, true, vk::ImageAspectFlagBits::eColor);
@@ -352,7 +352,7 @@ void VkApp::initAttachComps() {
     // Create depth buffer
     m_depth_img_pack = vkw::CreateImagePack(
             m_physical_device, m_device, DEPTH_FORMAT, m_swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
+            1, vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
             true,  // tiling
             vk::ImageAspectFlagBits::eDepth);
 

@@ -117,16 +117,16 @@ const std::vector<Vertex> CUBE_VERTICES = {
         {-1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f},
 };
 
-const std::vector<uint32_t> CUBE_INDICES {
-        0, 1, 2, 2, 1, 3,  // red face
-        4, 5, 6, 6, 5, 7,  // green face
-        8, 9, 10, 10, 9, 11,  // blur face
+const std::vector<uint32_t> CUBE_INDICES{
+        0,  1,  2,  2,  1,  3,   // red face
+        4,  5,  6,  6,  5,  7,   // green face
+        8,  9,  10, 10, 9,  11,  // blur face
         12, 13, 14, 14, 13, 15,  // yellow face
         16, 17, 18, 18, 17, 19,  // magenta face
         20, 21, 22, 22, 21, 23,  // cyan face
 };
 
-} // namespace
+}  // namespace
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -173,8 +173,9 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     // Create depth buffer
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
-            physical_device, device, depth_format, swapchain_pack->size,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment, {}, true, // tiling
+            physical_device, device, depth_format, swapchain_pack->size, 1,
+            vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
+            true,  // tiling
             vk::ImageAspectFlagBits::eDepth);
 
     // Create uniform buffer
@@ -216,9 +217,9 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     vkw::UpdateRenderPass(device, render_pass_pack);
 
     // Create frame buffer
-    auto frame_buffer_packs = vkw::CreateFrameBuffers(device, render_pass_pack,
-                                                      {nullptr, depth_img_pack},
-                                                      swapchain_pack);
+    auto frame_buffer_packs =
+            vkw::CreateFrameBuffers(device, render_pass_pack,
+                                    {nullptr, depth_img_pack}, swapchain_pack);
 
     // Compile shader
     vkw::GLSLCompiler glsl_compiler;
@@ -253,8 +254,9 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     vkw::PipelineInfo pipeline_info;
     pipeline_info.color_blend_infos.resize(1);
     auto pipeline_pack = vkw::CreateGraphicsPipeline(
-            device, {vert_shader_module_pack, geom_shader_module_pack,
-                     frag_shader_module_pack},
+            device,
+            {vert_shader_module_pack, geom_shader_module_pack,
+             frag_shader_module_pack},
             {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
             {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
              {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},

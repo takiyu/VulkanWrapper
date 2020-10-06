@@ -145,7 +145,7 @@ void RunExampleApp01(const vkw::WindowPtr& window,
 
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
-            physical_device, device, depth_format, swapchain_pack->size,
+            physical_device, device, depth_format, swapchain_pack->size, 1,
             vk::ImageUsageFlagBits::eDepthStencilAttachment, {},
             true,  // tiling
             vk::ImageAspectFlagBits::eDepth);

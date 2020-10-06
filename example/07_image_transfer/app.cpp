@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include <vkw/warning_suppressor.h>
+
 #include "vkw/vkw.h"
 
 BEGIN_VKW_SUPPRESS_WARNING
@@ -11,6 +12,7 @@ BEGIN_VKW_SUPPRESS_WARNING
 END_VKW_SUPPRESS_WARNING
 
 #include <iostream>
+#include <sstream>
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -52,23 +54,28 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // ------------------
     const uint32_t DATA_SIZE = 10 * 10 * 4;
+    const uint32_t MIPLEVEL_CNT = 3;
+    const uint32_t BASE_IMG_SIZE = 10 * std::pow(2, MIPLEVEL_CNT - 1);
 
     // Create source buffer
     auto buf_src = vkw::CreateBufferPack(physical_device, device, DATA_SIZE,
-                vk::BufferUsageFlagBits::eTransferSrc, vkw::HOST_VISIB_COHER_PROPS);
+                                         vk::BufferUsageFlagBits::eTransferSrc,
+                                         vkw::HOST_VISIB_COHER_PROPS);
 
     // Create target image
     auto img = vkw::CreateImagePack(
-            physical_device, device, vk::Format::eR8G8B8A8Uint, {10, 10},
+            physical_device, device, vk::Format::eR8G8B8A8Uint,
+            {BASE_IMG_SIZE, BASE_IMG_SIZE}, MIPLEVEL_CNT,
             vk::ImageUsageFlagBits::eSampled |
-            vk::ImageUsageFlagBits::eColorAttachment |
+                    vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eTransferDst |
                     vk::ImageUsageFlagBits::eTransferSrc,
             {}, true);
 
     // Create destination buffer
     auto buf_dst = vkw::CreateBufferPack(physical_device, device, DATA_SIZE,
-                vk::BufferUsageFlagBits::eTransferDst, vkw::HOST_VISIB_COHER_PROPS);
+                                         vk::BufferUsageFlagBits::eTransferDst,
+                                         vkw::HOST_VISIB_COHER_PROPS);
 
     // Create original CPU data
     std::vector<uint8_t> org_data(DATA_SIZE);
@@ -81,7 +88,7 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // Copy from buffer to image
     vkw::BeginCommand(cmd_buf);
-    vkw::CopyBufferToImage(cmd_buf, buf_src, img);
+    vkw::CopyBufferToImage(cmd_buf, buf_src, img, MIPLEVEL_CNT - 1);
     vkw::EndCommand(cmd_buf);
     // Execute
     auto fence = vkw::CreateFence(device);
@@ -90,7 +97,7 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // Copy from image to buffer
     vkw::BeginCommand(cmd_buf);
-    vkw::CopyImageToBuffer(cmd_buf, img, buf_dst);
+    vkw::CopyImageToBuffer(cmd_buf, img, buf_dst, MIPLEVEL_CNT - 1);
     vkw::EndCommand(cmd_buf);
     // Execute
     vkw::ResetFence(device, fence);
@@ -104,7 +111,11 @@ void RunExampleApp07(const vkw::WindowPtr& window,
     for (uint32_t i = 0; i < DATA_SIZE; i++) {
         if (res_data[i] != org_data[i]) {
             is_all_same = false;
-            vkw::PrintErr("Received value is wrong.");
+            std::stringstream ss;
+            ss << "Received value is wrong. ("
+               << static_cast<uint32_t>(res_data[i]) << " vs "
+               << static_cast<uint32_t>(org_data[i]) << ")";
+            vkw::PrintErr(ss.str());
         }
     }
     if (is_all_same) {
