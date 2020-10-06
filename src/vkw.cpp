@@ -1334,6 +1334,20 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
             aspects, init_layout, is_shared});
 }
 
+vk::Extent2D GetMippedSize(const ImagePackPtr &img_pack, uint32_t miplevel) {
+    // Note: 1<=miplevel_cnt, 0<=miplevel
+    if (img_pack->miplevel_cnt <= miplevel) {
+        throw std::runtime_error("Invalid miplevel for input image pack");
+    }
+
+    const auto &base_size = img_pack->size;
+    if (miplevel == 0) {
+        return base_size;
+    } else {
+        return {base_size.width >> miplevel, base_size.height >> miplevel};
+    }
+}
+
 void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
                   const void *data, uint64_t n_bytes) {
     // Check `HostVisible` and `HostCoherent` flags
@@ -1400,7 +1414,7 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
 
     // Transfer from buffer to image
-    const auto &extent = dst_img_pack->size;
+    const auto &extent = GetMippedSize(dst_img_pack, dst_miplevel);
     const vk::ImageSubresourceLayers subres_layers(
             vk::ImageAspectFlagBits::eColor, dst_miplevel, 0, 1);
     vk::BufferImageCopy copy_region(0, extent.width, extent.height,
@@ -1423,7 +1437,7 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, src_img_pack, vk::ImageLayout::eTransferSrcOptimal);
 
     // Transfer from image to buffer
-    const auto &extent = src_img_pack->size;
+    const auto &extent = GetMippedSize(src_img_pack, src_miplevel);
     const vk::ImageSubresourceLayers subres_layers(
             vk::ImageAspectFlagBits::eColor, src_miplevel, 0, 1);
     vk::BufferImageCopy copy_region(0, extent.width, extent.height,
@@ -1448,8 +1462,8 @@ void CopyImage(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
 
     // Transfer from image to buffer
-    const auto &extent_src = src_img_pack->size;
-    const auto &extent_dst = dst_img_pack->size;
+    const auto &extent_src = GetMippedSize(src_img_pack, src_miplevel);
+    const auto &extent_dst = GetMippedSize(dst_img_pack, dst_miplevel);
     if (extent_src != extent_dst) {
         throw std::runtime_error("Image size is not same (CopyImage)");
     }

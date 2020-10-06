@@ -217,7 +217,7 @@ void RecvFromDevice(const vk::UniqueDevice& device,
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
-static constexpr uint32_t AUTO_MIP_LEVEL = uint32_t(~0);
+static constexpr uint32_t MAX_MIP_LEVEL = uint32_t(~0);
 
 struct ImagePack {
     vk::UniqueImage img;
@@ -245,6 +245,8 @@ ImagePackPtr CreateImagePack(
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
         const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined,
         bool is_shared = false);
+
+vk::Extent2D GetMippedSize(const ImagePackPtr& img_pack, uint32_t miplevel);
 
 void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
                   const void* data, uint64_t n_bytes);
