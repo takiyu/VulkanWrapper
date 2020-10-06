@@ -224,7 +224,7 @@ struct ImagePack {
     vk::UniqueImageView view;
     vk::Format format;
     vk::Extent2D size;
-    uint32_t mip_levels;
+    uint32_t miplevel_cnt;
     vk::UniqueDeviceMemory dev_mem;
     vk::DeviceSize dev_mem_size;
     vk::ImageUsageFlags usage;
@@ -239,7 +239,7 @@ ImagePackPtr CreateImagePack(
         const vk::PhysicalDevice& physical_device,
         const vk::UniqueDevice& device,
         const vk::Format& format = vk::Format::eR8G8B8A8Uint,
-        const vk::Extent2D& size = {256, 256}, uint32_t mip_levels = 1,
+        const vk::Extent2D& size = {256, 256}, uint32_t miplevel_cnt = 1,
         const vk::ImageUsageFlags& usage = vk::ImageUsageFlagBits::eSampled,
         const vk::MemoryPropertyFlags& mem_prop = {}, bool is_tiling = true,
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
@@ -260,18 +260,21 @@ void SetImageLayout(const vk::UniqueCommandBuffer& cmd_buf,
 void CopyBufferToImage(const vk::UniqueCommandBuffer& cmd_buf,
                        const BufferPackPtr& src_buf_pack,
                        const ImagePackPtr& dst_img_pack,
+                       const uint32_t dst_miplevel = 0,
                        const vk::ImageLayout& final_layout =
                                vk::ImageLayout::eShaderReadOnlyOptimal);
 
 void CopyImageToBuffer(const vk::UniqueCommandBuffer& cmd_buf,
                        const ImagePackPtr& src_img_pack,
                        const BufferPackPtr& dst_buf_pack,
+                       const uint32_t src_miplevel = 0,
                        const vk::ImageLayout& final_layout =
                                vk::ImageLayout::eColorAttachmentOptimal);
 
 void CopyImage(const vk::UniqueCommandBuffer& cmd_buf,
                const ImagePackPtr& src_img_pack,
                const ImagePackPtr& dst_img_pack,
+               const uint32_t src_miplevel = 0, const uint32_t dst_miplevel = 0,
                const vk::ImageLayout& src_final_layout =
                        vk::ImageLayout::eColorAttachmentOptimal,
                const vk::ImageLayout& dst_final_layout =
@@ -282,6 +285,7 @@ void BlitImage(const vk::UniqueCommandBuffer& cmd_buf,
                const ImagePackPtr& dst_img_pack,
                const std::array<vk::Offset2D, 2>& src_offsets,
                const std::array<vk::Offset2D, 2>& dst_offsets,
+               const uint32_t src_miplevel = 0, const uint32_t dst_miplevel = 0,
                const vk::Filter& filter = vk::Filter::eLinear,
                const vk::ImageLayout& src_final_layout =
                        vk::ImageLayout::eColorAttachmentOptimal,
@@ -291,6 +295,7 @@ void BlitImage(const vk::UniqueCommandBuffer& cmd_buf,
 void ClearColorImage(
         const vk::UniqueCommandBuffer& cmd_buf,
         const ImagePackPtr& src_img_pack, const vk::ClearColorValue& color,
+        const uint32_t base_miplevel = 0, const uint32_t miplevel_cnt = 1,
         const vk::ImageLayout& layout = vk::ImageLayout::eGeneral,
         const vk::ImageLayout& final_layout = vk::ImageLayout::eGeneral);
 

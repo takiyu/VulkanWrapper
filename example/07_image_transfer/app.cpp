@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include <vkw/warning_suppressor.h>
+
 #include "vkw/vkw.h"
 
 BEGIN_VKW_SUPPRESS_WARNING
@@ -55,20 +56,22 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // Create source buffer
     auto buf_src = vkw::CreateBufferPack(physical_device, device, DATA_SIZE,
-                vk::BufferUsageFlagBits::eTransferSrc, vkw::HOST_VISIB_COHER_PROPS);
+                                         vk::BufferUsageFlagBits::eTransferSrc,
+                                         vkw::HOST_VISIB_COHER_PROPS);
 
     // Create target image
     auto img = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR8G8B8A8Uint, {10, 10}, 1,
             vk::ImageUsageFlagBits::eSampled |
-            vk::ImageUsageFlagBits::eColorAttachment |
+                    vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eTransferDst |
                     vk::ImageUsageFlagBits::eTransferSrc,
             {}, true);
 
     // Create destination buffer
     auto buf_dst = vkw::CreateBufferPack(physical_device, device, DATA_SIZE,
-                vk::BufferUsageFlagBits::eTransferDst, vkw::HOST_VISIB_COHER_PROPS);
+                                         vk::BufferUsageFlagBits::eTransferDst,
+                                         vkw::HOST_VISIB_COHER_PROPS);
 
     // Create original CPU data
     std::vector<uint8_t> org_data(DATA_SIZE);
