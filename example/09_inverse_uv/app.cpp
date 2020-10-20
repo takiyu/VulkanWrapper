@@ -58,9 +58,10 @@ layout (binding = 1, rg16f) uniform writeonly image2D out_img;
 void main() {
     uvec2 screen_size = gl_WorkGroupSize.xy * gl_NumWorkGroups.xy;
     ivec2 ss_pos = ivec2(gl_GlobalInvocationID.xy);
-    vec2 ss_pos_f = vec2(ss_pos) / (screen_size * 0.5);
+    vec2 ss_pos_f = vec2(ss_pos) / (screen_size - uvec2(1));
     vec2 uv_f = imageLoad(inp_img, ss_pos).xy;
-    ivec2 uv = ivec2(uv_f * screen_size);
+    uvec2 tex_size = imageSize(out_img);
+    ivec2 uv = ivec2(uv_f * (tex_size - uvec2(1)));
     imageStore(out_img, uv, vec4(ss_pos_f, 1.0, 1.0));
 }
 )";
