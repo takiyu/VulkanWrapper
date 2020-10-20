@@ -1985,11 +1985,11 @@ PipelinePackPtr CreateGraphicsPipeline(
     );
 
     // Dynamic states
-    const vk::DynamicState dynamic_states[2] = {vk::DynamicState::eViewport,
-                                                vk::DynamicState::eScissor};
+    const std::vector<vk::DynamicState> dynamic_states = {
+            vk::DynamicState::eViewport, vk::DynamicState::eScissor};
     // Dynamic state create info
     vk::PipelineDynamicStateCreateInfo dynamic_state_ci(
-            vk::PipelineDynamicStateCreateFlags(), 2, dynamic_states);
+            vk::PipelineDynamicStateCreateFlags(), dynamic_states);
 
     // Repack descriptor set layout
     std::vector<vk::DescriptorSetLayout> desc_set_layouts;
