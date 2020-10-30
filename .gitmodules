@@ -22,3 +22,6 @@
 [submodule "third_party/SPIRV-Headers"]
 	path = third_party/SPIRV-Headers
 	url = https://github.com/KhronosGroup/SPIRV-Headers
+[submodule "third_party/Vulkan-Loader"]
+	path = third_party/Vulkan-Loader
+	url = https://github.com/KhronosGroup/Vulkan-Loader/

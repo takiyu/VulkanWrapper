@@ -114,6 +114,9 @@ else()
 endif()
 add_definitions(${VKW_DEFINE})
 
+# Vulkan-Loader
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Loader)
+
 # SPIRV-Headers
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "")
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE BOOL "")
