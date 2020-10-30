@@ -103,6 +103,15 @@ if (VKW_LINK_DYNAMIC_VK)
                 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
+
+    # Vulkan-Loader
+    set(VulkanHeaders_INCLUDE_DIR
+                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include
+                CACHE INTERNAL "" FORCE)
+    set(VulkanRegistry_DIR
+                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/registry
+                CACHE INTERNAL "" FORCE)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Loader)
 else()
     # Vulkan (Static)
     message(STATUS "Build VKW as static-vk mode")
@@ -113,9 +122,6 @@ else()
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
 endif()
 add_definitions(${VKW_DEFINE})
-
-# Vulkan-Loader
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Loader)
 
 # SPIRV-Headers
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "")
