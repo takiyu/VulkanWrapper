@@ -118,8 +118,8 @@ else()
     find_package(Vulkan REQUIRED)
     list(APPEND VKW_INCLUDE ${Vulkan_INCLUDE_DIRS})
     list(APPEND VKW_LIBRARY ${Vulkan_LIBRARY})
-    list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
-                           -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
+    list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=0  # dlopen
+                           -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=0)  # dispatch
 endif()
 add_definitions(${VKW_DEFINE})
 
