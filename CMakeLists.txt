@@ -104,14 +104,16 @@ if (VKW_LINK_DYNAMIC_VK)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
 
-    # Vulkan-Loader
-    set(VulkanHeaders_INCLUDE_DIR
+    if (NOT MSVC)
+        # Vulkan-Loader
+        set(VulkanHeaders_INCLUDE_DIR
                 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include
                 CACHE INTERNAL "" FORCE)
-    set(VulkanRegistry_DIR
+        set(VulkanRegistry_DIR
                 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/registry
                 CACHE INTERNAL "" FORCE)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Loader)
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Loader)
+    endif()
 else()
     # Vulkan (Static)
     message(STATUS "Build VKW as static-vk mode")
