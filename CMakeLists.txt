@@ -15,6 +15,12 @@ endif()
 # ------------------------------------------------------------------------------
 set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
 set(VKW_LINK_DYNAMIC_VK ON CACHE BOOL "Dynamic link for vulkan.")
+set(VKW_USE_VULKAN_LOADER ON CACHE BOOL "Use Vulkan-Loader when dynamic link.")
+
+# Handle flag dependency
+if (NOT VKW_LINK_DYNAMIC_VK OR MSVC)
+    set(VKW_USE_VULKAN_LOADER OFF)
+endif()
 
 # ------------------------------------------------------------------------------
 # ----------------------------------- Common -----------------------------------
@@ -104,8 +110,9 @@ if (VKW_LINK_DYNAMIC_VK)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
 
-    if (NOT MSVC)
+    if (VKW_USE_VULKAN_LOADER)
         # Vulkan-Loader
+        message(STATUS "With Vulkan-Loader")
         set(VulkanHeaders_INCLUDE_DIR
                 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Vulkan-Headers/include
                 CACHE INTERNAL "" FORCE)
@@ -193,7 +200,6 @@ endif()
 # ------------------------------------------------------------------------------
 # ----------------------------- Internal Libraries -----------------------------
 # ------------------------------------------------------------------------------
-
 # VKW
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(vkw
