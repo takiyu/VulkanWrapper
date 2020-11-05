@@ -184,6 +184,29 @@ uint32_t AcquireNextImage(const vk::UniqueDevice& device,
                           uint64_t timeout = NO_TIMEOUT);
 
 // -----------------------------------------------------------------------------
+// ------------------------------- Device Memory -------------------------------
+// -----------------------------------------------------------------------------
+struct DeviceMemoryPack {
+    vk::UniqueDeviceMemory dev_mem;
+    vk::DeviceSize dev_mem_size;
+    vk::MemoryPropertyFlags mem_prop;
+};
+using DeviceMemoryPackPtr = std::shared_ptr<DeviceMemoryPack>;
+DeviceMemoryPackPtr CreateDeviceMemoryPack(
+        const vk::UniqueDevice& device,
+        const vk::PhysicalDevice& physical_device,
+        const vk::MemoryRequirements& mem_req,
+        const vk::MemoryPropertyFlags& mem_prop);
+
+void SendToDevice(const vk::UniqueDevice& device,
+                  const DeviceMemoryPack& dev_mem_pack, const void* data,
+                  uint64_t n_bytes);
+
+void RecvFromDevice(const vk::UniqueDevice& device,
+                    const DeviceMemoryPackPtr& dev_mem_pack, void* data,
+                    uint64_t n_bytes);
+
+// -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
 static constexpr auto HOST_VISIB_COHER_PROPS =
@@ -193,10 +216,8 @@ static constexpr auto HOST_VISIB_COHER_PROPS =
 struct BufferPack {
     vk::UniqueBuffer buf;
     vk::DeviceSize size;
-    vk::UniqueDeviceMemory dev_mem;
-    vk::DeviceSize dev_mem_size;
     vk::BufferUsageFlags usage;
-    vk::MemoryPropertyFlags mem_prop;
+    DeviceMemoryPackPtr dev_mem_pack;
 };
 using BufferPackPtr = std::shared_ptr<BufferPack>;
 BufferPackPtr CreateBufferPack(
@@ -225,14 +246,13 @@ struct ImagePack {
     vk::Format format;
     vk::Extent2D size;
     uint32_t miplevel_cnt;
-    vk::UniqueDeviceMemory dev_mem;
-    vk::DeviceSize dev_mem_size;
     vk::ImageUsageFlags usage;
     vk::MemoryPropertyFlags mem_prop;
     bool is_tiling;
     vk::ImageAspectFlags aspects;
     vk::ImageLayout layout;
     bool is_shared;
+    DeviceMemoryPackPtr dev_mem_pack;
 };
 using ImagePackPtr = std::shared_ptr<ImagePack>;
 ImagePackPtr CreateImagePack(

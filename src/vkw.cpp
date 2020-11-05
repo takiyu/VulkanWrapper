@@ -329,30 +329,6 @@ static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueDeviceMemory AllocMemory(
-        const vk::UniqueDevice &device,
-        const vk::PhysicalDevice &physical_device,
-        const vk::MemoryRequirements &memory_requs,
-        const vk::MemoryPropertyFlags &require_flags) {
-    auto actual_memory_props = physical_device.getMemoryProperties();
-    uint32_t type_bits = memory_requs.memoryTypeBits;
-    uint32_t type_idx = uint32_t(~0);
-    for (uint32_t i = 0; i < actual_memory_props.memoryTypeCount; i++) {
-        if ((type_bits & 1) &&
-            IsFlagSufficient(actual_memory_props.memoryTypes[i].propertyFlags,
-                             require_flags)) {
-            type_idx = i;
-            break;
-        }
-        type_bits >>= 1;
-    }
-    if (type_idx == uint32_t(~0)) {
-        throw std::runtime_error("Failed to allocate requested memory");
-    }
-
-    return device->allocateMemoryUnique({memory_requs.size, type_idx});
-}
-
 static vk::UniqueImageView CreateImageView(const vk::Image &img,
                                            const vk::Format &format,
                                            const vk::ImageAspectFlags &aspects,
@@ -368,26 +344,6 @@ static vk::UniqueImageView CreateImageView(const vk::Image &img,
     return view;
 }
 
-static void SendToDevice(const vk::UniqueDevice &device,
-                         const vk::UniqueDeviceMemory &dev_mem,
-                         const vk::DeviceSize &dev_mem_size, const void *data,
-                         uint64_t n_bytes) {
-    uint8_t *dev_p = static_cast<uint8_t *>(
-            device->mapMemory(dev_mem.get(), 0, dev_mem_size));
-    memcpy(dev_p, data, n_bytes);  // data -> dev_p
-    device->unmapMemory(dev_mem.get());
-}
-
-static void RecvFromDevice(const vk::UniqueDevice &device,
-                           const vk::UniqueDeviceMemory &dev_mem,
-                           const vk::DeviceSize &dev_mem_size, void *data,
-                           uint64_t n_bytes) {
-    const uint8_t *dev_p = static_cast<uint8_t *>(
-            device->mapMemory(dev_mem.get(), 0, dev_mem_size));
-    memcpy(data, dev_p, n_bytes);  // dev_p -> data
-    device->unmapMemory(dev_mem.get());
-}
-
 static vk::UniqueSampler CreateSampler(const vk::UniqueDevice &device,
                                        const vk::Filter &mag_filter,
                                        const vk::Filter &min_filter,
@@ -395,7 +351,7 @@ static vk::UniqueSampler CreateSampler(const vk::UniqueDevice &device,
                                        const vk::SamplerAddressMode &addr_u,
                                        const vk::SamplerAddressMode &addr_v,
                                        const vk::SamplerAddressMode &addr_w,
-                                       const uint32_t& miplevel_cnt) {
+                                       const uint32_t &miplevel_cnt) {
     const float mip_lod_bias = 0.f;
     const bool anisotropy_enable = false;
     const float max_anisotropy = 16.f;
@@ -1230,6 +1186,76 @@ uint32_t AcquireNextImage(const vk::UniqueDevice &device,
 }
 
 // -----------------------------------------------------------------------------
+// ------------------------------- Device Memory -------------------------------
+// -----------------------------------------------------------------------------
+DeviceMemoryPackPtr CreateDeviceMemoryPack(
+        const vk::UniqueDevice &device,
+        const vk::PhysicalDevice &physical_device,
+        const vk::MemoryRequirements &mem_req,
+        const vk::MemoryPropertyFlags &mem_prop) {
+    // Check memory requirements
+    auto actual_mem_prop = physical_device.getMemoryProperties();
+    uint32_t type_bits = mem_req.memoryTypeBits;
+    uint32_t type_idx = uint32_t(~0);
+    for (uint32_t i = 0; i < actual_mem_prop.memoryTypeCount; i++) {
+        if ((type_bits & 1) &&
+            IsFlagSufficient(actual_mem_prop.memoryTypes[i].propertyFlags,
+                             mem_prop)) {
+            type_idx = i;
+            break;
+        }
+        type_bits >>= 1;
+    }
+    if (type_idx == uint32_t(~0)) {
+        throw std::runtime_error("Failed to allocate requested memory");
+    }
+
+    // Allocate
+    auto dev_mem = device->allocateMemoryUnique({mem_req.size, type_idx});
+
+    // Get size
+    auto dev_mem_size = mem_req.size;
+
+    // Construct device memory pack
+    return DeviceMemoryPackPtr(
+            new DeviceMemoryPack{std::move(dev_mem), dev_mem_size, mem_prop});
+}
+
+void SendToDevice(const vk::UniqueDevice &device,
+                  const DeviceMemoryPackPtr &dev_mem_pack, const void *data,
+                  uint64_t n_bytes) {
+    // Check `HostVisible` and `HostCoherent` flags
+    if (!IsFlagSufficient(dev_mem_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
+        throw std::runtime_error(
+                "Failed to send: HostCoherent and HostVisible are needed.");
+    }
+
+    // Copy
+    const auto &dev_mem = dev_mem_pack->dev_mem;
+    uint8_t *dev_p = static_cast<uint8_t *>(
+            device->mapMemory(dev_mem.get(), 0, dev_mem_pack->dev_mem_size));
+    memcpy(dev_p, data, n_bytes);  // data -> dev_p
+    device->unmapMemory(dev_mem.get());
+}
+
+void RecvFromDevice(const vk::UniqueDevice &device,
+                    const DeviceMemoryPackPtr &dev_mem_pack, void *data,
+                    uint64_t n_bytes) {
+    // Check `HostVisible` and `HostCoherent` flags
+    if (!IsFlagSufficient(dev_mem_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
+        throw std::runtime_error(
+                "Failed to receive: HostCoherent and HostVisible are needed.");
+    }
+
+    // Copy
+    const auto &dev_mem = dev_mem_pack->dev_mem;
+    const uint8_t *dev_p = static_cast<uint8_t *>(
+            device->mapMemory(dev_mem.get(), 0, dev_mem_pack->dev_mem_size));
+    memcpy(data, dev_p, n_bytes);  // dev_p -> data
+    device->unmapMemory(dev_mem.get());
+}
+
+// -----------------------------------------------------------------------------
 // ----------------------------------- Buffer ----------------------------------
 // -----------------------------------------------------------------------------
 BufferPackPtr CreateBufferPack(const vk::PhysicalDevice &physical_device,
@@ -1242,43 +1268,28 @@ BufferPackPtr CreateBufferPack(const vk::PhysicalDevice &physical_device,
             device->createBufferUnique({vk::BufferCreateFlags(), size, usage});
 
     // Allocate memory
-    auto memory_requs = device->getBufferMemoryRequirements(*buf);
-    auto device_mem =
-            AllocMemory(device, physical_device, memory_requs, mem_prop);
+    auto mem_req = device->getBufferMemoryRequirements(*buf);
+    DeviceMemoryPackPtr dev_mem_pack =
+            CreateDeviceMemoryPack(device, physical_device, mem_req, mem_prop);
 
     // Bind memory
-    device->bindBufferMemory(buf.get(), device_mem.get(), 0);
+    device->bindBufferMemory(buf.get(), dev_mem_pack->dev_mem.get(), 0);
 
-    return BufferPackPtr(new BufferPack{std::move(buf), size,
-                                        std::move(device_mem),
-                                        memory_requs.size, usage, mem_prop});
+    return BufferPackPtr(new BufferPack{std::move(buf), size, usage,
+                                        std::move(dev_mem_pack)});
 }
 
 void SendToDevice(const vk::UniqueDevice &device, const BufferPackPtr &buf_pack,
                   const void *data, uint64_t n_bytes) {
-    // Check `HostVisible` and `HostCoherent` flags
-    if (!IsFlagSufficient(buf_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
-        throw std::runtime_error(
-                "Failed to send (Buffer): HostCoherent and HostVisible are "
-                "needed");
-    }
     // Send
-    SendToDevice(device, buf_pack->dev_mem, buf_pack->dev_mem_size, data,
-                 n_bytes);
+    SendToDevice(device, buf_pack->dev_mem_pack, data, n_bytes);
 }
 
 void RecvFromDevice(const vk::UniqueDevice &device,
                     const BufferPackPtr &buf_pack, void *data,
                     uint64_t n_bytes) {
-    // Check `HostVisible` and `HostCoherent` flags
-    if (!IsFlagSufficient(buf_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
-        throw std::runtime_error(
-                "Failed to receive (Buffer): HostCoherent and HostVisible are "
-                "needed");
-    }
     // Receive
-    RecvFromDevice(device, buf_pack->dev_mem, buf_pack->dev_mem_size, data,
-                   n_bytes);
+    RecvFromDevice(device, buf_pack->dev_mem_pack, data, n_bytes);
 }
 
 // -----------------------------------------------------------------------------
@@ -1316,23 +1327,22 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
              init_layout});
 
     // Allocate memory
-    auto memory_requs = device->getImageMemoryRequirements(*img);
-    auto device_mem =
-            AllocMemory(device, physical_device, memory_requs, mem_prop);
-    auto dev_mem_size = memory_requs.size;
+    auto mem_req = device->getImageMemoryRequirements(*img);
+    DeviceMemoryPackPtr dev_mem_pack =
+            CreateDeviceMemoryPack(device, physical_device, mem_req, mem_prop);
 
     // Bind memory
-    device->bindImageMemory(img.get(), device_mem.get(), 0);
+    device->bindImageMemory(img.get(), dev_mem_pack->dev_mem.get(), 0);
 
     // Create image view
     auto img_view =
             CreateImageView(*img, format, aspects, miplevel_cnt, device);
 
     // Construct image pack
-    return ImagePackPtr(new ImagePack{
-            std::move(img), std::move(img_view), format, size, miplevel_cnt,
-            std::move(device_mem), dev_mem_size, usage, mem_prop, is_tiling,
-            aspects, init_layout, is_shared});
+    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
+                                      format, size, miplevel_cnt, usage,
+                                      mem_prop, is_tiling, aspects, init_layout,
+                                      is_shared, std::move(dev_mem_pack)});
 }
 
 vk::Extent2D GetMippedSize(const ImagePackPtr &img_pack, uint32_t miplevel) {
@@ -1351,38 +1361,25 @@ vk::Extent2D GetMippedSize(const ImagePackPtr &img_pack, uint32_t miplevel) {
 
 void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
                   const void *data, uint64_t n_bytes) {
-    // Check `HostVisible` and `HostCoherent` flags
-    if (!IsFlagSufficient(img_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
-        throw std::runtime_error(
-                "Failed to send (Image): HostCoherent and HostVisible are "
-                "needed.");
-    }
     // Check tiling
     if (img_pack->is_tiling) {
         throw std::runtime_error("Failed to send (Image): Image is tiled.");
     }
 
     // Send to device directly
-    SendToDevice(device, img_pack->dev_mem, img_pack->dev_mem_size, data,
-                 n_bytes);
+    SendToDevice(device, img_pack->dev_mem_pack, data, n_bytes);
 }
 
 void RecvFromDevice(const vk::UniqueDevice &device,
                     const ImagePackPtr &img_pack, void *data,
                     uint64_t n_bytes) {
-    // Check `HostVisible` and `HostCoherent` flags
-    if (!IsFlagSufficient(img_pack->mem_prop, HOST_VISIB_COHER_PROPS)) {
-        throw std::runtime_error(
-                "Failed to receive (Image): HostCoherent and HostVisible are "
-                "needed.");
-    }
     // Check tiling
     if (img_pack->is_tiling) {
         throw std::runtime_error("Failed to receive (Image): Image is tiled.");
     }
-    // Receive
-    RecvFromDevice(device, img_pack->dev_mem, img_pack->dev_mem_size, data,
-                   n_bytes);
+
+    // Receive from device directly
+    RecvFromDevice(device, img_pack->dev_mem_pack, data, n_bytes);
 }
 
 void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
