@@ -53,10 +53,10 @@ void RunExampleApp07(const vkw::WindowPtr& window,
     auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
+    const uint32_t BASE_IMG_SIZE = 1024;
     const uint32_t MIPLEVEL = 2;  // copying mip-level
     const uint32_t MIPLEVEL_CNT = 4;
-    const uint32_t BASE_IMG_SIZE = 1024;
-    const uint32_t VIEW_MIPLEVEL_BASE = 1;
+    const uint32_t VIEW_MIPLEVEL_BASE = 2;
     const uint32_t VIEW_MIPLEVEL_CNT = 2;
     const uint32_t VIEW_MIPLEVEL = MIPLEVEL - VIEW_MIPLEVEL_BASE;
     const uint32_t DATA_SIZE = std::pow(BASE_IMG_SIZE >> MIPLEVEL, 2) * 4;

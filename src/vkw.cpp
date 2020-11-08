@@ -1338,6 +1338,11 @@ ImagePackPtr CreateImagePack(const ImageResPackPtr &img_res_pack,
                              const vk::Format &format_inp,
                              uint32_t miplevel_base, uint32_t miplevel_cnt,
                              const vk::ImageAspectFlags &aspects) {
+    // Check miplevel
+    if (img_res_pack->miplevel_cnt < miplevel_base + miplevel_cnt) {
+        throw std::runtime_error("Invalid miplevel to create image view");
+    }
+
     // Decide format
     const vk::Format format = (format_inp == vk::Format::eUndefined) ?
                                       img_res_pack->format :
