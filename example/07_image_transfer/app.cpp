@@ -53,9 +53,13 @@ void RunExampleApp07(const vkw::WindowPtr& window,
     auto& cmd_buf = cmd_bufs_pack->cmd_bufs[0];
 
     // ------------------
-    const uint32_t DATA_SIZE = 10 * 10 * 4;
-    const uint32_t MIPLEVEL_CNT = 3;
-    const uint32_t BASE_IMG_SIZE = 10 * std::pow(2, MIPLEVEL_CNT - 1);
+    const uint32_t MIPLEVEL = 2;  // copying mip-level
+    const uint32_t MIPLEVEL_CNT = 4;
+    const uint32_t BASE_IMG_SIZE = 1024;
+    const uint32_t VIEW_MIPLEVEL_BASE = 1;
+    const uint32_t VIEW_MIPLEVEL_CNT = 2;
+    const uint32_t VIEW_MIPLEVEL = MIPLEVEL - VIEW_MIPLEVEL_BASE;
+    const uint32_t DATA_SIZE = std::pow(BASE_IMG_SIZE >> MIPLEVEL, 2) * 4;
 
     // Create source buffer
     auto buf_src = vkw::CreateBufferPack(physical_device, device, DATA_SIZE,
@@ -63,7 +67,7 @@ void RunExampleApp07(const vkw::WindowPtr& window,
                                          vkw::HOST_VISIB_COHER_PROPS);
 
     // Create target image
-    auto img = vkw::CreateImagePack(
+    auto img_base = vkw::CreateImagePack(
             physical_device, device, vk::Format::eR8G8B8A8Uint,
             {BASE_IMG_SIZE, BASE_IMG_SIZE}, MIPLEVEL_CNT,
             vk::ImageUsageFlagBits::eSampled |
@@ -71,6 +75,10 @@ void RunExampleApp07(const vkw::WindowPtr& window,
                     vk::ImageUsageFlagBits::eTransferDst |
                     vk::ImageUsageFlagBits::eTransferSrc,
             {}, true);
+    // Recreate img view
+    auto img = vkw::CreateImagePack(img_base->img_res_pack, device,
+                                    vk::Format::eUndefined, VIEW_MIPLEVEL_BASE,
+                                    VIEW_MIPLEVEL_CNT);
 
     // Create destination buffer
     auto buf_dst = vkw::CreateBufferPack(physical_device, device, DATA_SIZE,
@@ -88,7 +96,7 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // Copy from buffer to image
     vkw::BeginCommand(cmd_buf);
-    vkw::CopyBufferToImage(cmd_buf, buf_src, img, MIPLEVEL_CNT - 1);
+    vkw::CopyBufferToImage(cmd_buf, buf_src, img, VIEW_MIPLEVEL);
     vkw::EndCommand(cmd_buf);
     // Execute
     auto fence = vkw::CreateFence(device);
@@ -97,7 +105,7 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // Copy from image to buffer
     vkw::BeginCommand(cmd_buf);
-    vkw::CopyImageToBuffer(cmd_buf, img, buf_dst, MIPLEVEL_CNT - 1);
+    vkw::CopyImageToBuffer(cmd_buf, img, buf_dst, VIEW_MIPLEVEL);
     vkw::EndCommand(cmd_buf);
     // Execute
     vkw::ResetFence(device, fence);

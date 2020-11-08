@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include <vkw/warning_suppressor.h>
+
 #include "vkw/vkw.h"
 #include "vulkan/vulkan.hpp"
 
@@ -87,8 +88,8 @@ void main() {
 )";
 
 struct Vertex {
-    float x, y, z;     // Position
-    float u, v;        // Texcoord
+    float x, y, z;  // Position
+    float u, v;     // Texcoord
 };
 
 struct Mesh {
@@ -221,9 +222,10 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Create render pass (1st)
     auto render_pass_pack1 = vkw::CreateRenderPassPack();
     // Add color attachment
-    vkw::AddAttachientDesc(
-            render_pass_pack1, uv_img_pack->format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::eGeneral);
+    vkw::AddAttachientDesc(render_pass_pack1, uv_img_pack->view_format,
+                           vk::AttachmentLoadOp::eClear,
+                           vk::AttachmentStoreOp::eStore,
+                           vk::ImageLayout::eGeneral);
     // Add depth attachment
     vkw::AddAttachientDesc(render_pass_pack1, depth_format,
                            vk::AttachmentLoadOp::eClear,
@@ -241,9 +243,8 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Create render pass instance
     vkw::UpdateRenderPass(device, render_pass_pack1);
     // Create frame buffers for swapchain images
-    auto frame_buffer_pack1 =
-            vkw::CreateFrameBuffer(device, render_pass_pack1,
-                                    {uv_img_pack, depth_img_pack});
+    auto frame_buffer_pack1 = vkw::CreateFrameBuffer(
+            device, render_pass_pack1, {uv_img_pack, depth_img_pack});
 
     // Create descriptor set for uniform buffer and texture
     auto desc_set_pack1 = vkw::CreateDescriptorSetPack(
@@ -258,10 +259,10 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Create render pass (2nd)
     auto render_pass_pack2 = vkw::CreateRenderPassPack();
     // Add input attachment
-    vkw::AddAttachientDesc(
-            render_pass_pack2, result_img_pack->format,
-            vk::AttachmentLoadOp::eLoad, vk::AttachmentStoreOp::eStore,
-            vk::ImageLayout::eGeneral);
+    vkw::AddAttachientDesc(render_pass_pack2, result_img_pack->view_format,
+                           vk::AttachmentLoadOp::eLoad,
+                           vk::AttachmentStoreOp::eStore,
+                           vk::ImageLayout::eGeneral);
     // Add color attachment
     vkw::AddAttachientDesc(
             render_pass_pack2, surface_format, vk::AttachmentLoadOp::eClear,
@@ -279,8 +280,7 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Create frame buffers for swapchain images
     auto frame_buffer_packs2 =
             vkw::CreateFrameBuffers(device, render_pass_pack2,
-                                    {result_img_pack, nullptr},
-                                    swapchain_pack);
+                                    {result_img_pack, nullptr}, swapchain_pack);
 
     // Create descriptor set for uniform buffer and texture
     auto desc_set_pack2 = vkw::CreateDescriptorSetPack(
@@ -343,8 +343,8 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     vkw::PipelineInfo pipeline_info2;
     pipeline_info2.color_blend_infos.resize(1);
     auto pipeline_pack2 = vkw::CreateGraphicsPipeline(
-            device, {vert_shader_module_pack2, frag_shader_module_pack2},
-            {}, {}, pipeline_info2, {desc_set_pack2}, render_pass_pack2);
+            device, {vert_shader_module_pack2, frag_shader_module_pack2}, {},
+            {}, pipeline_info2, {desc_set_pack2}, render_pass_pack2);
 
     // Create pipeline (compute shader)
     vkw::PipelineInfo pipeline_info;
@@ -387,13 +387,13 @@ void RunExampleApp09(const vkw::WindowPtr& window,
         vkw::BeginCommand(cmd_buf);
         // Layout initialization
         vkw::SetImageLayout(cmd_buf, uv_img_pack, vk::ImageLayout::eGeneral);
-        vkw::SetImageLayout(cmd_buf, result_img_pack, vk::ImageLayout::eGeneral);
+        vkw::SetImageLayout(cmd_buf, result_img_pack,
+                            vk::ImageLayout::eGeneral);
         vkw::ClearColorImage(cmd_buf, result_img_pack,
                              vk::ClearColorValue(clear_color));
 
         // 1st pass
-        vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack1,
-                                frame_buffer_pack1,
+        vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack1, frame_buffer_pack1,
                                 {
                                         vk::ClearColorValue(clear_color),
                                         vk::ClearDepthStencilValue(1.0f, 0),

@@ -329,29 +329,34 @@ static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static vk::UniqueImageView CreateImageView(const vk::Image &img,
-                                           const vk::Format &format,
-                                           const vk::ImageAspectFlags &aspects,
-                                           const uint32_t miplevel_cnt,
-                                           const vk::UniqueDevice &device) {
+static vk::UniqueImageView CreateImageViewImpl(
+        const vk::Image &img, const vk::Format &format,
+        const vk::ImageAspectFlags &aspects, const uint32_t miplevel_base,
+        const uint32_t miplevel_cnt, const vk::UniqueDevice &device) {
     const vk::ComponentMapping comp_mapping(
             vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
             vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA);
-    vk::ImageSubresourceRange subres_range(aspects, 0, miplevel_cnt, 0, 1);
+    vk::ImageSubresourceRange subres_range(aspects, miplevel_base, miplevel_cnt,
+                                           0, 1);
     auto view = device->createImageViewUnique({vk::ImageViewCreateFlags(), img,
                                                vk::ImageViewType::e2D, format,
                                                comp_mapping, subres_range});
     return view;
 }
 
-static vk::UniqueSampler CreateSampler(const vk::UniqueDevice &device,
-                                       const vk::Filter &mag_filter,
-                                       const vk::Filter &min_filter,
-                                       const vk::SamplerMipmapMode &mipmap,
-                                       const vk::SamplerAddressMode &addr_u,
-                                       const vk::SamplerAddressMode &addr_v,
-                                       const vk::SamplerAddressMode &addr_w,
-                                       const uint32_t &miplevel_cnt) {
+static uint32_t GetActualMipLevel(const uint32_t &miplevel,
+                                  const ImagePackPtr &img_pack) {
+    return miplevel + img_pack->view_miplevel_base;
+}
+
+static vk::UniqueSampler CreateSamplerImpl(const vk::UniqueDevice &device,
+                                           const vk::Filter &mag_filter,
+                                           const vk::Filter &min_filter,
+                                           const vk::SamplerMipmapMode &mipmap,
+                                           const vk::SamplerAddressMode &addr_u,
+                                           const vk::SamplerAddressMode &addr_v,
+                                           const vk::SamplerAddressMode &addr_w,
+                                           const uint32_t &miplevel_cnt) {
     const float mip_lod_bias = 0.f;
     const bool anisotropy_enable = false;
     const float max_anisotropy = 16.f;
@@ -450,29 +455,15 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
                                          vk::to_string(new_img_layout));
         }
     }();
-    // Decide aspect mask
-    const vk::ImageAspectFlags aspect_mask = [&]() -> vk::ImageAspectFlags {
-        if (new_img_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
-            const vk::Format &format = img_pack->format;
-            if (format == vk::Format::eD32SfloatS8Uint ||
-                format == vk::Format::eD24UnormS8Uint) {
-                return vk::ImageAspectFlagBits::eDepth |
-                       vk::ImageAspectFlagBits::eStencil;
-            } else {
-                return vk::ImageAspectFlagBits::eDepth;
-            }
-        } else {
-            return vk::ImageAspectFlagBits::eColor;
-        }
-    }();
 
     // Set image layout
-    const vk::ImageSubresourceRange subres_range(aspect_mask, 0,
-                                                 img_pack->miplevel_cnt, 0, 1);
+    const vk::ImageSubresourceRange subres_range(
+            img_pack->view_aspects, img_pack->view_miplevel_base,
+            img_pack->view_miplevel_cnt, 0, 1);
     vk::ImageMemoryBarrier img_memory_barrier(
             src_access_mask, dst_access_mask, old_img_layout, new_img_layout,
             VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-            img_pack->img.get(), subres_range);
+            img_pack->img_res_pack->img.get(), subres_range);
     return cmd_buf->pipelineBarrier(src_stage, dst_stage, {}, nullptr, nullptr,
                                     img_memory_barrier);
 }
@@ -519,12 +510,12 @@ auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
     // Extract size from the first image
     vk::Extent2D size = size_org;
     if (size.width == 0 || size.height == 0) {
-        size = imgs[0]->size;
+        size = imgs[0]->view_size;
     }
 
     // Check image sizes
     for (uint32_t i = 0; i < imgs.size(); i++) {
-        if (imgs[i] && imgs[i]->size != size) {
+        if (imgs[i] && imgs[i]->view_size != size) {
             throw std::runtime_error("Image sizes are not match (FrameBuffer)");
         }
     }
@@ -1157,9 +1148,9 @@ SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
     std::vector<vk::UniqueImageView> img_views;
     img_views.reserve(swapchain_imgs.size());
     for (auto img : swapchain_imgs) {
-        auto img_view =
-                CreateImageView(img, surface_format,
-                                vk::ImageAspectFlagBits::eColor, 1, device);
+        auto img_view = CreateImageViewImpl(img, surface_format,
+                                            vk::ImageAspectFlagBits::eColor, 0,
+                                            1, device);
         img_views.push_back(std::move(img_view));
     }
 
@@ -1314,10 +1305,7 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
                                                vk::SharingMode::eExclusive;
 
     // Mipmap level
-    const auto max_mip_levels =
-            std::floor(std::log2(std::max(size.width, size.height))) + 1;
-    miplevel_cnt =
-            std::min(miplevel_cnt, static_cast<uint32_t>(max_mip_levels));
+    miplevel_cnt = std::min(miplevel_cnt, GetMaxMipLevelCount(size));
 
     // Create image
     auto img = device->createImageUnique(
@@ -1334,52 +1322,85 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     // Bind memory
     device->bindImageMemory(img.get(), dev_mem_pack->dev_mem.get(), 0);
 
-    // Create image view
-    auto img_view =
-            CreateImageView(*img, format, aspects, miplevel_cnt, device);
+    // Construct image resource pack
+    ImageResPackPtr img_res_pack(
+            new ImageResPack{std::move(img), format, size, miplevel_cnt, usage,
+                             mem_prop, is_tiling, aspects, init_layout,
+                             is_shared, std::move(dev_mem_pack)});
 
-    // Construct image pack
-    return ImagePackPtr(new ImagePack{std::move(img), std::move(img_view),
-                                      format, size, miplevel_cnt, usage,
-                                      mem_prop, is_tiling, aspects, init_layout,
-                                      is_shared, std::move(dev_mem_pack)});
+    // Create image pack with raw view settings
+    return CreateImagePack(img_res_pack, device, format, 0, miplevel_cnt,
+                           aspects);
 }
 
-vk::Extent2D GetMippedSize(const ImagePackPtr &img_pack, uint32_t miplevel) {
-    // Note: 1<=miplevel_cnt, 0<=miplevel
-    if (img_pack->miplevel_cnt <= miplevel) {
-        throw std::runtime_error("Invalid miplevel for input image pack");
-    }
+ImagePackPtr CreateImagePack(const ImageResPackPtr &img_res_pack,
+                             const vk::UniqueDevice &device,
+                             const vk::Format &format_inp,
+                             uint32_t miplevel_base, uint32_t miplevel_cnt,
+                             const vk::ImageAspectFlags &aspects) {
+    // Decide format
+    const vk::Format format = (format_inp == vk::Format::eUndefined) ?
+                                      img_res_pack->format :
+                                      format_inp;
 
-    const auto &base_size = img_pack->size;
+    // Compute image size
+    const vk::Extent2D size = GetMippedSize(img_res_pack->size, miplevel_base);
+
+    // Decide miplevel count
+    miplevel_cnt = std::min(miplevel_cnt, GetMaxMipLevelCount(size));
+
+    // Create image view over image resource
+    auto view = CreateImageViewImpl(*img_res_pack->img, format, aspects,
+                                    miplevel_base, miplevel_cnt, device);
+
+    // Construct image pack
+    return ImagePackPtr(new ImagePack{std::move(view), format, size, aspects,
+                                      miplevel_base, miplevel_cnt,
+                                      img_res_pack});
+}
+
+uint32_t GetMaxMipLevelCount(const vk::Extent2D &base_size) {
+    // Note: 1<=miplevel_cnt, 0<=miplevel
+    const float max_miplevel =
+            std::log2(std::max(base_size.width, base_size.height));
+    return static_cast<uint32_t>(std::floor(max_miplevel) + 1);
+}
+
+vk::Extent2D GetMippedSize(const vk::Extent2D &base_size, uint32_t miplevel) {
     if (miplevel == 0) {
         return base_size;
     } else {
-        return {base_size.width >> miplevel, base_size.height >> miplevel};
+        const vk::Extent2D mipped_size = {base_size.width >> miplevel,
+                                          base_size.height >> miplevel};
+        if (mipped_size.width == 0 || mipped_size.height == 0) {
+            throw std::runtime_error("Invalid miplevel to compute mipped size");
+        }
+        return mipped_size;
     }
 }
 
-void SendToDevice(const vk::UniqueDevice &device, const ImagePackPtr &img_pack,
-                  const void *data, uint64_t n_bytes) {
+void SendToDevice(const vk::UniqueDevice &device,
+                  const ImageResPackPtr &img_res_pack, const void *data,
+                  uint64_t n_bytes) {
     // Check tiling
-    if (img_pack->is_tiling) {
+    if (img_res_pack->is_tiling) {
         throw std::runtime_error("Failed to send (Image): Image is tiled.");
     }
 
     // Send to device directly
-    SendToDevice(device, img_pack->dev_mem_pack, data, n_bytes);
+    SendToDevice(device, img_res_pack->dev_mem_pack, data, n_bytes);
 }
 
 void RecvFromDevice(const vk::UniqueDevice &device,
-                    const ImagePackPtr &img_pack, void *data,
+                    const ImageResPackPtr &img_res_pack, void *data,
                     uint64_t n_bytes) {
     // Check tiling
-    if (img_pack->is_tiling) {
+    if (img_res_pack->is_tiling) {
         throw std::runtime_error("Failed to receive (Image): Image is tiled.");
     }
 
     // Receive from device directly
-    RecvFromDevice(device, img_pack->dev_mem_pack, data, n_bytes);
+    RecvFromDevice(device, img_res_pack->dev_mem_pack, data, n_bytes);
 }
 
 void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
@@ -1391,13 +1412,13 @@ void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
     }
 
     // Check the need to set layout
-    const vk::ImageLayout old_layout = img_pack->layout;
+    const vk::ImageLayout old_layout = img_pack->img_res_pack->layout;
     if (old_layout == new_layout) {
         return;
     }
 
     // Shift layout variable
-    img_pack->layout = new_layout;
+    img_pack->img_res_pack->layout = new_layout;
 
     // Operate transition
     SetImageLayoutImpl(cmd_buf, img_pack, old_layout, new_layout);
@@ -1412,15 +1433,16 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
 
     // Transfer from buffer to image
-    const auto &extent = GetMippedSize(dst_img_pack, dst_miplevel);
-    const vk::ImageSubresourceLayers subres_layers(
-            vk::ImageAspectFlagBits::eColor, dst_miplevel, 0, 1);
-    vk::BufferImageCopy copy_region(0, extent.width, extent.height,
-                                    subres_layers, vk::Offset3D(0, 0, 0),
-                                    vk::Extent3D(extent, 1));
-    cmd_buf->copyBufferToImage(src_buf_pack->buf.get(), dst_img_pack->img.get(),
-                               vk::ImageLayout::eTransferDstOptimal,
-                               copy_region);
+    const auto size = GetMippedSize(dst_img_pack->view_size, dst_miplevel);
+    const auto act_miplevel = GetActualMipLevel(dst_miplevel, dst_img_pack);
+    const vk::ImageSubresourceLayers subres_layers(dst_img_pack->view_aspects,
+                                                   act_miplevel, 0, 1);
+    const vk::BufferImageCopy copy_region(0, size.width, size.height,
+                                          subres_layers, vk::Offset3D(0, 0, 0),
+                                          vk::Extent3D(size, 1));
+    cmd_buf->copyBufferToImage(
+            src_buf_pack->buf.get(), dst_img_pack->img_res_pack->img.get(),
+            vk::ImageLayout::eTransferDstOptimal, copy_region);
 
     // Set final image layout
     SetImageLayout(cmd_buf, dst_img_pack, final_layout);
@@ -1435,13 +1457,14 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, src_img_pack, vk::ImageLayout::eTransferSrcOptimal);
 
     // Transfer from image to buffer
-    const auto &extent = GetMippedSize(src_img_pack, src_miplevel);
-    const vk::ImageSubresourceLayers subres_layers(
-            vk::ImageAspectFlagBits::eColor, src_miplevel, 0, 1);
-    vk::BufferImageCopy copy_region(0, extent.width, extent.height,
-                                    subres_layers, vk::Offset3D(0, 0, 0),
-                                    vk::Extent3D(extent, 1));
-    cmd_buf->copyImageToBuffer(src_img_pack->img.get(),
+    const auto size = GetMippedSize(src_img_pack->view_size, src_miplevel);
+    const auto act_miplevel = GetActualMipLevel(src_miplevel, src_img_pack);
+    const vk::ImageSubresourceLayers subres_layers(src_img_pack->view_aspects,
+                                                   act_miplevel, 0, 1);
+    const vk::BufferImageCopy copy_region(0, size.width, size.height,
+                                          subres_layers, vk::Offset3D(0, 0, 0),
+                                          vk::Extent3D(size, 1));
+    cmd_buf->copyImageToBuffer(src_img_pack->img_res_pack->img.get(),
                                vk::ImageLayout::eTransferSrcOptimal,
                                dst_buf_pack->buf.get(), copy_region);
 
@@ -1460,21 +1483,23 @@ void CopyImage(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
 
     // Transfer from image to buffer
-    const auto &extent_src = GetMippedSize(src_img_pack, src_miplevel);
-    const auto &extent_dst = GetMippedSize(dst_img_pack, dst_miplevel);
-    if (extent_src != extent_dst) {
+    const auto &size_src = GetMippedSize(src_img_pack->view_size, src_miplevel);
+    const auto &size_dst = GetMippedSize(dst_img_pack->view_size, dst_miplevel);
+    if (size_src != size_dst) {
         throw std::runtime_error("Image size is not same (CopyImage)");
     }
+    const auto src_act_miplevel = GetActualMipLevel(src_miplevel, src_img_pack);
+    const auto dst_act_miplevel = GetActualMipLevel(dst_miplevel, dst_img_pack);
     const vk::ImageSubresourceLayers src_subres_layers(
-            vk::ImageAspectFlagBits::eColor, src_miplevel, 0, 1);
+            src_img_pack->view_aspects, src_act_miplevel, 0, 1);
     const vk::ImageSubresourceLayers dst_subres_layers(
-            vk::ImageAspectFlagBits::eColor, dst_miplevel, 0, 1);
-    vk::ImageCopy copy_region(src_subres_layers, vk::Offset3D(0, 0, 0),
-                              dst_subres_layers, vk::Offset3D(0, 0, 0),
-                              vk::Extent3D(extent_src, 1));
-    cmd_buf->copyImage(src_img_pack->img.get(),
+            dst_img_pack->view_aspects, dst_act_miplevel, 0, 1);
+    const vk::ImageCopy copy_region(src_subres_layers, vk::Offset3D(0, 0, 0),
+                                    dst_subres_layers, vk::Offset3D(0, 0, 0),
+                                    vk::Extent3D(size_src, 1));
+    cmd_buf->copyImage(src_img_pack->img_res_pack->img.get(),
                        vk::ImageLayout::eTransferSrcOptimal,
-                       dst_img_pack->img.get(),
+                       dst_img_pack->img_res_pack->img.get(),
                        vk::ImageLayout::eTransferDstOptimal, copy_region);
 
     // Set final image layouts
@@ -1496,19 +1521,22 @@ void BlitImage(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
 
     // Transfer from image to buffer
+    const auto src_act_miplevel = GetActualMipLevel(src_miplevel, src_img_pack);
+    const auto dst_act_miplevel = GetActualMipLevel(dst_miplevel, dst_img_pack);
     const vk::ImageSubresourceLayers src_subres_layers(
-            vk::ImageAspectFlagBits::eColor, src_miplevel, 0, 1);
+            src_img_pack->view_aspects, src_act_miplevel, 0, 1);
     const vk::ImageSubresourceLayers dst_subres_layers(
-            vk::ImageAspectFlagBits::eColor, dst_miplevel, 0, 1);
-    vk::ImageBlit blit_region(
+            dst_img_pack->view_aspects, dst_act_miplevel, 0, 1);
+    const vk::ImageBlit blit_region(
             src_subres_layers,
             {vk::Offset3D(src_offsets[0], 0), vk::Offset3D(src_offsets[1], 1)},
             dst_subres_layers,
             {vk::Offset3D(dst_offsets[0], 0), vk::Offset3D(dst_offsets[1], 1)});
-    cmd_buf->blitImage(
-            src_img_pack->img.get(), vk::ImageLayout::eTransferSrcOptimal,
-            dst_img_pack->img.get(), vk::ImageLayout::eTransferDstOptimal,
-            blit_region, filter);
+    cmd_buf->blitImage(src_img_pack->img_res_pack->img.get(),
+                       vk::ImageLayout::eTransferSrcOptimal,
+                       dst_img_pack->img_res_pack->img.get(),
+                       vk::ImageLayout::eTransferDstOptimal, blit_region,
+                       filter);
 
     // Set final image layouts
     SetImageLayout(cmd_buf, src_img_pack, src_final_layout);
@@ -1516,22 +1544,23 @@ void BlitImage(const vk::UniqueCommandBuffer &cmd_buf,
 }
 
 void ClearColorImage(const vk::UniqueCommandBuffer &cmd_buf,
-                     const ImagePackPtr &src_img_pack,
+                     const ImagePackPtr &dst_img_pack,
                      const vk::ClearColorValue &color,
-                     const uint32_t base_miplevel, const uint32_t miplevel_cnt,
+                     const uint32_t dst_miplevel, const uint32_t miplevel_cnt,
                      const vk::ImageLayout &layout,
                      const vk::ImageLayout &final_layout) {
     // Set image layout as general (default) or shared_present or trans_dst
-    SetImageLayout(cmd_buf, src_img_pack, layout);
+    SetImageLayout(cmd_buf, dst_img_pack, layout);
 
     // Clear
+    const auto act_miplevel = GetActualMipLevel(dst_miplevel, dst_img_pack);
     const vk::ImageSubresourceRange subres_range(
-            vk::ImageAspectFlagBits::eColor, base_miplevel, miplevel_cnt, 0, 1);
-    cmd_buf->clearColorImage(src_img_pack->img.get(), layout, color,
-                             subres_range);
+            vk::ImageAspectFlagBits::eColor, act_miplevel, miplevel_cnt, 0, 1);
+    cmd_buf->clearColorImage(dst_img_pack->img_res_pack->img.get(), layout,
+                             color, subres_range);
 
     // Set final image layout
-    SetImageLayout(cmd_buf, src_img_pack, final_layout);
+    SetImageLayout(cmd_buf, dst_img_pack, final_layout);
 }
 
 // -----------------------------------------------------------------------------
@@ -1546,8 +1575,9 @@ TexturePackPtr CreateTexturePack(const ImagePackPtr &img_pack,
                                  const vk::SamplerAddressMode &addr_v,
                                  const vk::SamplerAddressMode &addr_w) {
     // Create sampler
-    auto sampler = CreateSampler(device, mag_filter, min_filter, mipmap, addr_u,
-                                 addr_v, addr_w, img_pack->miplevel_cnt);
+    auto sampler =
+            CreateSamplerImpl(device, mag_filter, min_filter, mipmap, addr_u,
+                              addr_v, addr_w, img_pack->view_miplevel_cnt);
 
     // Construct texture pack
     return TexturePackPtr(new TexturePack{img_pack, std::move(sampler)});
@@ -1638,7 +1668,8 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     for (uint32_t tex_idx = 0; tex_idx < tex_packs.size(); tex_idx++) {
         auto &&tex_pack = tex_packs[tex_idx];
         auto &&img_pack = tex_pack->img_pack;
-        auto &&layout = has_layouts ? tex_layouts[tex_idx] : img_pack->layout;
+        auto &&layout = has_layouts ? tex_layouts[tex_idx] :
+                                      img_pack->img_res_pack->layout;
         img_infos.emplace_back(*tex_pack->sampler, *img_pack->view, layout);
     }
 
@@ -1666,7 +1697,8 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     for (uint32_t img_idx = 0; img_idx < img_packs.size(); img_idx++) {
         const vk::Sampler empty_sampler = nullptr;
         auto &&img_pack = img_packs[img_idx];
-        auto &&layout = has_layouts ? img_layouts[img_idx] : img_pack->layout;
+        auto &&layout = has_layouts ? img_layouts[img_idx] :
+                                      img_pack->img_res_pack->layout;
         img_infos.emplace_back(empty_sampler, *img_pack->view, layout);
     }
 

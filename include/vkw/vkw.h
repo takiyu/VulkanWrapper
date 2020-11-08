@@ -199,9 +199,8 @@ DeviceMemoryPackPtr CreateDeviceMemoryPack(
         const vk::MemoryPropertyFlags& mem_prop);
 
 void SendToDevice(const vk::UniqueDevice& device,
-                  const DeviceMemoryPack& dev_mem_pack, const void* data,
+                  const DeviceMemoryPackPtr& dev_mem_pack, const void* data,
                   uint64_t n_bytes);
-
 void RecvFromDevice(const vk::UniqueDevice& device,
                     const DeviceMemoryPackPtr& dev_mem_pack, void* data,
                     uint64_t n_bytes);
@@ -230,7 +229,6 @@ BufferPackPtr CreateBufferPack(
 
 void SendToDevice(const vk::UniqueDevice& device, const BufferPackPtr& buf_pack,
                   const void* data, uint64_t n_bytes);
-
 void RecvFromDevice(const vk::UniqueDevice& device,
                     const BufferPackPtr& buf_pack, void* data,
                     uint64_t n_bytes);
@@ -240,9 +238,8 @@ void RecvFromDevice(const vk::UniqueDevice& device,
 // -----------------------------------------------------------------------------
 static constexpr uint32_t MAX_MIP_LEVEL = uint32_t(~0);
 
-struct ImagePack {
+struct ImageResPack {
     vk::UniqueImage img;
-    vk::UniqueImageView view;
     vk::Format format;
     vk::Extent2D size;
     uint32_t miplevel_cnt;
@@ -253,6 +250,16 @@ struct ImagePack {
     vk::ImageLayout layout;
     bool is_shared;
     DeviceMemoryPackPtr dev_mem_pack;
+};
+using ImageResPackPtr = std::shared_ptr<ImageResPack>;
+struct ImagePack {
+    vk::UniqueImageView view;
+    vk::Format view_format;
+    vk::Extent2D view_size;
+    vk::ImageAspectFlags view_aspects;
+    uint32_t view_miplevel_base;
+    uint32_t view_miplevel_cnt;
+    ImageResPackPtr img_res_pack;
 };
 using ImagePackPtr = std::shared_ptr<ImagePack>;
 ImagePackPtr CreateImagePack(
@@ -265,14 +272,21 @@ ImagePackPtr CreateImagePack(
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
         const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined,
         bool is_shared = false);
+ImagePackPtr CreateImagePack(
+        const ImageResPackPtr& img_res_pack, const vk::UniqueDevice& device,
+        const vk::Format& format = vk::Format::eUndefined,
+        uint32_t miplevel_base = 0, uint32_t miplevel_cnt = MAX_MIP_LEVEL,
+        const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor);
 
-vk::Extent2D GetMippedSize(const ImagePackPtr& img_pack, uint32_t miplevel);
+uint32_t GetMaxMipLevelCount(const vk::Extent2D& base_size);
+vk::Extent2D GetMippedSize(const vk::Extent2D& base_size, uint32_t miplevel);
 
-void SendToDevice(const vk::UniqueDevice& device, const ImagePackPtr& img_pack,
-                  const void* data, uint64_t n_bytes);
-
+void SendToDevice(const vk::UniqueDevice& device,
+                  const ImageResPackPtr& img_res_pack, const void* data,
+                  uint64_t n_bytes);
 void RecvFromDevice(const vk::UniqueDevice& device,
-                    const ImagePackPtr& img_pack, void* data, uint64_t n_bytes);
+                    const ImageResPackPtr& img_res_pack, void* data,
+                    uint64_t n_bytes);
 
 void SetImageLayout(const vk::UniqueCommandBuffer& cmd_buf,
                     const ImagePackPtr& img_pack,
@@ -316,8 +330,8 @@ void BlitImage(const vk::UniqueCommandBuffer& cmd_buf,
 
 void ClearColorImage(
         const vk::UniqueCommandBuffer& cmd_buf,
-        const ImagePackPtr& src_img_pack, const vk::ClearColorValue& color,
-        const uint32_t base_miplevel = 0, const uint32_t miplevel_cnt = 1,
+        const ImagePackPtr& dst_img_pack, const vk::ClearColorValue& color,
+        const uint32_t dst_miplevel = 0, const uint32_t miplevel_cnt = 1,
         const vk::ImageLayout& layout = vk::ImageLayout::eGeneral,
         const vk::ImageLayout& final_layout = vk::ImageLayout::eGeneral);
 
