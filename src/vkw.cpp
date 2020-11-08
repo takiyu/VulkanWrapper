@@ -349,6 +349,13 @@ static uint32_t GetActualMipLevel(const uint32_t &miplevel,
     return miplevel + img_pack->view_miplevel_base;
 }
 
+static vk::ImageSubresourceLayers GetImgSubresLayers(
+        const ImagePackPtr &img_pack, uint32_t miplevel) {
+    const auto act_miplevel = GetActualMipLevel(miplevel, img_pack);
+    return vk::ImageSubresourceLayers(img_pack->view_aspects, act_miplevel, 0,
+                                      1);
+}
+
 static vk::UniqueSampler CreateSamplerImpl(const vk::UniqueDevice &device,
                                            const vk::Filter &mag_filter,
                                            const vk::Filter &min_filter,
@@ -1439,12 +1446,10 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Transfer from buffer to image
     const auto size = GetMippedSize(dst_img_pack->view_size, dst_miplevel);
-    const auto act_miplevel = GetActualMipLevel(dst_miplevel, dst_img_pack);
-    const vk::ImageSubresourceLayers subres_layers(dst_img_pack->view_aspects,
-                                                   act_miplevel, 0, 1);
-    const vk::BufferImageCopy copy_region(0, size.width, size.height,
-                                          subres_layers, vk::Offset3D(0, 0, 0),
-                                          vk::Extent3D(size, 1));
+    const vk::BufferImageCopy copy_region(
+            0, size.width, size.height,
+            GetImgSubresLayers(dst_img_pack, dst_miplevel),
+            vk::Offset3D(0, 0, 0), vk::Extent3D(size, 1));
     cmd_buf->copyBufferToImage(
             src_buf_pack->buf.get(), dst_img_pack->img_res_pack->img.get(),
             vk::ImageLayout::eTransferDstOptimal, copy_region);
@@ -1463,12 +1468,10 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Transfer from image to buffer
     const auto size = GetMippedSize(src_img_pack->view_size, src_miplevel);
-    const auto act_miplevel = GetActualMipLevel(src_miplevel, src_img_pack);
-    const vk::ImageSubresourceLayers subres_layers(src_img_pack->view_aspects,
-                                                   act_miplevel, 0, 1);
-    const vk::BufferImageCopy copy_region(0, size.width, size.height,
-                                          subres_layers, vk::Offset3D(0, 0, 0),
-                                          vk::Extent3D(size, 1));
+    const vk::BufferImageCopy copy_region(
+            0, size.width, size.height,
+            GetImgSubresLayers(src_img_pack, src_miplevel),
+            vk::Offset3D(0, 0, 0), vk::Extent3D(size, 1));
     cmd_buf->copyImageToBuffer(src_img_pack->img_res_pack->img.get(),
                                vk::ImageLayout::eTransferSrcOptimal,
                                dst_buf_pack->buf.get(), copy_region);
@@ -1493,15 +1496,11 @@ void CopyImage(const vk::UniqueCommandBuffer &cmd_buf,
     if (size_src != size_dst) {
         throw std::runtime_error("Image size is not same (CopyImage)");
     }
-    const auto src_act_miplevel = GetActualMipLevel(src_miplevel, src_img_pack);
-    const auto dst_act_miplevel = GetActualMipLevel(dst_miplevel, dst_img_pack);
-    const vk::ImageSubresourceLayers src_subres_layers(
-            src_img_pack->view_aspects, src_act_miplevel, 0, 1);
-    const vk::ImageSubresourceLayers dst_subres_layers(
-            dst_img_pack->view_aspects, dst_act_miplevel, 0, 1);
-    const vk::ImageCopy copy_region(src_subres_layers, vk::Offset3D(0, 0, 0),
-                                    dst_subres_layers, vk::Offset3D(0, 0, 0),
-                                    vk::Extent3D(size_src, 1));
+    const vk::ImageCopy copy_region(
+            GetImgSubresLayers(src_img_pack, src_miplevel),
+            vk::Offset3D(0, 0, 0),
+            GetImgSubresLayers(dst_img_pack, dst_miplevel),
+            vk::Offset3D(0, 0, 0), vk::Extent3D(size_src, 1));
     cmd_buf->copyImage(src_img_pack->img_res_pack->img.get(),
                        vk::ImageLayout::eTransferSrcOptimal,
                        dst_img_pack->img_res_pack->img.get(),
@@ -1526,16 +1525,10 @@ void BlitImage(const vk::UniqueCommandBuffer &cmd_buf,
     SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
 
     // Transfer from image to buffer
-    const auto src_act_miplevel = GetActualMipLevel(src_miplevel, src_img_pack);
-    const auto dst_act_miplevel = GetActualMipLevel(dst_miplevel, dst_img_pack);
-    const vk::ImageSubresourceLayers src_subres_layers(
-            src_img_pack->view_aspects, src_act_miplevel, 0, 1);
-    const vk::ImageSubresourceLayers dst_subres_layers(
-            dst_img_pack->view_aspects, dst_act_miplevel, 0, 1);
     const vk::ImageBlit blit_region(
-            src_subres_layers,
+            GetImgSubresLayers(src_img_pack, src_miplevel),
             {vk::Offset3D(src_offsets[0], 0), vk::Offset3D(src_offsets[1], 1)},
-            dst_subres_layers,
+            GetImgSubresLayers(dst_img_pack, dst_miplevel),
             {vk::Offset3D(dst_offsets[0], 0), vk::Offset3D(dst_offsets[1], 1)});
     cmd_buf->blitImage(src_img_pack->img_res_pack->img.get(),
                        vk::ImageLayout::eTransferSrcOptimal,

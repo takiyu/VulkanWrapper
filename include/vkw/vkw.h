@@ -252,6 +252,7 @@ struct ImageResPack {
     DeviceMemoryPackPtr dev_mem_pack;
 };
 using ImageResPackPtr = std::shared_ptr<ImageResPack>;
+
 struct ImagePack {
     vk::UniqueImageView view;
     vk::Format view_format;
