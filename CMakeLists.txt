@@ -13,7 +13,6 @@ endif()
 # ------------------------------------------------------------------------------
 # ----------------------------------- Options ----------------------------------
 # ------------------------------------------------------------------------------
-set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
 set(VKW_LINK_DYNAMIC_VK ON CACHE BOOL "Dynamic link for vulkan.")
 set(VKW_USE_VULKAN_LOADER ON CACHE BOOL "Use Vulkan-Loader when dynamic link.")
 set(VKW_USE_INTERNAL_GLFW ON CACHE BOOL "Use Internal GLFW.")
@@ -189,24 +188,6 @@ if (VKW_USE_INTERNAL_GLFW)
     list(APPEND VKW_LIBRARY glfw)
 endif()
 
-if (VKW_BUILD_EXAMPLES)
-    # GLM
-    list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
-
-    # TinyObjLoader
-    add_library(tinyobjloader
-        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyobjloader/tiny_obj_loader.cc
-    )
-    list(APPEND VKW_LIBRARY tinyobjloader)
-
-    # STB
-    add_library(stb
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/utils/stb_impl.cpp
-    )
-    setup_target_simple(stb "${VKW_INCLUDE}" "${VKW_LIBRARY}")
-    list(APPEND VKW_LIBRARY stb)
-endif()
-
 # ------------------------------------------------------------------------------
 # ----------------------------- Internal Libraries -----------------------------
 # ------------------------------------------------------------------------------
@@ -226,47 +207,4 @@ if(HAS_PARENT)
     set(VKW_INCLUDE ${VKW_INCLUDE} PARENT_SCOPE)
     set(VKW_LIBRARY ${VKW_LIBRARY} PARENT_SCOPE)
     set(VKW_DEFINE ${VKW_DEFINE} PARENT_SCOPE)
-endif()
-
-# ------------------------------------------------------------------------------
-# ---------------------------------- Examples ----------------------------------
-# ------------------------------------------------------------------------------
-if (VKW_BUILD_EXAMPLES)
-    # Example application sources
-    set(EXAMPLE_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/01_rotate_box/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/02_load_obj/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/03_load_obj_many/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/04_deferred_shading/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/05_instancing/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/06_raster_vtx_id/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/07_image_transfer/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/08_comp_shader/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/09_inverse_uv/app.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/example/10_glsl_optim/app.cpp
-    )
-
-    if (ANDROID)
-        # ----------------------------------------------------------------------
-        # --------------------------------- PC ---------------------------------
-        # ----------------------------------------------------------------------
-        find_library(log-lib log)
-        find_library(android-lib android)
-        list(APPEND VKW_LIBRARY ${log-lib} ${android-lib})
-
-        # Android example
-        add_library(native-lib SHARED
-            ${EXAMPLE_SOURCES}
-            ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/cpp/native-lib.cpp)
-        setup_target(native-lib "${VKW_INCLUDE}" "${VKW_LIBRARY}")
-    else()
-        # ----------------------------------------------------------------------
-        # ------------------------------ Android -------------------------------
-        # ----------------------------------------------------------------------
-        # PC example
-        add_executable(main
-            ${EXAMPLE_SOURCES}
-            ${CMAKE_CURRENT_SOURCE_DIR}/pc/main.cpp)
-        setup_target(main "${VKW_INCLUDE}" "${VKW_LIBRARY}")
-    endif()
 endif()
