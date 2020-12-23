@@ -158,9 +158,6 @@ list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
                         OGLCompiler)
 
-# GLM
-list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
-
 # Validation Layer
 if (ANDROID)
     # Copy library files. Link is not needed because VulkanHpp loads dynamically
@@ -183,6 +180,9 @@ if (NOT ANDROID)
 endif()
 
 if (VKW_BUILD_EXAMPLES)
+    # GLM
+    list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
+
     # TinyObjLoader
     add_library(tinyobjloader
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyobjloader/tiny_obj_loader.cc
