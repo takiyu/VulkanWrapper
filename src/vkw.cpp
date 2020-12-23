@@ -841,7 +841,7 @@ std::vector<float> CastFloat16To32(const std::vector<uint16_t> &src) {
 // ----------------------------------- Window ----------------------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
-// ------------------------- ANativeWindow for Android -------------------------
+// Android version (ANativeWindow)
 static void WindowDeleter(ANativeWindow *ptr) {
     ANativeWindow_release(ptr);
 }
@@ -852,7 +852,7 @@ WindowPtr InitANativeWindow(JNIEnv *jenv, jobject jsurface) {
 }
 
 #else
-// --------------------------- GLFWWindow for Desktop --------------------------
+// GLFW version (GLFWWindow)
 static void WindowDeleter(GLFWwindow *ptr) {
     glfwDestroyWindow(ptr);
 }
@@ -975,7 +975,7 @@ vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
 }
 
 #else
-// Desktop version
+// GLFW version
 vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
                                    const WindowPtr &window) {
     // Create a window surface (GLFW)

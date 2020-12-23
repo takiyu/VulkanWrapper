@@ -70,13 +70,13 @@ std::vector<float> CastFloat16To32(const std::vector<uint16_t>& f16);
 // ----------------------------------- Window ----------------------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
-// ------------------------- ANativeWindow for Android -------------------------
+// Android version (ANativeWindow)
 using ANativeWindowPtr = std::shared_ptr<ANativeWindow>;
 using WindowPtr = ANativeWindowPtr;
 WindowPtr InitANativeWindow(JNIEnv* jenv, jobject jsurface);
 
 #else
-// --------------------------- GLFWWindow for Desktop --------------------------
+// GLFW version (GLFWWindow)
 using GLFWWindowPtr = std::shared_ptr<GLFWwindow>;
 using WindowPtr = GLFWWindowPtr;
 WindowPtr InitGLFWWindow(const std::string& win_name, uint32_t win_w,

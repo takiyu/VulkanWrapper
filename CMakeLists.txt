@@ -16,11 +16,21 @@ endif()
 set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
 set(VKW_LINK_DYNAMIC_VK ON CACHE BOOL "Dynamic link for vulkan.")
 set(VKW_USE_VULKAN_LOADER ON CACHE BOOL "Use Vulkan-Loader when dynamic link.")
+set(VKW_USE_INTERNAL_GLFW ON CACHE BOOL "Use Internal GLFW.")
+set(VKW_EXTERNAL_INCLUDE "" CACHE BOOL "External include paths.")
+set(VKW_EXTERNAL_LIBRARY "" CACHE BOOL "External libraries.")
 
 # Handle flag dependency
 if (NOT VKW_LINK_DYNAMIC_VK OR MSVC)
-    set(VKW_USE_VULKAN_LOADER OFF)
+    set(VKW_USE_VULKAN_LOADER OFF)  # No vulkan-loader for static Vulkan
 endif()
+if (ANDROID)
+    set(VKW_USE_INTERNAL_GLFW OFF)  # No GLFW for Android
+endif()
+
+# External includes/libraries
+list(APPEND VKW_INCLUDE ${VKW_EXTERNAL_INCLUDE})
+list(APPEND VKW_LIBRARY ${VKW_EXTERNAL_LIBRARY})
 
 # ------------------------------------------------------------------------------
 # ----------------------------------- Common -----------------------------------
@@ -130,7 +140,6 @@ else()
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=0  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=0)  # dispatch
 endif()
-add_definitions(${VKW_DEFINE})
 
 # SPIRV-Headers
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "")
@@ -166,8 +175,9 @@ if (ANDROID)
          DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/)
 endif()
 
-# GLFW3
-if (NOT ANDROID)
+# GLFW
+if (VKW_USE_INTERNAL_GLFW)
+    message(STATUS "With VKW Internal GLFW")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
@@ -206,6 +216,7 @@ add_library(vkw
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vkw.cpp
 )
 setup_target(vkw "${VKW_INCLUDE}" "${VKW_LIBRARY}")
+add_definitions(${VKW_DEFINE})
 list(APPEND VKW_LIBRARY vkw)
 
 # ------------------------------------------------------------------------------
