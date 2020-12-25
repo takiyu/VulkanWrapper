@@ -17,8 +17,8 @@ set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
 set(VKW_LINK_DYNAMIC_VK ON CACHE BOOL "Dynamic link for vulkan.")
 set(VKW_USE_VULKAN_LOADER ON CACHE BOOL "Use Vulkan-Loader when dynamic link.")
 set(VKW_USE_INTERNAL_GLFW ON CACHE BOOL "Use Internal GLFW.")
-set(VKW_EXTERNAL_INCLUDE "" CACHE BOOL "External include paths.")
-set(VKW_EXTERNAL_LIBRARY "" CACHE BOOL "External libraries.")
+set(VKW_EXTERNAL_INCLUDE "" CACHE STRING "External include paths.")
+set(VKW_EXTERNAL_LIBRARY "" CACHE STRING "External libraries.")
 
 # Handle flag dependency
 if (NOT VKW_LINK_DYNAMIC_VK OR MSVC)
