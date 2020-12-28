@@ -5,7 +5,7 @@ Vulkan has complex API and a lot of official repositories.
 Vulkan Wrapper contains everything to start Vulkan with ease.
 
 ## API
-See [vkw.hpp](https://github.com/takiyu/VulkanWrapper/blob/master/include/vkw/vkw.h).
+See [vkw.h](https://github.com/takiyu/VulkanWrapper/blob/master/include/vkw/vkw.h).
 
 ## Features
  * Explicit dependences of Vulkan objects.
