@@ -175,7 +175,8 @@ SwapchainPackPtr CreateSwapchainPack(
         const vk::Format& surface_format = vk::Format::eUndefined,
         const vk::ImageUsageFlags& usage =
                 vk::ImageUsageFlagBits::eColorAttachment,
-        const vk::PresentModeKHR& present_mode = vk::PresentModeKHR::eFifo);
+        const vk::PresentModeKHR& present_mode = vk::PresentModeKHR::eFifo,
+        const SwapchainPackPtr& old_swapchain_pack = nullptr);
 
 uint32_t AcquireNextImage(const vk::UniqueDevice& device,
                           const SwapchainPackPtr& swapchain_pack,

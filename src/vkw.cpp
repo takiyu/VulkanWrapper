@@ -1125,12 +1125,12 @@ SemaphorePtr CreateSemaphore(const vk::UniqueDevice &device) {
 // -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
-SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
-                                     const vk::UniqueDevice &device,
-                                     const vk::UniqueSurfaceKHR &surface,
-                                     const vk::Format &surface_format_raw,
-                                     const vk::ImageUsageFlags &usage,
-                                     const vk::PresentModeKHR &present_mode) {
+SwapchainPackPtr CreateSwapchainPack(
+        const vk::PhysicalDevice &physical_device,
+        const vk::UniqueDevice &device, const vk::UniqueSurfaceKHR &surface,
+        const vk::Format &surface_format_raw, const vk::ImageUsageFlags &usage,
+        const vk::PresentModeKHR &present_mode,
+        const SwapchainPackPtr &old_swapchain_pack) {
     // Get the supported surface VkFormats
     auto surface_format = (surface_format_raw == vk::Format::eUndefined) ?
                                   GetSurfaceFormat(physical_device, surface) :
@@ -1143,12 +1143,19 @@ SwapchainPackPtr CreateSwapchainPack(const vk::PhysicalDevice &physical_device,
     const auto &composite_alpha = std::get<2>(props);
     const auto &min_img_cnt = std::get<3>(props);
 
+    // Old swapchain
+    vk::SwapchainKHR old_swapchain;
+    if (old_swapchain_pack) {
+        old_swapchain = old_swapchain_pack->swapchain.get();
+    }
+
     // Create swapchain
     vk::UniqueSwapchainKHR swapchain = device->createSwapchainKHRUnique(
             {vk::SwapchainCreateFlagsKHR(), surface.get(), min_img_cnt,
              surface_format, vk::ColorSpaceKHR::eSrgbNonlinear,
              swapchain_extent, 1, usage, vk::SharingMode::eExclusive, 0,
-             nullptr, pre_trans, composite_alpha, present_mode, true, nullptr});
+             nullptr, pre_trans, composite_alpha, present_mode, true,
+             old_swapchain});
 
     // Create image views
     auto swapchain_imgs = device->getSwapchainImagesKHR(swapchain.get());
