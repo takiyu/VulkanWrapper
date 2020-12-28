@@ -1,5 +1,5 @@
 # Vulkan Wrapper #
-Simpler Vulkan with Wrapping [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp).
+Simpler Vulkan by Wrapping [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp).
 
 Vulkan has complex API and a lot of official repositories.
 Vulkan Wrapper contains everything to start Vulkan with ease.
@@ -12,4 +12,5 @@ See [vkw.hpp](https://github.com/takiyu/VulkanWrapper/blob/master/include/vkw/vk
     * Simple factory functions.
     * Smart pointers of packed structures.
  * Raw VulkanHpp objects can also be accessed and used.
+    * **Everything can be done!**
  * Supporting Desktop and Android.
