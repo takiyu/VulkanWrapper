@@ -79,8 +79,8 @@ WindowPtr InitANativeWindow(JNIEnv* jenv, jobject jsurface);
 // GLFW version (GLFWWindow)
 using GLFWWindowPtr = std::shared_ptr<GLFWwindow>;
 using WindowPtr = GLFWWindowPtr;
-WindowPtr InitGLFWWindow(const std::string& win_name, uint32_t win_w,
-                         uint32_t win_h);
+WindowPtr InitGLFWWindow(const std::string& win_name, uint32_t win_w = 512,
+                         uint32_t win_h = 512, int32_t glfw_api = GLFW_NO_API);
 #endif
 
 // -----------------------------------------------------------------------------
@@ -622,6 +622,8 @@ void CmdDispatch(const vk::UniqueCommandBuffer& cmd_buf, uint32_t n_group_x,
 // -----------------------------------------------------------------------------
 vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
                    uint32_t queue_idx = 0);
+std::vector<vk::Queue> GetQueues(const vk::UniqueDevice& device,
+                                 uint32_t queue_family_idx, uint32_t n_queues);
 
 using WaitSemaphoreInfo = std::tuple<SemaphorePtr, vk::PipelineStageFlags>;
 void QueueSubmit(
@@ -634,6 +636,9 @@ void QueuePresent(const vk::Queue& queue,
                   const SwapchainPackPtr& swapchain_pack, uint32_t img_idx,
                   const std::vector<SemaphorePtr>& wait_semaphores = {});
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 }  // namespace vkw
 
 #endif  // end of include guard

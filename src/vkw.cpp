@@ -858,7 +858,7 @@ static void WindowDeleter(GLFWwindow *ptr) {
 }
 
 WindowPtr InitGLFWWindow(const std::string &win_name, uint32_t win_w,
-                         uint32_t win_h) {
+                         uint32_t win_h, int32_t glfw_api) {
     // Initialize GLFW
     static bool s_is_inited = false;
     if (!s_is_inited) {
@@ -868,8 +868,7 @@ WindowPtr InitGLFWWindow(const std::string &win_name, uint32_t win_w,
     }
 
     // Create GLFW window
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_CLIENT_API, glfw_api);
     GLFWwindow *ptr =
             glfwCreateWindow(static_cast<int>(win_w), static_cast<int>(win_h),
                              win_name.c_str(), nullptr, nullptr);
@@ -2278,6 +2277,16 @@ void CmdDispatch(const vk::UniqueCommandBuffer &cmd_buf, uint32_t n_group_x,
 vk::Queue GetQueue(const vk::UniqueDevice &device, uint32_t queue_family_idx,
                    uint32_t queue_idx) {
     return device->getQueue(queue_family_idx, queue_idx);
+}
+
+std::vector<vk::Queue> GetQueues(const vk::UniqueDevice &device,
+                                 uint32_t queue_family_idx, uint32_t n_queues) {
+    std::vector<vk::Queue> queues;
+    queues.reserve(n_queues);
+    for (uint32_t q_idx = 0; q_idx < n_queues; q_idx++) {
+        queues.push_back(GetQueue(device, queue_family_idx, q_idx));
+    }
+    return queues;
 }
 
 void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
