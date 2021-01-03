@@ -527,17 +527,17 @@ auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
         }
     }
 
-    // Create attachments
-    std::vector<vk::ImageView> attachments;
-    attachments.reserve(imgs.size());
+    // Create views as attachments
+    std::vector<vk::ImageView> views;
+    views.reserve(imgs.size());
     for (auto &&img : imgs) {
         if (img) {
-            attachments.push_back(*img->view);
+            views.push_back(*img->view);
         } else {
-            attachments.emplace_back();
+            views.emplace_back();
         }
     }
-    return std::make_tuple(size, std::move(attachments));
+    return std::make_tuple(size, std::move(views));
 }
 
 // -----------------------------------------------------------------------------
@@ -1833,22 +1833,31 @@ void UpdateRenderPass(const vk::UniqueDevice &device,
 // -----------------------------------------------------------------------------
 FrameBufferPackPtr CreateFrameBuffer(const vk::UniqueDevice &device,
                                      const RenderPassPackPtr &render_pass_pack,
-                                     const std::vector<ImagePackPtr> &imgs,
-                                     const vk::Extent2D &size_org) {
+                                     const std::vector<ImagePackPtr> &imgs) {
     // Prepare frame buffer creation
-    auto info = PrepareFrameBuffer(render_pass_pack, imgs, size_org);
+    auto info = PrepareFrameBuffer(render_pass_pack, imgs, {0, 0});
     const vk::Extent2D &size = std::get<0>(info);
-    const std::vector<vk::ImageView> &attachments = std::get<1>(info);
-    const uint32_t n_layers = 1;
+    const std::vector<vk::ImageView> &views = std::get<1>(info);
+
+    // Create
+    return CreateFrameBuffer(device, render_pass_pack, views, size);
+}
+
+FrameBufferPackPtr CreateFrameBuffer(const vk::UniqueDevice &device,
+                                     const RenderPassPackPtr &render_pass_pack,
+                                     const std::vector<vk::ImageView> &views,
+                                     const vk::Extent2D &view_size) {
+    const uint32_t N_LAYERS = 1;
 
     // Create Frame Buffer
     auto frame_buffer = device->createFramebufferUnique(
             {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
-             static_cast<uint32_t>(attachments.size()), DataSafety(attachments),
-             size.width, size.height, n_layers});
+             static_cast<uint32_t>(views.size()), DataSafety(views),
+             view_size.width, view_size.height, N_LAYERS});
 
-    return FrameBufferPackPtr(new FrameBufferPack{
-            std::move(frame_buffer), size.width, size.height, n_layers});
+    return FrameBufferPackPtr(new FrameBufferPack{std::move(frame_buffer),
+                                                  view_size.width,
+                                                  view_size.height, N_LAYERS});
 }
 
 std::vector<FrameBufferPackPtr> CreateFrameBuffers(
@@ -1859,8 +1868,8 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
     // Prepare frame buffer creation
     auto info = PrepareFrameBuffer(render_pass_pack, imgs, swapchain->size);
     const vk::Extent2D &size = std::get<0>(info);
-    std::vector<vk::ImageView> &attachments = std::get<1>(info);
-    const uint32_t n_layers = 1;
+    std::vector<vk::ImageView> &views = std::get<1>(info);
+    const uint32_t N_LAYERS = 1;
 
     // Find attachment index
     uint32_t attach_idx = uint32_t(~0);
@@ -1879,15 +1888,15 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
     rets.reserve(swapchain->imgs.size());
     for (auto &&img_pack : swapchain->imgs) {
         // Overwrite swapchain image view
-        attachments[attach_idx] = *img_pack->view;
+        views[attach_idx] = *img_pack->view;
         // Create one Frame Buffer
         auto frame_buffer = device->createFramebufferUnique(
                 {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,
-                 static_cast<uint32_t>(attachments.size()),
-                 DataSafety(attachments), size.width, size.height, n_layers});
+                 static_cast<uint32_t>(views.size()), DataSafety(views),
+                 size.width, size.height, N_LAYERS});
         // Register
         rets.emplace_back(new FrameBufferPack{
-                std::move(frame_buffer), size.width, size.height, n_layers});
+                std::move(frame_buffer), size.width, size.height, N_LAYERS});
     }
 
     return rets;

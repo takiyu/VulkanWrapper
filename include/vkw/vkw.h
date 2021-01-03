@@ -457,8 +457,11 @@ using FrameBufferPackPtr = std::shared_ptr<FrameBufferPack>;
 
 FrameBufferPackPtr CreateFrameBuffer(const vk::UniqueDevice& device,
                                      const RenderPassPackPtr& render_pass_pack,
-                                     const std::vector<ImagePackPtr>& imgs,
-                                     const vk::Extent2D& size = {0, 0});
+                                     const std::vector<ImagePackPtr>& imgs);
+FrameBufferPackPtr CreateFrameBuffer(const vk::UniqueDevice& device,
+                                     const RenderPassPackPtr& render_pass_pack,
+                                     const std::vector<vk::ImageView>& views,
+                                     const vk::Extent2D& view_size);
 
 std::vector<FrameBufferPackPtr> CreateFrameBuffers(
         const vk::UniqueDevice& device,
