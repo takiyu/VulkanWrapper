@@ -282,53 +282,6 @@ static void RegisterDebugCallback(const vk::UniqueInstance &instance) {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
-                                 const vk::UniqueSurfaceKHR &surface) {
-    // Get all capabilities
-    const vk::SurfaceCapabilitiesKHR &surface_capas =
-            physical_device.getSurfaceCapabilitiesKHR(surface.get());
-
-    // Get the surface extent size
-    VkExtent2D swapchain_extent = surface_capas.currentExtent;
-    if (swapchain_extent.width == std::numeric_limits<uint32_t>::max()) {
-        // If the surface size is undefined, setting screen size is requested.
-        const uint32_t WIN_W = 256;
-        const uint32_t WIN_H = 256;
-        const auto &min_ex = surface_capas.minImageExtent;
-        const auto &max_ex = surface_capas.maxImageExtent;
-        swapchain_extent.width = Clamp(WIN_W, min_ex.width, max_ex.width);
-        swapchain_extent.height = Clamp(WIN_H, min_ex.height, max_ex.height);
-    }
-
-    // Set swapchain pre-transform
-    vk::SurfaceTransformFlagBitsKHR pre_trans = surface_capas.currentTransform;
-    if (surface_capas.supportedTransforms &
-        vk::SurfaceTransformFlagBitsKHR::eIdentity) {
-        pre_trans = vk::SurfaceTransformFlagBitsKHR::eIdentity;
-    }
-
-    // Set swapchain composite alpha
-    vk::CompositeAlphaFlagBitsKHR composite_alpha;
-    const auto &suppored_flag = surface_capas.supportedCompositeAlpha;
-    if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::ePreMultiplied) {
-        composite_alpha = vk::CompositeAlphaFlagBitsKHR::ePreMultiplied;
-    } else if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::ePostMultiplied) {
-        composite_alpha = vk::CompositeAlphaFlagBitsKHR::ePostMultiplied;
-    } else if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::eInherit) {
-        composite_alpha = vk::CompositeAlphaFlagBitsKHR::eInherit;
-    } else {
-        composite_alpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-    }
-
-    const uint32_t min_img_cnt = surface_capas.minImageCount;
-
-    return std::make_tuple(swapchain_extent, pre_trans, composite_alpha,
-                           min_img_cnt);
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
 static vk::UniqueImageView CreateImageViewImpl(
         const vk::Image &img, const vk::Format &format,
         const vk::ImageAspectFlags &aspects, const uint32_t miplevel_base,
@@ -473,6 +426,53 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
             img_pack->img_res_pack->img.get(), subres_range);
     return cmd_buf->pipelineBarrier(src_stage, dst_stage, {}, nullptr, nullptr,
                                     img_memory_barrier);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
+                                 const vk::UniqueSurfaceKHR &surface) {
+    // Get all capabilities
+    const vk::SurfaceCapabilitiesKHR &surface_capas =
+            physical_device.getSurfaceCapabilitiesKHR(surface.get());
+
+    // Get the surface extent size
+    VkExtent2D swapchain_extent = surface_capas.currentExtent;
+    if (swapchain_extent.width == std::numeric_limits<uint32_t>::max()) {
+        // If the surface size is undefined, setting screen size is requested.
+        const uint32_t WIN_W = 256;
+        const uint32_t WIN_H = 256;
+        const auto &min_ex = surface_capas.minImageExtent;
+        const auto &max_ex = surface_capas.maxImageExtent;
+        swapchain_extent.width = Clamp(WIN_W, min_ex.width, max_ex.width);
+        swapchain_extent.height = Clamp(WIN_H, min_ex.height, max_ex.height);
+    }
+
+    // Set swapchain pre-transform
+    vk::SurfaceTransformFlagBitsKHR pre_trans = surface_capas.currentTransform;
+    if (surface_capas.supportedTransforms &
+        vk::SurfaceTransformFlagBitsKHR::eIdentity) {
+        pre_trans = vk::SurfaceTransformFlagBitsKHR::eIdentity;
+    }
+
+    // Set swapchain composite alpha
+    vk::CompositeAlphaFlagBitsKHR composite_alpha;
+    const auto &suppored_flag = surface_capas.supportedCompositeAlpha;
+    if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::ePreMultiplied) {
+        composite_alpha = vk::CompositeAlphaFlagBitsKHR::ePreMultiplied;
+    } else if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::ePostMultiplied) {
+        composite_alpha = vk::CompositeAlphaFlagBitsKHR::ePostMultiplied;
+    } else if (suppored_flag & vk::CompositeAlphaFlagBitsKHR::eInherit) {
+        composite_alpha = vk::CompositeAlphaFlagBitsKHR::eInherit;
+    } else {
+        composite_alpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    }
+
+    const uint32_t min_img_cnt = surface_capas.minImageCount;
+
+    return std::make_tuple(swapchain_extent, pre_trans, composite_alpha,
+                           min_img_cnt);
 }
 
 // -----------------------------------------------------------------------------
@@ -1122,74 +1122,6 @@ SemaphorePtr CreateSemaphore(const vk::UniqueDevice &device) {
 }
 
 // -----------------------------------------------------------------------------
-// --------------------------------- Swapchain ---------------------------------
-// -----------------------------------------------------------------------------
-SwapchainPackPtr CreateSwapchainPack(
-        const vk::PhysicalDevice &physical_device,
-        const vk::UniqueDevice &device, const vk::UniqueSurfaceKHR &surface,
-        const vk::Format &surface_format_raw, const vk::ImageUsageFlags &usage,
-        const vk::PresentModeKHR &present_mode,
-        const SwapchainPackPtr &old_swapchain_pack) {
-    // Get the supported surface VkFormats
-    auto surface_format = (surface_format_raw == vk::Format::eUndefined) ?
-                                  GetSurfaceFormat(physical_device, surface) :
-                                  surface_format_raw;
-
-    // Select properties from capabilities
-    auto props = SelectSwapchainProps(physical_device, surface);
-    const auto &swapchain_extent = std::get<0>(props);
-    const auto &pre_trans = std::get<1>(props);
-    const auto &composite_alpha = std::get<2>(props);
-    const auto &min_img_cnt = std::get<3>(props);
-
-    // Old swapchain
-    vk::SwapchainKHR old_swapchain;
-    if (old_swapchain_pack) {
-        old_swapchain = old_swapchain_pack->swapchain.get();
-    }
-
-    // Create swapchain
-    vk::UniqueSwapchainKHR swapchain = device->createSwapchainKHRUnique(
-            {vk::SwapchainCreateFlagsKHR(), surface.get(), min_img_cnt,
-             surface_format, vk::ColorSpaceKHR::eSrgbNonlinear,
-             swapchain_extent, 1, usage, vk::SharingMode::eExclusive, 0,
-             nullptr, pre_trans, composite_alpha, present_mode, true,
-             old_swapchain});
-
-    // Create image views
-    auto swapchain_imgs = device->getSwapchainImagesKHR(swapchain.get());
-    std::vector<vk::UniqueImageView> img_views;
-    img_views.reserve(swapchain_imgs.size());
-    for (auto img : swapchain_imgs) {
-        auto img_view = CreateImageViewImpl(img, surface_format,
-                                            vk::ImageAspectFlagBits::eColor, 0,
-                                            1, device);
-        img_views.push_back(std::move(img_view));
-    }
-
-    return SwapchainPackPtr(new SwapchainPack{
-            std::move(swapchain), std::move(img_views), swapchain_extent});
-}
-
-uint32_t AcquireNextImage(const vk::UniqueDevice &device,
-                          const SwapchainPackPtr &swapchain_pack,
-                          const SemaphorePtr &signal_semaphore,
-                          const FencePtr &signal_fence, uint64_t timeout) {
-    // Escape nullptr
-    vk::Semaphore semaphore_raw =
-            signal_semaphore ? signal_semaphore->get() : vk::Semaphore();
-    vk::Fence fence_raw = signal_fence ? signal_fence->get() : vk::Fence();
-
-    // Acquire (may throw exception)
-    const auto ret_val = device->acquireNextImageKHR(
-            swapchain_pack->swapchain.get(), timeout, semaphore_raw, fence_raw);
-    if (ret_val.result != vk::Result::eSuccess) {
-        vk::throwResultException(ret_val.result, "AcquireNextImage");
-    }
-    return ret_val.value;
-}
-
-// -----------------------------------------------------------------------------
 // ------------------------------- Device Memory -------------------------------
 // -----------------------------------------------------------------------------
 DeviceMemoryPackPtr CreateDeviceMemoryPack(
@@ -1375,6 +1307,19 @@ ImagePackPtr CreateImagePack(const ImageResPackPtr &img_res_pack,
     return ImagePackPtr(new ImagePack{std::move(view), format, size, aspects,
                                       miplevel_base, miplevel_cnt,
                                       img_res_pack});
+}
+
+ImagePackPtr CreateImagePack(vk::UniqueImageView &&img_view,
+                             const vk::Format &format, const vk::Extent2D &size,
+                             const vk::ImageAspectFlags &aspects) {
+    const uint32_t MIPLEVEL_BASE = 0;
+    const uint32_t MIPLEVEL_CNT = 1;
+    const ImageResPackPtr IMG_RES_PACK = nullptr;
+
+    // Construct image pack
+    return ImagePackPtr(new ImagePack{std::move(img_view), format, size,
+                                      aspects, MIPLEVEL_BASE, MIPLEVEL_CNT,
+                                      IMG_RES_PACK});
 }
 
 uint32_t GetMaxMipLevelCount(const vk::Extent2D &base_size) {
@@ -1585,6 +1530,78 @@ TexturePackPtr CreateTexturePack(const ImagePackPtr &img_pack,
 
     // Construct texture pack
     return TexturePackPtr(new TexturePack{img_pack, std::move(sampler)});
+}
+
+// -----------------------------------------------------------------------------
+// --------------------------------- Swapchain ---------------------------------
+// -----------------------------------------------------------------------------
+SwapchainPackPtr CreateSwapchainPack(
+        const vk::PhysicalDevice &physical_device,
+        const vk::UniqueDevice &device, const vk::UniqueSurfaceKHR &surface,
+        const vk::Format &surface_format_raw, const vk::ImageUsageFlags &usage,
+        const vk::PresentModeKHR &present_mode,
+        const SwapchainPackPtr &old_swapchain_pack) {
+    // Get the supported surface VkFormats
+    auto surface_format = (surface_format_raw == vk::Format::eUndefined) ?
+                                  GetSurfaceFormat(physical_device, surface) :
+                                  surface_format_raw;
+
+    // Select properties from capabilities
+    auto props = SelectSwapchainProps(physical_device, surface);
+    const auto &swapchain_extent = std::get<0>(props);
+    const auto &pre_trans = std::get<1>(props);
+    const auto &composite_alpha = std::get<2>(props);
+    const auto &min_img_cnt = std::get<3>(props);
+
+    // Old swapchain
+    vk::SwapchainKHR old_swapchain;
+    if (old_swapchain_pack) {
+        old_swapchain = old_swapchain_pack->swapchain.get();
+    }
+
+    // Create swapchain
+    vk::UniqueSwapchainKHR swapchain = device->createSwapchainKHRUnique(
+            {vk::SwapchainCreateFlagsKHR(), surface.get(), min_img_cnt,
+             surface_format, vk::ColorSpaceKHR::eSrgbNonlinear,
+             swapchain_extent, 1, usage, vk::SharingMode::eExclusive, 0,
+             nullptr, pre_trans, composite_alpha, present_mode, true,
+             old_swapchain});
+
+    // Create image views
+    auto swapchain_imgs = device->getSwapchainImagesKHR(swapchain.get());
+    std::vector<ImagePackPtr> img_packs;
+    img_packs.reserve(swapchain_imgs.size());
+    for (auto img : swapchain_imgs) {
+        auto img_view = CreateImageViewImpl(img, surface_format,
+                                            vk::ImageAspectFlagBits::eColor, 0,
+                                            1, device);
+        auto img_pack = CreateImagePack(std::move(img_view), surface_format,
+                                        swapchain_extent,
+                                        vk::ImageAspectFlagBits::eColor);
+        img_packs.push_back(std::move(img_pack));
+    }
+
+    return SwapchainPackPtr(new SwapchainPack{std::move(swapchain),
+                                              std::move(img_packs),
+                                              vk::Extent2D(swapchain_extent)});
+}
+
+uint32_t AcquireNextImage(const vk::UniqueDevice &device,
+                          const SwapchainPackPtr &swapchain_pack,
+                          const SemaphorePtr &signal_semaphore,
+                          const FencePtr &signal_fence, uint64_t timeout) {
+    // Escape nullptr
+    vk::Semaphore semaphore_raw =
+            signal_semaphore ? signal_semaphore->get() : vk::Semaphore();
+    vk::Fence fence_raw = signal_fence ? signal_fence->get() : vk::Fence();
+
+    // Acquire (may throw exception)
+    const auto ret_val = device->acquireNextImageKHR(
+            swapchain_pack->swapchain.get(), timeout, semaphore_raw, fence_raw);
+    if (ret_val.result != vk::Result::eSuccess) {
+        vk::throwResultException(ret_val.result, "AcquireNextImage");
+    }
+    return ret_val.value;
 }
 
 // -----------------------------------------------------------------------------
@@ -1859,10 +1876,10 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
 
     // Create Frame Buffers
     std::vector<FrameBufferPackPtr> rets;
-    rets.reserve(swapchain->views.size());
-    for (auto &&view : swapchain->views) {
+    rets.reserve(swapchain->imgs.size());
+    for (auto &&img_pack : swapchain->imgs) {
         // Overwrite swapchain image view
-        attachments[attach_idx] = *view;
+        attachments[attach_idx] = *img_pack->view;
         // Create one Frame Buffer
         auto frame_buffer = device->createFramebufferUnique(
                 {vk::FramebufferCreateFlags(), *render_pass_pack->render_pass,

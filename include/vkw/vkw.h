@@ -161,30 +161,6 @@ using SemaphorePtr = std::shared_ptr<vk::UniqueSemaphore>;
 SemaphorePtr CreateSemaphore(const vk::UniqueDevice& device);
 
 // -----------------------------------------------------------------------------
-// --------------------------------- Swapchain ---------------------------------
-// -----------------------------------------------------------------------------
-struct SwapchainPack {
-    vk::UniqueSwapchainKHR swapchain;
-    std::vector<vk::UniqueImageView> views;
-    vk::Extent2D size;
-};
-using SwapchainPackPtr = std::shared_ptr<SwapchainPack>;
-SwapchainPackPtr CreateSwapchainPack(
-        const vk::PhysicalDevice& physical_device,
-        const vk::UniqueDevice& device, const vk::UniqueSurfaceKHR& surface,
-        const vk::Format& surface_format = vk::Format::eUndefined,
-        const vk::ImageUsageFlags& usage =
-                vk::ImageUsageFlagBits::eColorAttachment,
-        const vk::PresentModeKHR& present_mode = vk::PresentModeKHR::eFifo,
-        const SwapchainPackPtr& old_swapchain_pack = nullptr);
-
-uint32_t AcquireNextImage(const vk::UniqueDevice& device,
-                          const SwapchainPackPtr& swapchain_pack,
-                          const SemaphorePtr& signal_semaphore = nullptr,
-                          const FencePtr& signal_fence = nullptr,
-                          uint64_t timeout = NO_TIMEOUT);
-
-// -----------------------------------------------------------------------------
 // ------------------------------- Device Memory -------------------------------
 // -----------------------------------------------------------------------------
 struct DeviceMemoryPack {
@@ -274,10 +250,15 @@ ImagePackPtr CreateImagePack(
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
         const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined,
         bool is_shared = false);
-ImagePackPtr CreateImagePack(
+ImagePackPtr CreateImagePack(  // ROI
         const ImageResPackPtr& img_res_pack, const vk::UniqueDevice& device,
         const vk::Format& format = vk::Format::eUndefined,
         uint32_t miplevel_base = 0, uint32_t miplevel_cnt = MAX_MIP_LEVEL,
+        const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor);
+ImagePackPtr CreateImagePack(  // No resource (only view)
+        vk::UniqueImageView&& img_view,
+        const vk::Format& format = vk::Format::eUndefined,
+        const vk::Extent2D& size = {256, 256},
         const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor);
 
 uint32_t GetMaxMipLevelCount(const vk::Extent2D& base_size);
@@ -353,6 +334,30 @@ TexturePackPtr CreateTexturePack(
         const vk::SamplerAddressMode& addr_u = vk::SamplerAddressMode::eRepeat,
         const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
         const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat);
+
+// -----------------------------------------------------------------------------
+// --------------------------------- Swapchain ---------------------------------
+// -----------------------------------------------------------------------------
+struct SwapchainPack {
+    vk::UniqueSwapchainKHR swapchain;
+    std::vector<ImagePackPtr> imgs;
+    vk::Extent2D size;
+};
+using SwapchainPackPtr = std::shared_ptr<SwapchainPack>;
+SwapchainPackPtr CreateSwapchainPack(
+        const vk::PhysicalDevice& physical_device,
+        const vk::UniqueDevice& device, const vk::UniqueSurfaceKHR& surface,
+        const vk::Format& surface_format = vk::Format::eUndefined,
+        const vk::ImageUsageFlags& usage =
+                vk::ImageUsageFlagBits::eColorAttachment,
+        const vk::PresentModeKHR& present_mode = vk::PresentModeKHR::eFifo,
+        const SwapchainPackPtr& old_swapchain_pack = nullptr);
+
+uint32_t AcquireNextImage(const vk::UniqueDevice& device,
+                          const SwapchainPackPtr& swapchain_pack,
+                          const SemaphorePtr& signal_semaphore = nullptr,
+                          const FencePtr& signal_fence = nullptr,
+                          uint64_t timeout = NO_TIMEOUT);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- DescriptorSet -------------------------------
