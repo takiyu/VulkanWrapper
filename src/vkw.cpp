@@ -1728,6 +1728,30 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
                         img_infos.size(), nullptr, img_infos.data());
 }
 
+void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
+                     const DescSetPackPtr &desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<vk::DescriptorBufferInfo> &buf_infos) {
+    // Register buffer info
+    write_pack->desc_buf_info_vecs.push_back(buf_infos);
+
+    // Create and Add WriteDescriptorSet
+    AddWriteDescSetImpl(write_pack, desc_set_pack, binding_idx,
+                        buf_infos.size(), buf_infos.data(), nullptr);
+}
+
+void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
+                     const DescSetPackPtr &desc_set_pack,
+                     const uint32_t binding_idx,
+                     const std::vector<vk::DescriptorImageInfo> &img_infos) {
+    // Register buffer info
+    write_pack->desc_img_info_vecs.push_back(img_infos);
+
+    // Create and Add WriteDescriptorSet
+    AddWriteDescSetImpl(write_pack, desc_set_pack, binding_idx,
+                        img_infos.size(), nullptr, img_infos.data());
+}
+
 void UpdateDescriptorSets(const vk::UniqueDevice &device,
                           const WriteDescSetPackPtr &write_desc_set_pack) {
     device->updateDescriptorSets(write_desc_set_pack->write_desc_sets, nullptr);
