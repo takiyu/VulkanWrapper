@@ -627,9 +627,8 @@ std::vector<uint32_t> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
 }  // namespace
 
 // -----------------------------------------------------------------------------
-// -------------------------------- Info Prints --------------------------------
+// --------------------------------- Printers ----------------------------------
 // -----------------------------------------------------------------------------
-
 #if defined(__ANDROID__)
 // Android print
 void PrintInfo(const std::string &str) {
@@ -648,7 +647,10 @@ void PrintErr(const std::string &str) {
 }
 #endif
 
-void PrintInstanceLayerProps() {
+// -----------------------------------------------------------------------------
+// -------------------------- Info Getters / Printers --------------------------
+// -----------------------------------------------------------------------------
+std::string GetInstanceLayerProps() {
     // Create information string
     std::stringstream ss;
     ss << "* InstanceLayerProperties" << std::endl;
@@ -662,11 +664,10 @@ void PrintInstanceLayerProps() {
         ss << "    " << prop.description;
         ss << std::endl;
     }
-    // Print
-    PrintInfo(ss.str());
+    return ss.str();
 }
 
-void PrintInstanceExtensionProps() {
+std::string GetInstanceExtensionProps() {
     // Create information string
     std::stringstream ss;
     ss << "* InstanceExtensionProperties" << std::endl;
@@ -677,11 +678,10 @@ void PrintInstanceExtensionProps() {
            << " (spec_version: " << prop.specVersion << ")";
         ss << std::endl;
     }
-    // Print
-    PrintInfo(ss.str());
+    return ss.str();
 }
 
-void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
+std::string GetQueueFamilyProps(const vk::PhysicalDevice& physical_device) {
     // Create information string
     std::stringstream ss;
     ss << "* QueueFamilyProperties" << std::endl;
@@ -693,8 +693,19 @@ void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
         ss << "  " << i << ": " << flags_str
            << "  (max_queue_cnt:" << max_queue_cnt << ")" << std::endl;
     }
-    // Print
-    PrintInfo(ss.str());
+    return ss.str();
+}
+
+void PrintInstanceLayerProps() {
+    PrintInfo(GetInstanceLayerProps());
+}
+
+void PrintInstanceExtensionProps() {
+    PrintInfo(GetInstanceExtensionProps());
+}
+
+void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
+    PrintInfo(GetQueueFamilyProps(physical_device));
 }
 
 // -----------------------------------------------------------------------------

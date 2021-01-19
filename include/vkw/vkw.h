@@ -40,10 +40,17 @@ namespace vkw {
 const uint64_t NO_TIMEOUT = std::numeric_limits<uint64_t>::max();
 
 // -----------------------------------------------------------------------------
-// -------------------------------- Info Prints --------------------------------
+// --------------------------------- Printers ----------------------------------
 // -----------------------------------------------------------------------------
 void PrintInfo(const std::string& str);
 void PrintErr(const std::string& str);
+
+// -----------------------------------------------------------------------------
+// -------------------------- Info Getters / Printers --------------------------
+// -----------------------------------------------------------------------------
+std::string GetInstanceLayerProps();
+std::string GetInstanceExtensionProps();
+std::string GetQueueFamilyProps(const vk::PhysicalDevice& physical_device);
 void PrintInstanceLayerProps();
 void PrintInstanceExtensionProps();
 void PrintQueueFamilyProps(const vk::PhysicalDevice& physical_device);
@@ -52,7 +59,6 @@ void PrintQueueFamilyProps(const vk::PhysicalDevice& physical_device);
 // -------------------------------- FPS counter --------------------------------
 // -----------------------------------------------------------------------------
 void DefaultFpsFunc(float fps);
-
 void PrintFps(std::function<void(float)> print_func = DefaultFpsFunc,
               float show_interval_sec = 1.f);
 
