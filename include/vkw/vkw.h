@@ -48,12 +48,14 @@ void PrintErr(const std::string& str);
 // -----------------------------------------------------------------------------
 // -------------------------- Info Getters / Printers --------------------------
 // -----------------------------------------------------------------------------
-std::string GetInstanceLayerProps();
-std::string GetInstanceExtensionProps();
-std::string GetQueueFamilyProps(const vk::PhysicalDevice& physical_device);
+std::string GetInstanceLayerPropsStr();
+std::string GetInstanceExtensionPropsStr();
+std::string GetQueueFamilyPropsStr(const vk::PhysicalDevice& physical_device);
+std::string GetPhysicalPropsStr(const vk::PhysicalDevice& physical_device);
 void PrintInstanceLayerProps();
 void PrintInstanceExtensionProps();
 void PrintQueueFamilyProps(const vk::PhysicalDevice& physical_device);
+void PrintPhysicalProps(const vk::PhysicalDevice& physical_device);
 
 // -----------------------------------------------------------------------------
 // -------------------------------- FPS counter --------------------------------

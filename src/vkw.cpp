@@ -95,6 +95,26 @@ static std::vector<std::string> Split(const std::string &str, char del = '\n') {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+std::string GetVendorName(uint32_t vendor_id) {
+    const static std::unordered_map<uint32_t, std::string> VENDOR_TABLE = {
+            {0x1002, "AMD"}, {0x1010, "ImgTec"},   {0x10DE, "NVidia"},
+            {0x13B5, "ARM"}, {0x5143, "Qualcomm"}, {0x8086, "Intel"}};
+
+    // Try to find
+    auto it = VENDOR_TABLE.find(vendor_id);
+    if (it != VENDOR_TABLE.end()) {
+        return it->second;  // found from the table
+    }
+
+    // Unknown
+    std::stringstream ss;
+    ss << "Unknown (ID: " << vendor_id << ")";
+    return ss.str();
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 static bool IsVkDebugUtilsAvailable() {
     const std::string DEBUG_UTIL_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
     for (auto &&prop : vk::enumerateInstanceExtensionProperties()) {
@@ -650,7 +670,7 @@ void PrintErr(const std::string &str) {
 // -----------------------------------------------------------------------------
 // -------------------------- Info Getters / Printers --------------------------
 // -----------------------------------------------------------------------------
-std::string GetInstanceLayerProps() {
+std::string GetInstanceLayerPropsStr() {
     // Create information string
     std::stringstream ss;
     ss << "* InstanceLayerProperties" << std::endl;
@@ -667,7 +687,7 @@ std::string GetInstanceLayerProps() {
     return ss.str();
 }
 
-std::string GetInstanceExtensionProps() {
+std::string GetInstanceExtensionPropsStr() {
     // Create information string
     std::stringstream ss;
     ss << "* InstanceExtensionProperties" << std::endl;
@@ -681,7 +701,7 @@ std::string GetInstanceExtensionProps() {
     return ss.str();
 }
 
-std::string GetQueueFamilyProps(const vk::PhysicalDevice& physical_device) {
+std::string GetQueueFamilyPropsStr(const vk::PhysicalDevice &physical_device) {
     // Create information string
     std::stringstream ss;
     ss << "* QueueFamilyProperties" << std::endl;
@@ -696,16 +716,33 @@ std::string GetQueueFamilyProps(const vk::PhysicalDevice& physical_device) {
     return ss.str();
 }
 
+std::string GetPhysicalPropsStr(const vk::PhysicalDevice &physical_device) {
+    // Create information string
+    std::stringstream ss;
+    ss << "* PhysicalDeviceProperties" << std::endl;
+    const auto &props = physical_device.getProperties();
+    ss << "  api version:    " << props.apiVersion << std::endl;
+    ss << "  vendor:         " << GetVendorName(props.vendorID) << std::endl;
+    ss << "  driver version: " << props.driverVersion << std::endl;
+    ss << "  device name:    " << props.deviceName << std::endl;
+    ss << "  device type:    " << vk::to_string(props.deviceType) << std::endl;
+    return ss.str();
+}
+
 void PrintInstanceLayerProps() {
-    PrintInfo(GetInstanceLayerProps());
+    PrintInfo(GetInstanceLayerPropsStr());
 }
 
 void PrintInstanceExtensionProps() {
-    PrintInfo(GetInstanceExtensionProps());
+    PrintInfo(GetInstanceExtensionPropsStr());
 }
 
 void PrintQueueFamilyProps(const vk::PhysicalDevice &physical_device) {
-    PrintInfo(GetQueueFamilyProps(physical_device));
+    PrintInfo(GetQueueFamilyPropsStr(physical_device));
+}
+
+void PrintPhysicalProps(const vk::PhysicalDevice &physical_device) {
+    PrintInfo(GetPhysicalPropsStr(physical_device));
 }
 
 // -----------------------------------------------------------------------------

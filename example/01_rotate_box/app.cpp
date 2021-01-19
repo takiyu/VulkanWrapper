@@ -142,6 +142,7 @@ void RunExampleApp01(const vkw::WindowPtr& window,
     vkw::PrintInstanceLayerProps();
     vkw::PrintInstanceExtensionProps();
     vkw::PrintQueueFamilyProps(physical_device);
+    vkw::PrintPhysicalProps(physical_device);
 
     const auto depth_format = vk::Format::eD16Unorm;
     auto depth_img_pack = vkw::CreateImagePack(
