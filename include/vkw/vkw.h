@@ -132,6 +132,11 @@ std::vector<uint32_t> GetQueueFamilyIdxs(
         const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics |
                                             vk::QueueFlagBits::eCompute |
                                             vk::QueueFlagBits::eTransfer);
+uint32_t GetQueueFamilyIdx(
+        const vk::PhysicalDevice& physical_device,
+        const vk::QueueFlags& queue_flags = vk::QueueFlagBits::eGraphics |
+                                            vk::QueueFlagBits::eCompute |
+                                            vk::QueueFlagBits::eTransfer);
 
 uint32_t GetGraphicPresentQueueFamilyIdx(
         const vk::PhysicalDevice& physical_device,

@@ -1069,6 +1069,19 @@ std::vector<uint32_t> GetQueueFamilyIdxs(
     return queue_family_idxs;
 }
 
+uint32_t GetQueueFamilyIdx(const vk::PhysicalDevice &physical_device,
+                           const vk::QueueFlags &queue_flags) {
+    // Get graphics queue family indices
+    auto graphic_idxs = GetQueueFamilyIdxs(physical_device, queue_flags);
+
+    // Check status
+    if (graphic_idxs.size() == 0) {
+        throw std::runtime_error("No sufficient queue");
+    }
+    // Return the first index
+    return graphic_idxs.front();
+}
+
 uint32_t GetGraphicPresentQueueFamilyIdx(
         const vk::PhysicalDevice &physical_device,
         const vk::UniqueSurfaceKHR &surface,
