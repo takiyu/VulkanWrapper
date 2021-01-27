@@ -348,6 +348,16 @@ TexturePackPtr CreateTexturePack(
         const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
         const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat);
 
+vk::UniqueSampler CreateSampler(
+        const vk::UniqueDevice& device,
+        const vk::Filter& mag_filter = vk::Filter::eLinear,
+        const vk::Filter& min_filter = vk::Filter::eLinear,
+        const vk::SamplerMipmapMode& mipmap = vk::SamplerMipmapMode::eLinear,
+        const vk::SamplerAddressMode& addr_u = vk::SamplerAddressMode::eRepeat,
+        const vk::SamplerAddressMode& addr_v = vk::SamplerAddressMode::eRepeat,
+        const vk::SamplerAddressMode& addr_w = vk::SamplerAddressMode::eRepeat,
+        const uint32_t& miplevel_cnt = 1);
+
 // -----------------------------------------------------------------------------
 // --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------

@@ -329,29 +329,6 @@ static vk::ImageSubresourceLayers GetImgSubresLayers(
                                       1);
 }
 
-static vk::UniqueSampler CreateSamplerImpl(const vk::UniqueDevice &device,
-                                           const vk::Filter &mag_filter,
-                                           const vk::Filter &min_filter,
-                                           const vk::SamplerMipmapMode &mipmap,
-                                           const vk::SamplerAddressMode &addr_u,
-                                           const vk::SamplerAddressMode &addr_v,
-                                           const vk::SamplerAddressMode &addr_w,
-                                           const uint32_t &miplevel_cnt) {
-    const float mip_lod_bias = 0.f;
-    const bool anisotropy_enable = false;
-    const float max_anisotropy = 16.f;
-    const bool compare_enable = false;
-    const vk::CompareOp compare_op = vk::CompareOp::eNever;
-    const float min_lod = 0.f;
-    const float max_lod = static_cast<float>(miplevel_cnt - 1);
-    const vk::BorderColor border_color = vk::BorderColor::eFloatOpaqueBlack;
-
-    return device->createSamplerUnique(
-            {vk::SamplerCreateFlags(), mag_filter, min_filter, mipmap, addr_u,
-             addr_v, addr_w, mip_lod_bias, anisotropy_enable, max_anisotropy,
-             compare_enable, compare_op, min_lod, max_lod, border_color});
-}
-
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -1585,12 +1562,34 @@ TexturePackPtr CreateTexturePack(const ImagePackPtr &img_pack,
                                  const vk::SamplerAddressMode &addr_v,
                                  const vk::SamplerAddressMode &addr_w) {
     // Create sampler
-    auto sampler =
-            CreateSamplerImpl(device, mag_filter, min_filter, mipmap, addr_u,
-                              addr_v, addr_w, img_pack->view_miplevel_cnt);
+    auto sampler = CreateSampler(device, mag_filter, min_filter, mipmap, addr_u,
+                                 addr_v, addr_w, img_pack->view_miplevel_cnt);
 
     // Construct texture pack
     return TexturePackPtr(new TexturePack{img_pack, std::move(sampler)});
+}
+
+vk::UniqueSampler CreateSampler(const vk::UniqueDevice &device,
+                                const vk::Filter &mag_filter,
+                                const vk::Filter &min_filter,
+                                const vk::SamplerMipmapMode &mipmap,
+                                const vk::SamplerAddressMode &addr_u,
+                                const vk::SamplerAddressMode &addr_v,
+                                const vk::SamplerAddressMode &addr_w,
+                                const uint32_t &miplevel_cnt) {
+    const float mip_lod_bias = 0.f;
+    const bool anisotropy_enable = false;
+    const float max_anisotropy = 16.f;
+    const bool compare_enable = false;
+    const vk::CompareOp compare_op = vk::CompareOp::eNever;
+    const float min_lod = 0.f;
+    const float max_lod = static_cast<float>(miplevel_cnt - 1);
+    const vk::BorderColor border_color = vk::BorderColor::eFloatOpaqueBlack;
+
+    return device->createSamplerUnique(
+            {vk::SamplerCreateFlags(), mag_filter, min_filter, mipmap, addr_u,
+             addr_v, addr_w, mip_lod_bias, anisotropy_enable, max_anisotropy,
+             compare_enable, compare_op, min_lod, max_lod, border_color});
 }
 
 // -----------------------------------------------------------------------------
