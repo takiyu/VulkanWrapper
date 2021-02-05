@@ -1362,8 +1362,8 @@ ImagePackPtr CreateImagePack(vk::UniqueImageView &&img_view,
 
 uint32_t GetMaxMipLevelCount(const vk::Extent2D &base_size) {
     // Note: 1<=miplevel_cnt, 0<=miplevel
-    const float max_miplevel =
-            std::log2(std::max(base_size.width, base_size.height));
+    const uint32_t& max_len = std::max(base_size.width, base_size.height);
+    const float max_miplevel = std::log2(static_cast<float>(max_len));
     return static_cast<uint32_t>(std::floor(max_miplevel) + 1);
 }
 
