@@ -244,6 +244,7 @@ if (VKW_BUILD_EXAMPLES)
         ${CMAKE_CURRENT_SOURCE_DIR}/example/08_comp_shader/app.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/example/09_inverse_uv/app.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/example/10_glsl_optim/app.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/example/11_img_buf/app.cpp
     )
 
     if (ANDROID)

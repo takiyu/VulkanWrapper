@@ -14,6 +14,7 @@
 #include "../example/08_comp_shader/app.h"
 #include "../example/09_inverse_uv/app.h"
 #include "../example/10_glsl_optim/app.h"
+#include "../example/11_img_buf/app.h"
 #include "vkw/vkw.h"
 
 // -----------------------------------------------------------------------------
@@ -28,7 +29,7 @@ const std::vector<APP_FUNC_TYPE> APP_FUNCS = {
         RunExampleApp01, RunExampleApp02, RunExampleApp03,
         RunExampleApp04, RunExampleApp05, RunExampleApp06,
         RunExampleApp07, RunExampleApp08, RunExampleApp09,
-        RunExampleApp10,
+        RunExampleApp10, RunExampleApp11,
 };
 
 // Window
@@ -93,13 +94,13 @@ int main(int argc, char const* argv[]) {
     try {
         if (app_id == 0) {
             // Run all applications
-            for (uint32_t i = 0; i < APP_FUNCS.size(); i++) {
+            for (uint32_t i = 1; i < APP_FUNCS.size() + 1; i++) {
                 vkw::PrintInfo("Run application: " + AsStr(i));
                 try {
                     // Create window
                     InitWindow("Example App " + AsStr(i));
                     // Run
-                    APP_FUNCS[i](g_window, LimitedDrawHook);
+                    APP_FUNCS[i - 1](g_window, LimitedDrawHook);
                 } catch (const std::exception& e) {
                     vkw::PrintInfo(e.what());
                     // Go to next application

@@ -223,6 +223,10 @@ void RecvFromDevice(const vk::UniqueDevice& device,
                     const BufferPackPtr& buf_pack, void* data,
                     uint64_t n_bytes);
 
+void CopyBuffer(const vk::UniqueCommandBuffer& cmd_buf,
+                const BufferPackPtr& src_buf_pack,
+                const BufferPackPtr& dst_buf_pack);
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
@@ -330,6 +334,26 @@ void ClearColorImage(
         const uint32_t dst_miplevel = 0, const uint32_t miplevel_cnt = 1,
         const vk::ImageLayout& layout = vk::ImageLayout::eGeneral,
         const vk::ImageLayout& final_layout = vk::ImageLayout::eGeneral);
+
+// -----------------------------------------------------------------------------
+// ------------------------------ Buffer & Image -------------------------------
+// -----------------------------------------------------------------------------
+std::tuple<BufferPackPtr, ImagePackPtr> CreateBufferImagePack(
+        const vk::PhysicalDevice& physical_device,
+        const vk::UniqueDevice& device,
+        const bool strict_size_check = true,  // check memory size matching
+        const vk::DeviceSize& buf_size = 256 * 256 * 4,
+        const vk::Format& format = vk::Format::eR8G8B8A8Uint,
+        const vk::Extent2D& img_size = {256, 256}, uint32_t miplevel_cnt = 1,
+        const vk::BufferUsageFlags& buf_usage =
+                vk::BufferUsageFlagBits::eVertexBuffer,
+        const vk::ImageUsageFlags& img_usage = vk::ImageUsageFlagBits::eSampled,
+        const vk::MemoryPropertyFlags& mem_prop =
+                vk::MemoryPropertyFlagBits::eDeviceLocal,
+        bool is_tiling = false,
+        const vk::ImageAspectFlags& aspects = vk::ImageAspectFlagBits::eColor,
+        const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined,
+        bool is_shared = false);
 
 // -----------------------------------------------------------------------------
 // ---------------------------------- Texture ----------------------------------

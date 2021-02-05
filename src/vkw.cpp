@@ -1266,6 +1266,17 @@ void RecvFromDevice(const vk::UniqueDevice &device,
     RecvFromDevice(device, buf_pack->dev_mem_pack, data, n_bytes);
 }
 
+void CopyBuffer(const vk::UniqueCommandBuffer &cmd_buf,
+                const BufferPackPtr &src_buf_pack,
+                const BufferPackPtr &dst_buf_pack) {
+    if (src_buf_pack->size != dst_buf_pack->size) {
+        throw std::runtime_error("Buffer size is not same (CopyBuffer)");
+    }
+    const vk::BufferCopy copy_region(0, 0, src_buf_pack->size);
+    cmd_buf->copyBuffer(src_buf_pack->buf.get(), dst_buf_pack->buf.get(),
+                        copy_region);
+}
+
 // -----------------------------------------------------------------------------
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
@@ -1282,11 +1293,9 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     // Select tiling mode
     const vk::ImageTiling tiling =
             is_tiling ? vk::ImageTiling::eOptimal : vk::ImageTiling::eLinear;
-
     // Select sharing mode
     const vk::SharingMode shared = is_shared ? vk::SharingMode::eConcurrent :
                                                vk::SharingMode::eExclusive;
-
     // Mipmap level
     miplevel_cnt = std::min(miplevel_cnt, GetMaxMipLevelCount(size));
 
@@ -1362,7 +1371,7 @@ ImagePackPtr CreateImagePack(vk::UniqueImageView &&img_view,
 
 uint32_t GetMaxMipLevelCount(const vk::Extent2D &base_size) {
     // Note: 1<=miplevel_cnt, 0<=miplevel
-    const uint32_t& max_len = std::max(base_size.width, base_size.height);
+    const uint32_t &max_len = std::max(base_size.width, base_size.height);
     const float max_miplevel = std::log2(static_cast<float>(max_len));
     return static_cast<uint32_t>(std::floor(max_miplevel) + 1);
 }
@@ -1548,6 +1557,78 @@ void ClearColorImage(const vk::UniqueCommandBuffer &cmd_buf,
 
     // Set final image layout
     SetImageLayout(cmd_buf, dst_img_pack, final_layout);
+}
+
+// -----------------------------------------------------------------------------
+// ------------------------------ Buffer & Image -------------------------------
+// -----------------------------------------------------------------------------
+std::tuple<BufferPackPtr, ImagePackPtr> CreateBufferImagePack(
+        const vk::PhysicalDevice &physical_device,
+        const vk::UniqueDevice &device, const bool strict_size_check,
+        const vk::DeviceSize &buf_size, const vk::Format &format,
+        const vk::Extent2D &img_size, uint32_t miplevel_cnt,
+        const vk::BufferUsageFlags &buf_usage,
+        const vk::ImageUsageFlags &img_usage,
+        const vk::MemoryPropertyFlags &mem_prop, bool is_tiling,
+        const vk::ImageAspectFlags &aspects, const vk::ImageLayout &init_layout,
+        bool is_shared) {
+    // Select tiling mode
+    const vk::ImageTiling tiling =
+            is_tiling ? vk::ImageTiling::eOptimal : vk::ImageTiling::eLinear;
+    // Select sharing mode
+    const vk::SharingMode shared = is_shared ? vk::SharingMode::eConcurrent :
+                                               vk::SharingMode::eExclusive;
+    // Mipmap level
+    miplevel_cnt = std::min(miplevel_cnt, GetMaxMipLevelCount(img_size));
+
+    // Create buffer
+    auto buf = device->createBufferUnique(
+            {vk::BufferCreateFlags(), buf_size, buf_usage});
+    // Create image
+    auto img = device->createImageUnique(
+            {vk::ImageCreateFlags(), vk::ImageType::e2D, format,
+             vk::Extent3D(img_size, 1), miplevel_cnt, 1,
+             vk::SampleCountFlagBits::e1, tiling, img_usage, shared, 0, nullptr,
+             init_layout});
+
+    // Get memory requirements
+    auto buf_mem_req = device->getBufferMemoryRequirements(*buf);
+    auto img_mem_req = device->getImageMemoryRequirements(*img);
+    // Merge memory requirements
+    vk::MemoryRequirements mem_req;
+    if (strict_size_check) {
+        if (buf_mem_req.size != img_mem_req.size) {
+            throw std::runtime_error("Memory requirement's mismatch (size)");
+        }
+        mem_req.size = buf_mem_req.size;
+    } else {
+        mem_req.size = std::max(buf_mem_req.size, img_mem_req.size);
+    }
+    mem_req.alignment = std::min(buf_mem_req.alignment, img_mem_req.alignment);
+    mem_req.memoryTypeBits =
+            buf_mem_req.memoryTypeBits | img_mem_req.memoryTypeBits;
+
+    // Allocate memory
+    DeviceMemoryPackPtr dev_mem_pack =
+            CreateDeviceMemoryPack(device, physical_device, mem_req, mem_prop);
+
+    // Bind memory
+    device->bindBufferMemory(buf.get(), dev_mem_pack->dev_mem.get(), 0);
+    device->bindImageMemory(img.get(), dev_mem_pack->dev_mem.get(), 0);
+
+    // Create buffer pack
+    BufferPackPtr buf_pack(
+            new BufferPack{std::move(buf), buf_size, buf_usage, dev_mem_pack});
+
+    // Construct image resource pack
+    ImageResPackPtr img_res_pack(new ImageResPack{
+            std::move(img), format, img_size, miplevel_cnt, img_usage, mem_prop,
+            is_tiling, aspects, init_layout, is_shared, dev_mem_pack});
+    // Create image pack with raw view settings
+    auto img_pack = CreateImagePack(img_res_pack, device, format, 0,
+                                    miplevel_cnt, aspects);
+
+    return {std::move(buf_pack), std::move(img_pack)};
 }
 
 // -----------------------------------------------------------------------------
