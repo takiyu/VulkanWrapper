@@ -20,6 +20,7 @@ END_VKW_SUPPRESS_WARNING
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
 
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
 // Global Storage for Dynamic loader
@@ -336,82 +337,50 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
                                const ImagePackPtr &img_pack,
                                const vk::ImageLayout &old_img_layout,
                                const vk::ImageLayout &new_img_layout) {
-    // Decide source access mask
-    const vk::AccessFlags src_access_mask = [&]() -> vk::AccessFlags {
-        switch (old_img_layout) {
-            case vk::ImageLayout::eTransferSrcOptimal:
-                return vk::AccessFlagBits::eTransferRead;
-            case vk::ImageLayout::eTransferDstOptimal:
-                return vk::AccessFlagBits::eTransferWrite;
-            case vk::ImageLayout::ePreinitialized:
-                return vk::AccessFlagBits::eHostWrite;
-            case vk::ImageLayout::eShaderReadOnlyOptimal:
-                return vk::AccessFlagBits::eShaderRead;
-            case vk::ImageLayout::eGeneral:
-            case vk::ImageLayout::eUndefined: return {};  // empty
-            default:
-                throw std::runtime_error("Unexpected old image layout (A): " +
-                                         vk::to_string(old_img_layout));
-        }
-    }();
-    // Decide source stage
-    const vk::PipelineStageFlags src_stage = [&]() -> vk::PipelineStageFlags {
-        switch (old_img_layout) {
-            case vk::ImageLayout::eGeneral:
-            case vk::ImageLayout::ePreinitialized:
-                return vk::PipelineStageFlagBits::eHost;
-            case vk::ImageLayout::eTransferDstOptimal:
-            case vk::ImageLayout::eTransferSrcOptimal:
-                return vk::PipelineStageFlagBits::eTransfer;
-            case vk::ImageLayout::eUndefined:
-                return vk::PipelineStageFlagBits::eTopOfPipe;
-            case vk::ImageLayout::eShaderReadOnlyOptimal:
-                return vk::PipelineStageFlagBits::eFragmentShader;
-            default:
-                throw std::runtime_error("Unexpected old image layout (B): " +
-                                         vk::to_string(old_img_layout));
-        }
-    }();
+    // Decide source / destination stage and access mask
+    using StageAccessMask = std::tuple<vk::PipelineStageFlags, vk::AccessFlags>;
+    const static std::unordered_map<vk::ImageLayout, StageAccessMask> MAP = {
+            {vk::ImageLayout::eUndefined,
+             {vk::PipelineStageFlagBits::eTopOfPipe, {}}},
+            {vk::ImageLayout::ePreinitialized,
+             {vk::PipelineStageFlagBits::eHost,
+              vk::AccessFlagBits::eHostWrite}},
+            {vk::ImageLayout::eTransferSrcOptimal,
+             {vk::PipelineStageFlagBits::eTransfer,
+              vk::AccessFlagBits::eTransferRead}},
+            {vk::ImageLayout::eTransferDstOptimal,
+             {vk::PipelineStageFlagBits::eTransfer,
+              vk::AccessFlagBits::eTransferWrite}},
+            {vk::ImageLayout::eShaderReadOnlyOptimal,
+             {vk::PipelineStageFlagBits::eFragmentShader,
+              vk::AccessFlagBits::eShaderRead}},
+            {vk::ImageLayout::eColorAttachmentOptimal,
+             {vk::PipelineStageFlagBits::eColorAttachmentOutput,
+              vk::AccessFlagBits::eColorAttachmentWrite}},
+            {vk::ImageLayout::eDepthStencilAttachmentOptimal,
+             {vk::PipelineStageFlagBits::eEarlyFragmentTests,
+              vk::AccessFlagBits::eDepthStencilAttachmentRead |
+                      vk::AccessFlagBits::eDepthStencilAttachmentWrite}},
+            {vk::ImageLayout::eGeneral, {vk::PipelineStageFlagBits::eHost, {}}},
+    };
 
-    // Decide destination access mask
-    const vk::AccessFlags dst_access_mask = [&]() -> vk::AccessFlags {
-        switch (new_img_layout) {
-            case vk::ImageLayout::eColorAttachmentOptimal:
-                return vk::AccessFlagBits::eColorAttachmentWrite;
-            case vk::ImageLayout::eDepthStencilAttachmentOptimal:
-                return vk::AccessFlagBits::eDepthStencilAttachmentRead |
-                       vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-            case vk::ImageLayout::eGeneral: return {};  // empty
-            case vk::ImageLayout::eShaderReadOnlyOptimal:
-                return vk::AccessFlagBits::eShaderRead;
-            case vk::ImageLayout::eTransferSrcOptimal:
-                return vk::AccessFlagBits::eTransferRead;
-            case vk::ImageLayout::eTransferDstOptimal:
-                return vk::AccessFlagBits::eTransferWrite;
-            default:
-                throw std::runtime_error("Unexpected new image layout (A): " +
-                                         vk::to_string(new_img_layout));
-        }
-    }();
-    // Decide destination stage
-    const vk::PipelineStageFlags dst_stage = [&]() -> vk::PipelineStageFlags {
-        switch (new_img_layout) {
-            case vk::ImageLayout::eColorAttachmentOptimal:
-                return vk::PipelineStageFlagBits::eColorAttachmentOutput;
-            case vk::ImageLayout::eDepthStencilAttachmentOptimal:
-                return vk::PipelineStageFlagBits::eEarlyFragmentTests;
-            case vk::ImageLayout::eGeneral:
-                return vk::PipelineStageFlagBits::eHost;
-            case vk::ImageLayout::eShaderReadOnlyOptimal:
-                return vk::PipelineStageFlagBits::eFragmentShader;
-            case vk::ImageLayout::eTransferDstOptimal:
-            case vk::ImageLayout::eTransferSrcOptimal:
-                return vk::PipelineStageFlagBits::eTransfer;
-            default:
-                throw std::runtime_error("Unexpected new image layout (B): " +
-                                         vk::to_string(new_img_layout));
-        }
-    }();
+    // Look up source
+    auto src_it = MAP.find(old_img_layout);
+    if (src_it == MAP.end()) {
+        throw std::runtime_error("Unexpected old image layout: " +
+                                 vk::to_string(old_img_layout));
+    }
+    const auto &src_stage = std::get<0>(src_it->second);
+    const auto &src_access_mask = std::get<1>(src_it->second);
+
+    // Look up destination
+    auto dst_it = MAP.find(new_img_layout);
+    if (dst_it == MAP.end()) {
+        throw std::runtime_error("Unexpected new image layout: " +
+                                 vk::to_string(new_img_layout));
+    }
+    const auto &dst_stage = std::get<0>(dst_it->second);
+    const auto &dst_access_mask = std::get<1>(dst_it->second);
 
     // Set image layout
     const vk::ImageSubresourceRange subres_range(
