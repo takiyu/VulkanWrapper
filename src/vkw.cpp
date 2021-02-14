@@ -1107,14 +1107,18 @@ vk::Result WaitForFences(const vk::UniqueDevice &device,
                          const std::vector<FencePtr> &fences, bool wait_all,
                          uint64_t timeout) {
     // Repack fences
-    const uint32_t n_fences = static_cast<uint32_t>(fences.size());
     std::vector<vk::Fence> fences_raw;
-    fences_raw.reserve(n_fences);
     for (auto &&f : fences) {
-        fences_raw.push_back(f->get());
+        if (f) {  // Escape empty fence
+            fences_raw.push_back(f->get());
+        }
+    }
+    if (fences_raw.empty()) {
+        return vk::Result::eSuccess;
     }
 
     // Wait during `timeout` nano-seconds
+    const uint32_t n_fences = static_cast<uint32_t>(fences_raw.size());
     return device->waitForFences(n_fences, fences_raw.data(), wait_all,
                                  timeout);
 }
@@ -2481,9 +2485,9 @@ void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
     std::vector<vk::Semaphore> wait_semaphores_raw;
     std::vector<vk::PipelineStageFlags> wait_semaphore_stage_flags_raw;
     for (auto &&info : wait_semaphore_infos) {
-        auto&& sem = std::get<0>(info)->get();
+        auto&& sem = std::get<0>(info);
         if (sem) {  // Escape empty semaphore
-            wait_semaphores_raw.push_back(sem);
+            wait_semaphores_raw.push_back(sem->get());
             wait_semaphore_stage_flags_raw.push_back(std::get<1>(info));
         }
     }
@@ -2491,7 +2495,9 @@ void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
     // Unpack signal semaphores
     std::vector<vk::Semaphore> signal_semaphores_raw;
     for (auto &&s : signal_semaphores) {
-        signal_semaphores_raw.push_back(s->get());
+        if (s) {  // Escape empty semaphore
+            signal_semaphores_raw.push_back(s->get());
+        }
     }
 
     // Resolve signal fence
@@ -2518,11 +2524,9 @@ void QueuePresent(const vk::Queue &queue,
                   const std::vector<SemaphorePtr> &wait_semaphores) {
     // Unpack signal semaphores
     std::vector<vk::Semaphore> wait_semaphores_raw;
-    wait_semaphores_raw.reserve(wait_semaphores.size());
     for (auto &&s : wait_semaphores) {
-        auto&& sem = s->get();
-        if (sem) {  // Escape empty semaphore
-            wait_semaphores_raw.push_back(sem);
+        if (s) {  // Escape empty semaphore
+            wait_semaphores_raw.push_back(s->get());
         }
     }
 
