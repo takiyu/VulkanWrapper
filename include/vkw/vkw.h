@@ -698,7 +698,8 @@ vk::Queue GetQueue(const vk::UniqueDevice& device, uint32_t queue_family_idx,
 std::vector<vk::Queue> GetQueues(const vk::UniqueDevice& device,
                                  uint32_t queue_family_idx, uint32_t n_queues);
 
-using WaitSemaphoreInfo = std::tuple<SemaphorePtr, vk::PipelineStageFlags>;
+using WaitSemaphoreInfo =
+        std::tuple<SemaphorePtr, vk::PipelineStageFlags /* dst_stage */>;
 void QueueSubmit(
         const vk::Queue& queue, const vk::UniqueCommandBuffer& cmd_buf,
         const FencePtr& signal_fence = nullptr,
