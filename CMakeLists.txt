@@ -91,7 +91,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     set(warning_options "/W4")
 else()
     message(WARNING "Unsupported compiler for warning options")
-    message ("CMAKE_CXX_COMPILER_ID is ${CMAKE_CXX_COMPILER_ID}")
+    message("CMAKE_CXX_COMPILER_ID is ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
 # Utility function to setup a target (include, link, warning, sanitizer)
