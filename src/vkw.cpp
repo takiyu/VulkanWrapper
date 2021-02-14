@@ -2477,17 +2477,9 @@ void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
                  const FencePtr &signal_fence,
                  const std::vector<WaitSemaphoreInfo> &wait_semaphore_infos,
                  const std::vector<SemaphorePtr> &signal_semaphores) {
-    const uint32_t n_cmd_bufs = 1;
-    const uint32_t n_wait_semaphores =
-            static_cast<uint32_t>(wait_semaphore_infos.size());
-    const uint32_t n_signal_semaphores =
-            static_cast<uint32_t>(signal_semaphores.size());
-
     // Unpack wait semaphore infos
     std::vector<vk::Semaphore> wait_semaphores_raw;
     std::vector<vk::PipelineStageFlags> wait_semaphore_stage_flags_raw;
-    wait_semaphores_raw.reserve(n_wait_semaphores);
-    wait_semaphore_stage_flags_raw.reserve(n_wait_semaphores);
     for (auto &&info : wait_semaphore_infos) {
         auto&& sem = std::get<0>(info)->get();
         if (sem) {  // Escape empty semaphore
@@ -2498,7 +2490,6 @@ void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
 
     // Unpack signal semaphores
     std::vector<vk::Semaphore> signal_semaphores_raw;
-    signal_semaphores_raw.reserve(n_signal_semaphores);
     for (auto &&s : signal_semaphores) {
         signal_semaphores_raw.push_back(s->get());
     }
@@ -2507,6 +2498,11 @@ void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
     vk::Fence fence = signal_fence ? signal_fence->get() : vk::Fence();
 
     // Submit
+    const uint32_t n_wait_semaphores =
+            static_cast<uint32_t>(wait_semaphores_raw.size());
+    const uint32_t n_signal_semaphores =
+            static_cast<uint32_t>(signal_semaphores_raw.size());
+    const uint32_t n_cmd_bufs = 1;
     vk::SubmitInfo submit_info = {n_wait_semaphores,
                                   DataSafety(wait_semaphores_raw),
                                   DataSafety(wait_semaphore_stage_flags_raw),
@@ -2521,8 +2517,6 @@ void QueuePresent(const vk::Queue &queue,
                   const SwapchainPackPtr &swapchain_pack, uint32_t img_idx,
                   const std::vector<SemaphorePtr> &wait_semaphores) {
     // Unpack signal semaphores
-    const uint32_t n_wait_semaphores =
-            static_cast<uint32_t>(wait_semaphores.size());
     std::vector<vk::Semaphore> wait_semaphores_raw;
     wait_semaphores_raw.reserve(wait_semaphores.size());
     for (auto &&s : wait_semaphores) {
@@ -2533,6 +2527,8 @@ void QueuePresent(const vk::Queue &queue,
     }
 
     // Present
+    const uint32_t n_wait_semaphores =
+            static_cast<uint32_t>(wait_semaphores_raw.size());
     const uint32_t n_swapchains = 1;
     queue.presentKHR({n_wait_semaphores, DataSafety(wait_semaphores_raw),
                       n_swapchains, &swapchain_pack->swapchain.get(),
