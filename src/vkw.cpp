@@ -2489,8 +2489,11 @@ void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
     wait_semaphores_raw.reserve(n_wait_semaphores);
     wait_semaphore_stage_flags_raw.reserve(n_wait_semaphores);
     for (auto &&info : wait_semaphore_infos) {
-        wait_semaphores_raw.push_back(std::get<0>(info)->get());
-        wait_semaphore_stage_flags_raw.push_back(std::get<1>(info));
+        auto&& sem = std::get<0>(info)->get();
+        if (sem) {  // Escape empty semaphore
+            wait_semaphores_raw.push_back(sem);
+            wait_semaphore_stage_flags_raw.push_back(std::get<1>(info));
+        }
     }
 
     // Unpack signal semaphores
@@ -2523,7 +2526,10 @@ void QueuePresent(const vk::Queue &queue,
     std::vector<vk::Semaphore> wait_semaphores_raw;
     wait_semaphores_raw.reserve(wait_semaphores.size());
     for (auto &&s : wait_semaphores) {
-        wait_semaphores_raw.push_back(s->get());
+        auto&& sem = s->get();
+        if (sem) {  // Escape empty semaphore
+            wait_semaphores_raw.push_back(sem);
+        }
     }
 
     // Present
