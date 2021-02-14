@@ -288,6 +288,16 @@ void RecvFromDevice(const vk::UniqueDevice& device,
                     const ImageResPackPtr& img_res_pack, void* data,
                     uint64_t n_bytes);
 
+void BarrierImage(const vk::UniqueCommandBuffer& cmd_buf,
+                  const ImagePackPtr& img_pack,
+                  const vk::PipelineStageFlags& src_stage =
+                          vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                  const vk::AccessFlags& src_access_mask =
+                          vk::AccessFlagBits::eColorAttachmentWrite,
+                  const vk::PipelineStageFlags& dst_stage =
+                          vk::PipelineStageFlagBits::eFragmentShader,
+                  const vk::AccessFlags& dst_access_mask =
+                          vk::AccessFlagBits::eShaderRead);
 void SetImageLayout(const vk::UniqueCommandBuffer& cmd_buf,
                     const ImagePackPtr& img_pack,
                     const vk::ImageLayout& new_layout =

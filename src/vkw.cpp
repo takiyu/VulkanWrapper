@@ -386,12 +386,13 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
     const vk::ImageSubresourceRange subres_range(
             img_pack->view_aspects, img_pack->view_miplevel_base,
             img_pack->view_miplevel_cnt, 0, 1);
-    vk::ImageMemoryBarrier img_memory_barrier(
-            src_access_mask, dst_access_mask, old_img_layout, new_img_layout,
-            VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-            img_pack->img_res_pack->img.get(), subres_range);
-    return cmd_buf->pipelineBarrier(src_stage, dst_stage, {}, nullptr, nullptr,
-                                    img_memory_barrier);
+    cmd_buf->pipelineBarrier(
+            src_stage, dst_stage, {}, nullptr, nullptr,
+            vk::ImageMemoryBarrier{
+                    src_access_mask, dst_access_mask, old_img_layout,
+                    new_img_layout, VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED, img_pack->img_res_pack->img.get(),
+                    subres_range});
 }
 
 // -----------------------------------------------------------------------------
@@ -1380,6 +1381,29 @@ void RecvFromDevice(const vk::UniqueDevice &device,
 
     // Receive from device directly
     RecvFromDevice(device, img_res_pack->dev_mem_pack, data, n_bytes);
+}
+
+void BarrierImage(const vk::UniqueCommandBuffer &cmd_buf,
+                  const ImagePackPtr &img_pack,
+                  const vk::PipelineStageFlags &src_stage,
+                  const vk::AccessFlags &src_access_mask,
+                  const vk::PipelineStageFlags &dst_stage,
+                  const vk::AccessFlags &dst_access_mask) {
+    // No layout transition
+    const auto &img_layout = img_pack->img_res_pack->layout;
+
+    // Barrier view part
+    const vk::ImageSubresourceRange subres_range(
+            img_pack->view_aspects, img_pack->view_miplevel_base,
+            img_pack->view_miplevel_cnt, 0, 1);
+
+    // Barrier
+    cmd_buf->pipelineBarrier(
+            src_stage, dst_stage, {}, nullptr, nullptr,
+            vk::ImageMemoryBarrier{
+                    src_access_mask, dst_access_mask, img_layout, img_layout,
+                    VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                    img_pack->img_res_pack->img.get(), subres_range});
 }
 
 void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
