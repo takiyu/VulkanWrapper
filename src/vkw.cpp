@@ -1099,6 +1099,10 @@ void ResetFence(const vk::UniqueDevice &device, const FencePtr &fence) {
 
 vk::Result WaitForFence(const vk::UniqueDevice &device, const FencePtr &fence,
                         uint64_t timeout) {
+    if (!fence) {  // Escape empty fence
+        return vk::Result::eSuccess;
+    }
+
     // Wait during `timeout` nano-seconds
     return device->waitForFences(1, &fence->get(), false, timeout);
 }
