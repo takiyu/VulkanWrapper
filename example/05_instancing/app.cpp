@@ -264,13 +264,14 @@ void RunExampleApp05(const vkw::WindowPtr& window,
     auto render_pass_pack = vkw::CreateRenderPassPack();
     // Add color attachment
     vkw::AddAttachientDesc(
-            render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+            render_pass_pack, surface_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR, vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore);
     // Add depth attachment
-    vkw::AddAttachientDesc(render_pass_pack, depth_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+    vkw::AddAttachientDesc(
+            render_pass_pack, depth_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare);
     // Add subpass
     vkw::AddSubpassDesc(render_pass_pack,
                         {
@@ -387,7 +388,9 @@ void RunExampleApp05(const vkw::WindowPtr& window,
         if (!is_col_tex_sent) {
             is_col_tex_sent = true;
             vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack,
-                                   color_tex_pack->img_pack);
+                                   color_tex_pack->img_pack,
+                                   vk::ImageLayout::eUndefined,
+                                   vk::ImageLayout::eShaderReadOnlyOptimal);
         }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};

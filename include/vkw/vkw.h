@@ -231,6 +231,7 @@ void CopyBuffer(const vk::UniqueCommandBuffer& cmd_buf,
 // ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
 static constexpr uint32_t MAX_MIP_LEVEL = uint32_t(~0);
+static constexpr vk::ImageLayout LAYOUT_DONT_CARE = vk::ImageLayout::eUndefined;
 
 struct ImageResPack {
     vk::UniqueImage img;
@@ -241,7 +242,6 @@ struct ImageResPack {
     vk::MemoryPropertyFlags mem_prop;
     bool is_tiling;
     vk::ImageAspectFlags aspects;
-    vk::ImageLayout layout;
     bool is_shared;
     DeviceMemoryPackPtr dev_mem_pack;
 };
@@ -290,6 +290,7 @@ void RecvFromDevice(const vk::UniqueDevice& device,
 
 void BarrierImage(const vk::UniqueCommandBuffer& cmd_buf,
                   const ImagePackPtr& img_pack,
+                  const vk::ImageLayout& init_layout,
                   const vk::PipelineStageFlags& src_stage =
                           vk::PipelineStageFlagBits::eColorAttachmentOutput,
                   const vk::AccessFlags& src_access_mask =
@@ -300,50 +301,52 @@ void BarrierImage(const vk::UniqueCommandBuffer& cmd_buf,
                           vk::AccessFlagBits::eShaderRead);
 void SetImageLayout(const vk::UniqueCommandBuffer& cmd_buf,
                     const ImagePackPtr& img_pack,
-                    const vk::ImageLayout& new_layout =
-                            vk::ImageLayout::eShaderReadOnlyOptimal);
+                    const vk::ImageLayout& init_layout,
+                    const vk::ImageLayout& final_layout);
 
 void CopyBufferToImage(const vk::UniqueCommandBuffer& cmd_buf,
                        const BufferPackPtr& src_buf_pack,
                        const ImagePackPtr& dst_img_pack,
-                       const uint32_t dst_miplevel = 0,
-                       const vk::ImageLayout& final_layout =
-                               vk::ImageLayout::eShaderReadOnlyOptimal);
+                       const vk::ImageLayout& init_layout,
+                       const vk::ImageLayout& final_layout = LAYOUT_DONT_CARE,
+                       const uint32_t dst_miplevel = 0);
 
 void CopyImageToBuffer(const vk::UniqueCommandBuffer& cmd_buf,
                        const ImagePackPtr& src_img_pack,
                        const BufferPackPtr& dst_buf_pack,
-                       const uint32_t src_miplevel = 0,
-                       const vk::ImageLayout& final_layout =
-                               vk::ImageLayout::eColorAttachmentOptimal);
+                       const vk::ImageLayout& init_layout,
+                       const vk::ImageLayout& final_layout = LAYOUT_DONT_CARE,
+                       const uint32_t src_miplevel = 0);
 
 void CopyImage(const vk::UniqueCommandBuffer& cmd_buf,
                const ImagePackPtr& src_img_pack,
                const ImagePackPtr& dst_img_pack,
-               const uint32_t src_miplevel = 0, const uint32_t dst_miplevel = 0,
-               const vk::ImageLayout& src_final_layout =
-                       vk::ImageLayout::eColorAttachmentOptimal,
-               const vk::ImageLayout& dst_final_layout =
-                       vk::ImageLayout::eColorAttachmentOptimal);
+               const vk::ImageLayout& src_init_layout,
+               const vk::ImageLayout& dst_init_layout,
+               const vk::ImageLayout& src_final_layout = LAYOUT_DONT_CARE,
+               const vk::ImageLayout& dst_final_layout = LAYOUT_DONT_CARE,
+               const uint32_t src_miplevel = 0,
+               const uint32_t dst_miplevel = 0);
 
 void BlitImage(const vk::UniqueCommandBuffer& cmd_buf,
                const ImagePackPtr& src_img_pack,
                const ImagePackPtr& dst_img_pack,
                const std::array<vk::Offset2D, 2>& src_offsets,
                const std::array<vk::Offset2D, 2>& dst_offsets,
+               const vk::ImageLayout& src_init_layout,
+               const vk::ImageLayout& dst_init_layout,
+               const vk::ImageLayout& src_final_layout = LAYOUT_DONT_CARE,
+               const vk::ImageLayout& dst_final_layout = LAYOUT_DONT_CARE,
                const uint32_t src_miplevel = 0, const uint32_t dst_miplevel = 0,
-               const vk::Filter& filter = vk::Filter::eLinear,
-               const vk::ImageLayout& src_final_layout =
-                       vk::ImageLayout::eColorAttachmentOptimal,
-               const vk::ImageLayout& dst_final_layout =
-                       vk::ImageLayout::eColorAttachmentOptimal);
+               const vk::Filter& filter = vk::Filter::eLinear);
 
-void ClearColorImage(
-        const vk::UniqueCommandBuffer& cmd_buf,
-        const ImagePackPtr& dst_img_pack, const vk::ClearColorValue& color,
-        const uint32_t dst_miplevel = 0, const uint32_t miplevel_cnt = 1,
-        const vk::ImageLayout& layout = vk::ImageLayout::eGeneral,
-        const vk::ImageLayout& final_layout = vk::ImageLayout::eGeneral);
+void ClearColorImage(const vk::UniqueCommandBuffer& cmd_buf,
+                     const ImagePackPtr& dst_img_pack,
+                     const vk::ClearColorValue& color,
+                     const vk::ImageLayout& init_layout,
+                     const vk::ImageLayout& final_layout = LAYOUT_DONT_CARE,
+                     const uint32_t dst_miplevel = 0,
+                     const uint32_t miplevel_cnt = 1);
 
 // -----------------------------------------------------------------------------
 // ------------------------------ Buffer & Image -------------------------------
@@ -449,12 +452,12 @@ void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
                      const std::vector<TexturePackPtr>& tex_packs,  // For tex
-                     const std::vector<vk::ImageLayout>& tex_layouts = {});
+                     const std::vector<vk::ImageLayout>& tex_layouts);
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,
                      const std::vector<ImagePackPtr>& img_packs,  // For img
-                     const std::vector<vk::ImageLayout>& img_layouts = {});
+                     const std::vector<vk::ImageLayout>& img_layouts);
 void AddWriteDescSet(WriteDescSetPackPtr& write_pack,
                      const DescSetPackPtr& desc_set_pack,
                      const uint32_t binding_idx,  // for raw buf
@@ -483,10 +486,10 @@ RenderPassPackPtr CreateRenderPassPack();
 void AddAttachientDesc(
         RenderPassPackPtr& render_pass_pack,
         const vk::Format& format = vk::Format::eB8G8R8A8Unorm,
-        const vk::AttachmentLoadOp& load_op = vk::AttachmentLoadOp::eClear,
-        const vk::AttachmentStoreOp& store_op = vk::AttachmentStoreOp::eStore,
+        const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined,
         const vk::ImageLayout& final_layout = vk::ImageLayout::ePresentSrcKHR,
-        const vk::ImageLayout& init_layout = vk::ImageLayout::eUndefined);
+        const vk::AttachmentLoadOp& load_op = vk::AttachmentLoadOp::eClear,
+        const vk::AttachmentStoreOp& store_op = vk::AttachmentStoreOp::eStore);
 
 using AttachmentIdx = uint32_t;
 using AttachmentRefInfo = std::tuple<AttachmentIdx, vk::ImageLayout>;

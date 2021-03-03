@@ -14,7 +14,7 @@ END_VKW_SUPPRESS_WARNING
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-namespace  {
+namespace {
 
 // vertex shader with (P)osition and (C)olor in and (C)olor out
 const std::string VERT_SOURCE = R"(
@@ -168,12 +168,13 @@ void RunExampleApp01(const vkw::WindowPtr& window,
 
     auto render_pass_pack = vkw::CreateRenderPassPack();
     vkw::AddAttachientDesc(
-            render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
-    vkw::AddAttachientDesc(render_pass_pack, depth_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+            render_pass_pack, surface_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR, vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore);
+    vkw::AddAttachientDesc(
+            render_pass_pack, depth_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare);
 
     vkw::AddSubpassDesc(render_pass_pack,
                         {

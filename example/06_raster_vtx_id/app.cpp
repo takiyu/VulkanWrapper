@@ -198,12 +198,13 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     // Create render pass
     auto render_pass_pack = vkw::CreateRenderPassPack();
     vkw::AddAttachientDesc(
-            render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
-    vkw::AddAttachientDesc(render_pass_pack, depth_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+            render_pass_pack, surface_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR, vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore);
+    vkw::AddAttachientDesc(
+            render_pass_pack, depth_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare);
 
     // Create subpass
     vkw::AddSubpassDesc(render_pass_pack,

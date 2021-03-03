@@ -1293,10 +1293,9 @@ ImagePackPtr CreateImagePack(const vk::PhysicalDevice &physical_device,
     device->bindImageMemory(img.get(), dev_mem_pack->dev_mem.get(), 0);
 
     // Construct image resource pack
-    ImageResPackPtr img_res_pack(
-            new ImageResPack{std::move(img), format, size, miplevel_cnt, usage,
-                             mem_prop, is_tiling, aspects, init_layout,
-                             is_shared, std::move(dev_mem_pack)});
+    ImageResPackPtr img_res_pack(new ImageResPack{
+            std::move(img), format, size, miplevel_cnt, usage, mem_prop,
+            is_tiling, aspects, is_shared, std::move(dev_mem_pack)});
 
     // Create image pack with raw view settings
     return CreateImagePack(img_res_pack, device, format, 0, miplevel_cnt,
@@ -1393,55 +1392,52 @@ void RecvFromDevice(const vk::UniqueDevice &device,
 
 void BarrierImage(const vk::UniqueCommandBuffer &cmd_buf,
                   const ImagePackPtr &img_pack,
+                  const vk::ImageLayout &init_layout,
                   const vk::PipelineStageFlags &src_stage,
                   const vk::AccessFlags &src_access_mask,
                   const vk::PipelineStageFlags &dst_stage,
                   const vk::AccessFlags &dst_access_mask) {
-    // No layout transition
-    const auto &img_layout = img_pack->img_res_pack->layout;
-
     // Barrier view part
     const vk::ImageSubresourceRange subres_range(
             img_pack->view_aspects, img_pack->view_miplevel_base,
             img_pack->view_miplevel_cnt, 0, 1);
 
-    // Barrier
+    // Barrier (without layout transition)
     cmd_buf->pipelineBarrier(
             src_stage, dst_stage, {}, nullptr, nullptr,
             vk::ImageMemoryBarrier{
-                    src_access_mask, dst_access_mask, img_layout, img_layout,
+                    src_access_mask, dst_access_mask, init_layout, init_layout,
                     VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
                     img_pack->img_res_pack->img.get(), subres_range});
 }
 
 void SetImageLayout(const vk::UniqueCommandBuffer &cmd_buf,
                     const ImagePackPtr &img_pack,
-                    const vk::ImageLayout &new_layout) {
+                    const vk::ImageLayout &init_layout,
+                    const vk::ImageLayout &final_layout) {
     // Ignore undefined destination
-    if (new_layout == vk::ImageLayout::eUndefined) {
+    if (final_layout == vk::ImageLayout::eUndefined) {
         return;
     }
-
     // Check the need to set layout
-    const vk::ImageLayout old_layout = img_pack->img_res_pack->layout;
-    if (old_layout == new_layout) {
+    if (init_layout == final_layout) {
         return;
     }
-
-    // Shift layout variable
-    img_pack->img_res_pack->layout = new_layout;
 
     // Operate transition
-    SetImageLayoutImpl(cmd_buf, img_pack, old_layout, new_layout);
+    SetImageLayoutImpl(cmd_buf, img_pack, init_layout, final_layout);
 }
 
 void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
                        const BufferPackPtr &src_buf_pack,
                        const ImagePackPtr &dst_img_pack,
-                       const uint32_t dst_miplevel,
-                       const vk::ImageLayout &final_layout) {
+                       const vk::ImageLayout &init_layout,
+                       const vk::ImageLayout &final_layout,
+                       const uint32_t dst_miplevel) {
+    const auto DST_LAYOUT = vk::ImageLayout::eTransferDstOptimal;
+
     // Set image layout as transfer destination
-    SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
+    SetImageLayout(cmd_buf, dst_img_pack, init_layout, DST_LAYOUT);
 
     // Transfer from buffer to image
     const auto size = GetMippedSize(dst_img_pack->view_size, dst_miplevel);
@@ -1449,21 +1445,24 @@ void CopyBufferToImage(const vk::UniqueCommandBuffer &cmd_buf,
             0, size.width, size.height,
             GetImgSubresLayers(dst_img_pack, dst_miplevel),
             vk::Offset3D(0, 0, 0), vk::Extent3D(size, 1));
-    cmd_buf->copyBufferToImage(
-            src_buf_pack->buf.get(), dst_img_pack->img_res_pack->img.get(),
-            vk::ImageLayout::eTransferDstOptimal, copy_region);
+    cmd_buf->copyBufferToImage(src_buf_pack->buf.get(),
+                               dst_img_pack->img_res_pack->img.get(),
+                               DST_LAYOUT, copy_region);
 
     // Set final image layout
-    SetImageLayout(cmd_buf, dst_img_pack, final_layout);
+    SetImageLayout(cmd_buf, dst_img_pack, DST_LAYOUT, final_layout);
 }
 
 void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
                        const ImagePackPtr &src_img_pack,
                        const BufferPackPtr &dst_buf_pack,
-                       const uint32_t src_miplevel,
-                       const vk::ImageLayout &final_layout) {
+                       const vk::ImageLayout &init_layout,
+                       const vk::ImageLayout &final_layout,
+                       const uint32_t src_miplevel) {
+    const auto SRC_LAYOUT = vk::ImageLayout::eTransferSrcOptimal;
+
     // Set image layout as transfer source
-    SetImageLayout(cmd_buf, src_img_pack, vk::ImageLayout::eTransferSrcOptimal);
+    SetImageLayout(cmd_buf, src_img_pack, init_layout, SRC_LAYOUT);
 
     // Transfer from image to buffer
     const auto size = GetMippedSize(src_img_pack->view_size, src_miplevel);
@@ -1472,22 +1471,27 @@ void CopyImageToBuffer(const vk::UniqueCommandBuffer &cmd_buf,
             GetImgSubresLayers(src_img_pack, src_miplevel),
             vk::Offset3D(0, 0, 0), vk::Extent3D(size, 1));
     cmd_buf->copyImageToBuffer(src_img_pack->img_res_pack->img.get(),
-                               vk::ImageLayout::eTransferSrcOptimal,
-                               dst_buf_pack->buf.get(), copy_region);
+                               SRC_LAYOUT, dst_buf_pack->buf.get(),
+                               copy_region);
 
     // Set final image layout
-    SetImageLayout(cmd_buf, src_img_pack, final_layout);
+    SetImageLayout(cmd_buf, src_img_pack, SRC_LAYOUT, final_layout);
 }
 
 void CopyImage(const vk::UniqueCommandBuffer &cmd_buf,
                const ImagePackPtr &src_img_pack,
-               const ImagePackPtr &dst_img_pack, const uint32_t src_miplevel,
-               const uint32_t dst_miplevel,
+               const ImagePackPtr &dst_img_pack,
+               const vk::ImageLayout &src_init_layout,
+               const vk::ImageLayout &dst_init_layout,
                const vk::ImageLayout &src_final_layout,
-               const vk::ImageLayout &dst_final_layout) {
+               const vk::ImageLayout &dst_final_layout,
+               const uint32_t src_miplevel, const uint32_t dst_miplevel) {
+    const auto SRC_LAYOUT = vk::ImageLayout::eTransferSrcOptimal;
+    const auto DST_LAYOUT = vk::ImageLayout::eTransferDstOptimal;
+
     // Set image layout as transfer source and destination
-    SetImageLayout(cmd_buf, src_img_pack, vk::ImageLayout::eTransferSrcOptimal);
-    SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
+    SetImageLayout(cmd_buf, src_img_pack, src_init_layout, SRC_LAYOUT);
+    SetImageLayout(cmd_buf, dst_img_pack, dst_init_layout, DST_LAYOUT);
 
     // Transfer from image to buffer
     const auto &size_src = GetMippedSize(src_img_pack->view_size, src_miplevel);
@@ -1500,14 +1504,13 @@ void CopyImage(const vk::UniqueCommandBuffer &cmd_buf,
             vk::Offset3D(0, 0, 0),
             GetImgSubresLayers(dst_img_pack, dst_miplevel),
             vk::Offset3D(0, 0, 0), vk::Extent3D(size_src, 1));
-    cmd_buf->copyImage(src_img_pack->img_res_pack->img.get(),
-                       vk::ImageLayout::eTransferSrcOptimal,
-                       dst_img_pack->img_res_pack->img.get(),
-                       vk::ImageLayout::eTransferDstOptimal, copy_region);
+    cmd_buf->copyImage(src_img_pack->img_res_pack->img.get(), SRC_LAYOUT,
+                       dst_img_pack->img_res_pack->img.get(), DST_LAYOUT,
+                       copy_region);
 
     // Set final image layouts
-    SetImageLayout(cmd_buf, src_img_pack, src_final_layout);
-    SetImageLayout(cmd_buf, dst_img_pack, dst_final_layout);
+    SetImageLayout(cmd_buf, src_img_pack, SRC_LAYOUT, src_final_layout);
+    SetImageLayout(cmd_buf, dst_img_pack, DST_LAYOUT, dst_final_layout);
 }
 
 void BlitImage(const vk::UniqueCommandBuffer &cmd_buf,
@@ -1515,13 +1518,18 @@ void BlitImage(const vk::UniqueCommandBuffer &cmd_buf,
                const ImagePackPtr &dst_img_pack,
                const std::array<vk::Offset2D, 2> &src_offsets,
                const std::array<vk::Offset2D, 2> &dst_offsets,
-               const uint32_t src_miplevel, const uint32_t dst_miplevel,
-               const vk::Filter &filter,
+               const vk::ImageLayout &src_init_layout,
+               const vk::ImageLayout &dst_init_layout,
                const vk::ImageLayout &src_final_layout,
-               const vk::ImageLayout &dst_final_layout) {
+               const vk::ImageLayout &dst_final_layout,
+               const uint32_t src_miplevel, const uint32_t dst_miplevel,
+               const vk::Filter &filter) {
+    const auto SRC_LAYOUT = vk::ImageLayout::eTransferSrcOptimal;
+    const auto DST_LAYOUT = vk::ImageLayout::eTransferDstOptimal;
+
     // Set image layout as transfer source and destination
-    SetImageLayout(cmd_buf, src_img_pack, vk::ImageLayout::eTransferSrcOptimal);
-    SetImageLayout(cmd_buf, dst_img_pack, vk::ImageLayout::eTransferDstOptimal);
+    SetImageLayout(cmd_buf, src_img_pack, src_init_layout, SRC_LAYOUT);
+    SetImageLayout(cmd_buf, dst_img_pack, dst_init_layout, DST_LAYOUT);
 
     // Transfer from image to buffer
     const vk::ImageBlit blit_region(
@@ -1529,35 +1537,35 @@ void BlitImage(const vk::UniqueCommandBuffer &cmd_buf,
             {vk::Offset3D(src_offsets[0], 0), vk::Offset3D(src_offsets[1], 1)},
             GetImgSubresLayers(dst_img_pack, dst_miplevel),
             {vk::Offset3D(dst_offsets[0], 0), vk::Offset3D(dst_offsets[1], 1)});
-    cmd_buf->blitImage(src_img_pack->img_res_pack->img.get(),
-                       vk::ImageLayout::eTransferSrcOptimal,
-                       dst_img_pack->img_res_pack->img.get(),
-                       vk::ImageLayout::eTransferDstOptimal, blit_region,
-                       filter);
+    cmd_buf->blitImage(src_img_pack->img_res_pack->img.get(), SRC_LAYOUT,
+                       dst_img_pack->img_res_pack->img.get(), DST_LAYOUT,
+                       blit_region, filter);
 
     // Set final image layouts
-    SetImageLayout(cmd_buf, src_img_pack, src_final_layout);
-    SetImageLayout(cmd_buf, dst_img_pack, dst_final_layout);
+    SetImageLayout(cmd_buf, src_img_pack, SRC_LAYOUT, src_final_layout);
+    SetImageLayout(cmd_buf, dst_img_pack, DST_LAYOUT, dst_final_layout);
 }
 
 void ClearColorImage(const vk::UniqueCommandBuffer &cmd_buf,
                      const ImagePackPtr &dst_img_pack,
                      const vk::ClearColorValue &color,
-                     const uint32_t dst_miplevel, const uint32_t miplevel_cnt,
-                     const vk::ImageLayout &layout,
-                     const vk::ImageLayout &final_layout) {
+                     const vk::ImageLayout &init_layout,
+                     const vk::ImageLayout &final_layout,
+                     const uint32_t dst_miplevel, const uint32_t miplevel_cnt) {
+    const auto DST_LAYOUT = vk::ImageLayout::eTransferDstOptimal;
+
     // Set image layout as general (default) or shared_present or trans_dst
-    SetImageLayout(cmd_buf, dst_img_pack, layout);
+    SetImageLayout(cmd_buf, dst_img_pack, init_layout, DST_LAYOUT);
 
     // Clear
     const auto act_miplevel = GetActualMipLevel(dst_miplevel, dst_img_pack);
     const vk::ImageSubresourceRange subres_range(
             vk::ImageAspectFlagBits::eColor, act_miplevel, miplevel_cnt, 0, 1);
-    cmd_buf->clearColorImage(dst_img_pack->img_res_pack->img.get(), layout,
+    cmd_buf->clearColorImage(dst_img_pack->img_res_pack->img.get(), DST_LAYOUT,
                              color, subres_range);
 
     // Set final image layout
-    SetImageLayout(cmd_buf, dst_img_pack, final_layout);
+    SetImageLayout(cmd_buf, dst_img_pack, DST_LAYOUT, final_layout);
 }
 
 // -----------------------------------------------------------------------------
@@ -1624,7 +1632,7 @@ std::tuple<BufferPackPtr, ImagePackPtr> CreateBufferImagePack(
     // Construct image resource pack
     ImageResPackPtr img_res_pack(new ImageResPack{
             std::move(img), format, img_size, miplevel_cnt, img_usage, mem_prop,
-            is_tiling, aspects, init_layout, is_shared, dev_mem_pack});
+            is_tiling, aspects, is_shared, dev_mem_pack});
     // Create image pack with raw view settings
     auto img_pack = CreateImagePack(img_res_pack, device, format, 0,
                                     miplevel_cnt, aspects);
@@ -1820,8 +1828,7 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     // Note: desc_type should be `vk::DescriptorType::eCombinedImageSampler`
 
     // Check layout argument
-    const bool has_layouts = (tex_layouts.size() == tex_packs.size());
-    if (!has_layouts && !tex_layouts.empty()) {
+    if (tex_layouts.size() != tex_packs.size()) {
         throw std::runtime_error("Invalid number of layout arguments (tex)");
     }
 
@@ -1831,8 +1838,7 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     for (uint32_t tex_idx = 0; tex_idx < tex_packs.size(); tex_idx++) {
         auto &&tex_pack = tex_packs[tex_idx];
         auto &&img_pack = tex_pack->img_pack;
-        auto &&layout = has_layouts ? tex_layouts[tex_idx] :
-                                      img_pack->img_res_pack->layout;
+        auto &&layout = tex_layouts[tex_idx];
         img_infos.emplace_back(*tex_pack->sampler, *img_pack->view, layout);
     }
 
@@ -1849,8 +1855,7 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     // Note: desc_type should be `vk::DescriptorType::eInputAttachment`
 
     // Check layout argument
-    const bool has_layouts = (img_layouts.size() == img_packs.size());
-    if (!has_layouts && !img_layouts.empty()) {
+    if (img_layouts.size() != img_packs.size()) {
         throw std::runtime_error("Invalid number of layout arguments (img)");
     }
 
@@ -1860,8 +1865,7 @@ void AddWriteDescSet(WriteDescSetPackPtr &write_pack,
     for (uint32_t img_idx = 0; img_idx < img_packs.size(); img_idx++) {
         const vk::Sampler empty_sampler = nullptr;
         auto &&img_pack = img_packs[img_idx];
-        auto &&layout = has_layouts ? img_layouts[img_idx] :
-                                      img_pack->img_res_pack->layout;
+        auto &&layout = img_layouts[img_idx];
         img_infos.emplace_back(empty_sampler, *img_pack->view, layout);
     }
 
@@ -1908,10 +1912,10 @@ RenderPassPackPtr CreateRenderPassPack() {
 
 void AddAttachientDesc(RenderPassPackPtr &render_pass_pack,
                        const vk::Format &format,
-                       const vk::AttachmentLoadOp &load_op,
-                       const vk::AttachmentStoreOp &store_op,
+                       const vk::ImageLayout &init_layout,
                        const vk::ImageLayout &final_layout,
-                       const vk::ImageLayout &init_layout) {
+                       const vk::AttachmentLoadOp &load_op,
+                       const vk::AttachmentStoreOp &store_op) {
     const auto sample_cnt = vk::SampleCountFlagBits::e1;
     const auto stencil_load_op = vk::AttachmentLoadOp::eDontCare;
     const auto stencil_store_op = vk::AttachmentStoreOp::eDontCare;
@@ -2489,7 +2493,7 @@ void QueueSubmit(const vk::Queue &queue, const vk::UniqueCommandBuffer &cmd_buf,
     std::vector<vk::Semaphore> wait_semaphores_raw;
     std::vector<vk::PipelineStageFlags> wait_semaphore_stage_flags_raw;
     for (auto &&info : wait_semaphore_infos) {
-        auto&& sem = std::get<0>(info);
+        auto &&sem = std::get<0>(info);
         if (sem) {  // Escape empty semaphore
             wait_semaphores_raw.push_back(sem->get());
             wait_semaphore_stage_flags_raw.push_back(std::get<1>(info));

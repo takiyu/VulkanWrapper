@@ -96,7 +96,8 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // Copy from buffer to image
     vkw::BeginCommand(cmd_buf);
-    vkw::CopyBufferToImage(cmd_buf, buf_src, img, VIEW_MIPLEVEL);
+    vkw::CopyBufferToImage(cmd_buf, buf_src, img, vk::ImageLayout::eUndefined,
+                           vk::ImageLayout::eTransferDstOptimal, VIEW_MIPLEVEL);
     vkw::EndCommand(cmd_buf);
     // Execute
     auto fence = vkw::CreateFence(device);
@@ -105,7 +106,9 @@ void RunExampleApp07(const vkw::WindowPtr& window,
 
     // Copy from image to buffer
     vkw::BeginCommand(cmd_buf);
-    vkw::CopyImageToBuffer(cmd_buf, img, buf_dst, VIEW_MIPLEVEL);
+    vkw::CopyImageToBuffer(cmd_buf, img, buf_dst,
+                           vk::ImageLayout::eTransferDstOptimal,
+                           vk::ImageLayout::eTransferSrcOptimal, VIEW_MIPLEVEL);
     vkw::EndCommand(cmd_buf);
     // Execute
     vkw::ResetFence(device, fence);

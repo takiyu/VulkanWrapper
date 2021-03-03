@@ -360,13 +360,14 @@ void VkApp::initAttachComps() {
     m_render_pass_pack = vkw::CreateRenderPassPack();
     // Add color attachment
     vkw::AddAttachientDesc(
-            m_render_pass_pack, m_surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+            m_render_pass_pack, m_surface_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR, vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore);
     // Add depth attachment
-    vkw::AddAttachientDesc(m_render_pass_pack, DEPTH_FORMAT,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+    vkw::AddAttachientDesc(
+            m_render_pass_pack, DEPTH_FORMAT, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare);
     // Add subpass
     vkw::AddSubpassDesc(m_render_pass_pack,
                         {
@@ -445,7 +446,9 @@ void VkApp::sendTexture(const void* tex_data, uint64_t tex_n_bytes) {
     // Copy from buffer to image
     vkw::BeginCommand(cmd_buf);
     vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack,
-                           m_color_tex_pack->img_pack);
+                           m_color_tex_pack->img_pack,
+                           vk::ImageLayout::eUndefined,
+                           vk::ImageLayout::eShaderReadOnlyOptimal);
     vkw::EndCommand(cmd_buf);
 
     // Send

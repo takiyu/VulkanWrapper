@@ -255,7 +255,7 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0,
                          {uniform_buf_pack});
     vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1,
-                         {color_tex_pack},  // layout is still undefined.
+                         {color_tex_pack},
                          {vk::ImageLayout::eShaderReadOnlyOptimal});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
@@ -263,13 +263,14 @@ void RunExampleApp02(const vkw::WindowPtr& window,
     auto render_pass_pack = vkw::CreateRenderPassPack();
     // Add color attachment
     vkw::AddAttachientDesc(
-            render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+            render_pass_pack, surface_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR, vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore);
     // Add depth attachment
-    vkw::AddAttachientDesc(render_pass_pack, depth_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+    vkw::AddAttachientDesc(
+            render_pass_pack, depth_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare);
     // Add subpass
     vkw::AddSubpassDesc(render_pass_pack,
                         {
@@ -367,7 +368,9 @@ void RunExampleApp02(const vkw::WindowPtr& window,
                               tex_n_bytes);
             // Send buffer to image
             vkw::CopyBufferToImage(cmd_buf, trans_buf_pack,
-                                   color_tex_pack->img_pack);
+                                   color_tex_pack->img_pack,
+                                   vk::ImageLayout::eUndefined,
+                                   vk::ImageLayout::eShaderReadOnlyOptimal);
         }
 
         const std::array<float, 4> clear_color = {0.2f, 0.2f, 0.2f, 1.0f};

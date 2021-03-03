@@ -222,15 +222,15 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Create render pass (1st)
     auto render_pass_pack1 = vkw::CreateRenderPassPack();
     // Add color attachment
-    vkw::AddAttachientDesc(render_pass_pack1, uv_img_pack->view_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eStore,
-                           vk::ImageLayout::eGeneral);
+    vkw::AddAttachientDesc(
+            render_pass_pack1, uv_img_pack->view_format,
+            vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore);
     // Add depth attachment
-    vkw::AddAttachientDesc(render_pass_pack1, depth_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+    vkw::AddAttachientDesc(
+            render_pass_pack1, depth_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare);
     // Add subpass
     vkw::AddSubpassDesc(render_pass_pack1,
                         {
@@ -259,18 +259,19 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Create render pass (2nd)
     auto render_pass_pack2 = vkw::CreateRenderPassPack();
     // Add input attachment
-    vkw::AddAttachientDesc(render_pass_pack2, result_img_pack->view_format,
-                           vk::AttachmentLoadOp::eLoad,
-                           vk::AttachmentStoreOp::eStore,
-                           vk::ImageLayout::eGeneral);
+    vkw::AddAttachientDesc(
+            render_pass_pack2, result_img_pack->view_format,
+            vk::ImageLayout::eGeneral, vk::ImageLayout::eShaderReadOnlyOptimal,
+            vk::AttachmentLoadOp::eLoad, vk::AttachmentStoreOp::eStore);
     // Add color attachment
     vkw::AddAttachientDesc(
-            render_pass_pack2, surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+            render_pass_pack2, surface_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR, vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore);
     // Add subpass
     vkw::AddSubpassDesc(render_pass_pack2,
                         {
-                                {0, vk::ImageLayout::eGeneral},
+                                {0, vk::ImageLayout::eShaderReadOnlyOptimal},
                         },
                         {
                                 {1, vk::ImageLayout::eColorAttachmentOptimal},
@@ -289,7 +290,8 @@ void RunExampleApp09(const vkw::WindowPtr& window,
     // Bind descriptor set with actual buffer
     auto write_desc_set_pack2 = vkw::CreateWriteDescSetPack();
     vkw::AddWriteDescSet(write_desc_set_pack2, desc_set_pack2, 0,
-                         {result_img_pack}, {vk::ImageLayout::eGeneral});
+                         {result_img_pack},
+                         {vk::ImageLayout::eShaderReadOnlyOptimal});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack2);
 
     // Create descriptor set for compute shader
@@ -385,12 +387,10 @@ void RunExampleApp09(const vkw::WindowPtr& window,
         vkw::ResetCommand(cmd_buf);
 
         vkw::BeginCommand(cmd_buf);
-        // Layout initialization
-        vkw::SetImageLayout(cmd_buf, uv_img_pack, vk::ImageLayout::eGeneral);
-        vkw::SetImageLayout(cmd_buf, result_img_pack,
-                            vk::ImageLayout::eGeneral);
-        vkw::ClearColorImage(cmd_buf, result_img_pack,
-                             vk::ClearColorValue(clear_color));
+        // Clear (with layout initialization)
+        vkw::ClearColorImage(
+                cmd_buf, result_img_pack, vk::ClearColorValue(clear_color),
+                vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral);
 
         // 1st pass
         vkw::CmdBeginRenderPass(cmd_buf, render_pass_pack1, frame_buffer_pack1,

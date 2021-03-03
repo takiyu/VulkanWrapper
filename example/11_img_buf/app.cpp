@@ -3,6 +3,7 @@
 #include <vkw/warning_suppressor.h>
 
 #include "vkw/vkw.h"
+#include "vulkan/vulkan.hpp"
 
 BEGIN_VKW_SUPPRESS_WARNING
 #include <glm/geometric.hpp>
@@ -93,7 +94,8 @@ void RunExampleApp11(const vkw::WindowPtr& window,
 
     // Copy from intermediate buffer to image
     vkw::BeginCommand(cmd_buf);
-    vkw::CopyBufferToImage(cmd_buf, buf_mid1, img);
+    vkw::CopyBufferToImage(cmd_buf, buf_mid1, img, vk::ImageLayout::eUndefined,
+                           vk::ImageLayout::eUndefined);
     vkw::EndCommand(cmd_buf);
     // Execute
     auto fence1 = vkw::CreateFence(device);

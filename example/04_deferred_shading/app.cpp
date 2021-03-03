@@ -346,23 +346,24 @@ void RunExampleApp04(const vkw::WindowPtr& window,
     auto render_pass_pack = vkw::CreateRenderPassPack();
     // 0) Add color attachment for surface
     vkw::AddAttachientDesc(
-            render_pass_pack, surface_format, vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore, vk::ImageLayout::ePresentSrcKHR);
+            render_pass_pack, surface_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR, vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore);
     // 1) Add gbuffer 0 (color) attachment
-    vkw::AddAttachientDesc(render_pass_pack, gbuf_col_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eStore,
-                           vk::ImageLayout::eColorAttachmentOptimal);
+    vkw::AddAttachientDesc(
+            render_pass_pack, gbuf_col_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eColorAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore);
     // 2) Add gbuffer 1 (normal) attachment
-    vkw::AddAttachientDesc(render_pass_pack, gbuf_nor_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eStore,
-                           vk::ImageLayout::eColorAttachmentOptimal);
+    vkw::AddAttachientDesc(
+            render_pass_pack, gbuf_nor_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eColorAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore);
     // 3) Add depth attachment
-    vkw::AddAttachientDesc(render_pass_pack, depth_format,
-                           vk::AttachmentLoadOp::eClear,
-                           vk::AttachmentStoreOp::eDontCare,
-                           vk::ImageLayout::eDepthStencilAttachmentOptimal);
+    vkw::AddAttachientDesc(
+            render_pass_pack, depth_format, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare);
     // Add subpass 1
     vkw::AddSubpassDesc(render_pass_pack,
                         {
@@ -459,7 +460,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                           tex_n_bytes);
         vkw::BeginCommand(cmd_buf);
         vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack,
-                               color_tex_pack->img_pack);
+                               color_tex_pack->img_pack,
+                               vk::ImageLayout::eUndefined,
+                               vk::ImageLayout::eShaderReadOnlyOptimal);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});
@@ -479,7 +482,9 @@ void RunExampleApp04(const vkw::WindowPtr& window,
                           tex_n_bytes);
         vkw::BeginCommand(cmd_buf);
         vkw::CopyBufferToImage(cmd_buf, src_trans_buf_pack,
-                               bump_tex_pack->img_pack);
+                               bump_tex_pack->img_pack,
+                               vk::ImageLayout::eUndefined,
+                               vk::ImageLayout::eShaderReadOnlyOptimal);
         vkw::EndCommand(cmd_buf);
         auto send_fence = vkw::CreateFence(device);
         vkw::QueueSubmit(queues[0], cmd_buf, send_fence, {}, {});

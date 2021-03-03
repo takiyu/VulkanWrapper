@@ -111,7 +111,8 @@ void RunExampleApp08(const vkw::WindowPtr& window,
                           org_data.size() * sizeof(float));
         // Copy from buffer to image
         vkw::BeginCommand(cmd_buf);
-        vkw::CopyBufferToImage(cmd_buf, buf_src, inp_img_pack, 0,
+        vkw::CopyBufferToImage(cmd_buf, buf_src, inp_img_pack,
+                               vk::ImageLayout::eUndefined,
                                vk::ImageLayout::eGeneral);
         vkw::EndCommand(cmd_buf);
         // Execute
@@ -130,7 +131,8 @@ void RunExampleApp08(const vkw::WindowPtr& window,
     {
         // Make image layout "General"
         vkw::BeginCommand(cmd_buf);
-        vkw::SetImageLayout(cmd_buf, out_img_pack, vk::ImageLayout::eGeneral);
+        vkw::SetImageLayout(cmd_buf, out_img_pack, vk::ImageLayout::eUndefined,
+                            vk::ImageLayout::eGeneral);
         vkw::EndCommand(cmd_buf);
         // Execute
         auto fence = vkw::CreateFence(device);
@@ -145,8 +147,10 @@ void RunExampleApp08(const vkw::WindowPtr& window,
                      {vk::DescriptorType::eStorageImage, 1,
                       vk::ShaderStageFlagBits::eCompute}});  // Output image
     auto write_desc_set_pack = vkw::CreateWriteDescSetPack();
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0, {inp_img_pack});
-    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {out_img_pack});
+    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 0, {inp_img_pack},
+                         {vk::ImageLayout::eGeneral});
+    vkw::AddWriteDescSet(write_desc_set_pack, desc_set_pack, 1, {out_img_pack},
+                         {vk::ImageLayout::eGeneral});
     vkw::UpdateDescriptorSets(device, write_desc_set_pack);
 
     // Compile shader
@@ -185,8 +189,9 @@ void RunExampleApp08(const vkw::WindowPtr& window,
                 vkw::HOST_VISIB_COHER_PROPS);
         // Copy from image to buffer
         vkw::BeginCommand(cmd_buf);
-        vkw::CopyImageToBuffer(cmd_buf, out_img_pack, buf_dst, 0,
-                               vk::ImageLayout::eGeneral);
+        vkw::CopyImageToBuffer(cmd_buf, out_img_pack, buf_dst,
+                               vk::ImageLayout::eGeneral,
+                               vkw::LAYOUT_DONT_CARE);
         vkw::EndCommand(cmd_buf);
         // Execute
         auto fence = vkw::CreateFence(device);
