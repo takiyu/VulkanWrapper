@@ -96,6 +96,38 @@ static std::vector<std::string> Split(const std::string &str, char del = '\n') {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+#if defined(__ANDROID__)
+// Android print
+void DefaultPrintInfo(const std::string &str) {
+    __android_log_print(ANDROID_LOG_INFO, "VKW", "%s", str.c_str());
+}
+void DefaultPrintErr(const std::string &str) {
+    __android_log_print(ANDROID_LOG_ERROR, "VKW", "%s", str.c_str());
+}
+#else
+// Standard print
+void DefaultPrintInfo(const std::string &str) {
+    std::cout << str << std::endl;
+}
+void DefaultPrintErr(const std::string &str) {
+    std::cerr << str << std::endl;
+}
+#endif
+
+static std::function<void(const std::string &str)> g_print_info_func =
+        DefaultPrintInfo;
+static std::function<void(const std::string &str)> g_print_err_func =
+        DefaultPrintErr;
+
+void DefaultPrintFps(float fps) {
+    std::stringstream ss;
+    ss << "Fps: " << fps;
+    PrintInfo(ss.str());
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 std::string GetVendorName(uint32_t vendor_id) {
     const static std::unordered_map<uint32_t, std::string> VENDOR_TABLE = {
             {0x1002, "AMD"}, {0x1010, "ImgTec"},   {0x10DE, "NVidia"},
@@ -596,23 +628,21 @@ std::vector<uint32_t> CompileGLSL(const vk::ShaderStageFlagBits &vk_stage,
 // -----------------------------------------------------------------------------
 // --------------------------------- Printers ----------------------------------
 // -----------------------------------------------------------------------------
-#if defined(__ANDROID__)
-// Android print
 void PrintInfo(const std::string &str) {
-    __android_log_print(ANDROID_LOG_INFO, "VKW", "%s", str.c_str());
+    g_print_info_func(str);
 }
+
 void PrintErr(const std::string &str) {
-    __android_log_print(ANDROID_LOG_ERROR, "VKW", "%s", str.c_str());
+    g_print_err_func(str);
 }
-#else
-// Standard print
-void PrintInfo(const std::string &str) {
-    std::cout << str << std::endl;
+
+void SetPrintInfoFunc(const std::function<void(const std::string &str)> &func) {
+    g_print_info_func = func;
 }
-void PrintErr(const std::string &str) {
-    std::cerr << str << std::endl;
+
+void SetPrintErrFunc(const std::function<void(const std::string &str)> &func) {
+    g_print_err_func = func;
 }
-#endif
 
 // -----------------------------------------------------------------------------
 // -------------------------- Info Getters / Printers --------------------------
@@ -695,12 +725,6 @@ void PrintPhysicalProps(const vk::PhysicalDevice &physical_device) {
 // -----------------------------------------------------------------------------
 // -------------------------------- FPS counter --------------------------------
 // -----------------------------------------------------------------------------
-void DefaultFpsFunc(float fps) {
-    std::stringstream ss;
-    ss << "Fps: " << fps;
-    PrintInfo(ss.str());
-}
-
 void PrintFps(std::function<void(float)> print_func, float show_interval_sec) {
     static int s_count = -2;  // Some starting offset
     static auto s_start_clk = std::chrono::system_clock::now();
@@ -717,7 +741,13 @@ void PrintFps(std::function<void(float)> print_func, float show_interval_sec) {
         // Compute fps
         const float fps = static_cast<float>(s_count) / elapsed_sec;
         // Print
-        print_func(fps);
+        if (print_func) {
+            // Custom print
+            print_func(fps);
+        } else {
+            // Default print
+            DefaultPrintFps(fps);
+        }
         // Shift clock
         s_count = 0;
         s_start_clk = cur_clk;

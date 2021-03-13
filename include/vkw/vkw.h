@@ -44,6 +44,8 @@ const uint64_t NO_TIMEOUT = std::numeric_limits<uint64_t>::max();
 // -----------------------------------------------------------------------------
 void PrintInfo(const std::string& str);
 void PrintErr(const std::string& str);
+void SetPrintInfoFunc(const std::function<void(const std::string& str)>& func);
+void SetPrintErrFunc(const std::function<void(const std::string& str)>& func);
 
 // -----------------------------------------------------------------------------
 // -------------------------- Info Getters / Printers --------------------------
@@ -60,8 +62,7 @@ void PrintPhysicalProps(const vk::PhysicalDevice& physical_device);
 // -----------------------------------------------------------------------------
 // -------------------------------- FPS counter --------------------------------
 // -----------------------------------------------------------------------------
-void DefaultFpsFunc(float fps);
-void PrintFps(std::function<void(float)> print_func = DefaultFpsFunc,
+void PrintFps(std::function<void(float)> print_func = nullptr,
               float show_interval_sec = 1.f);
 
 // -----------------------------------------------------------------------------
