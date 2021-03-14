@@ -223,7 +223,7 @@ std::vector<char const *> GetEnabledLayers(bool debug_enable) {
         if (valid_names.count(name)) {
             ret_names.push_back(name);
         } else {
-            PrintErr("[VKW] Layer '" + std::string(name) + "' is invalid");
+            PrintErr("Layer '" + std::string(name) + "' is invalid");
         }
     }
 
@@ -276,7 +276,6 @@ VKAPI_ATTR VkBool32 DebugMessengerCallback(
 
     // Create message string
     std::stringstream ss;
-    ss << "[VKW] -----------------------------------------" << std::endl;
     ss << severity_str << ": " << type_str << ":" << std::endl;
 #if 0
     // Message Name and ID are not important
@@ -313,7 +312,6 @@ VKAPI_ATTR VkBool32 DebugMessengerCallback(
             }
         }
     }
-    ss << "-----------------------------------------------";
 
     // Print error
     PrintErr(ss.str());
@@ -330,7 +328,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
 
     // Create message string
     std::stringstream ss;
-    ss << "[VKW] -----------------------------------------" << std::endl;
     ss << vk::to_string(vk::DebugReportFlagBitsEXT(msg_flags));
     ss << std::endl;
     ss << "  Layer: " << layer_prefix << "]";
@@ -338,7 +335,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
     ss << ", Object: " << vk::to_string(vk::DebugReportObjectTypeEXT(obj_type));
     ss << std::endl;
     ss << "  Message: " << message;
-    ss << "-----------------------------------------------";
 
     // Print error
     PrintErr(ss.str());
