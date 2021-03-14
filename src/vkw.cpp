@@ -35,7 +35,7 @@ namespace vkw {
 namespace {
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// ------------------------------ Common Utility -------------------------------
 // -----------------------------------------------------------------------------
 template <typename T>
 inline T Clamp(const T &x, const T &min_v, const T &max_v) {
@@ -94,7 +94,7 @@ std::vector<std::string> Split(const std::string &str, char del = '\n') {
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// --------------------------------- Printers ----------------------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
 // Android print
@@ -126,7 +126,27 @@ void DefaultPrintFps(float fps) {
 }
 
 // -----------------------------------------------------------------------------
+// -------------------------- Info Getters / Printers --------------------------
 // -----------------------------------------------------------------------------
+std::string GetVendorName(uint32_t vendor_id) {
+    const static std::unordered_map<uint32_t, std::string> VENDOR_TABLE = {
+            {0x1002, "AMD"}, {0x1010, "ImgTec"},   {0x10DE, "NVidia"},
+            {0x13B5, "ARM"}, {0x5143, "Qualcomm"}, {0x8086, "Intel"}};
+
+    // Try to find
+    auto it = VENDOR_TABLE.find(vendor_id);
+    if (it != VENDOR_TABLE.end()) {
+        return it->second;  // found from the table
+    }
+
+    // Unknown
+    std::stringstream ss;
+    ss << "Unknown (ID: " << vendor_id << ")";
+    return ss.str();
+}
+
+// -----------------------------------------------------------------------------
+// ---------------------------------- Float16 ----------------------------------
 // -----------------------------------------------------------------------------
 union Float32 {
     uint32_t u;
@@ -148,7 +168,7 @@ union Float16 {
 };
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// ----------------------------------- Window ----------------------------------
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
 // Android version (ANativeWindow)
@@ -164,27 +184,7 @@ void WindowDeleter(GLFWwindow *ptr) {
 #endif
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-std::string GetVendorName(uint32_t vendor_id) {
-    const static std::unordered_map<uint32_t, std::string> VENDOR_TABLE = {
-            {0x1002, "AMD"}, {0x1010, "ImgTec"},   {0x10DE, "NVidia"},
-            {0x13B5, "ARM"}, {0x5143, "Qualcomm"}, {0x8086, "Intel"}};
-
-    // Try to find
-    auto it = VENDOR_TABLE.find(vendor_id);
-    if (it != VENDOR_TABLE.end()) {
-        return it->second;  // found from the table
-    }
-
-    // Unknown
-    std::stringstream ss;
-    ss << "Unknown (ID: " << vendor_id << ")";
-    return ss.str();
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// --------------------------------- Instance ----------------------------------
 // -----------------------------------------------------------------------------
 bool IsVkDebugUtilsAvailable() {
     const std::string DEBUG_UTIL_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
@@ -260,9 +260,6 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
     return enabled_exts;
 }
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
 VKAPI_ATTR VkBool32 DebugMessengerCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT msg_severity,
         VkDebugUtilsMessageTypeFlagsEXT msg_types,
@@ -366,7 +363,7 @@ vk::UniqueDebugReportCallbackEXT RegisterDebugReport(
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// ----------------------------------- Image -----------------------------------
 // -----------------------------------------------------------------------------
 vk::UniqueImageView CreateImageViewImpl(const vk::Image &img,
                                         const vk::Format &format,
@@ -397,9 +394,6 @@ vk::ImageSubresourceLayers GetImgSubresLayers(const ImagePackPtr &img_pack,
                                       1);
 }
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
 void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
                         const ImagePackPtr &img_pack,
                         const vk::ImageLayout &old_img_layout,
@@ -463,7 +457,7 @@ void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// --------------------------------- Swapchain ---------------------------------
 // -----------------------------------------------------------------------------
 auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
                           const vk::UniqueSurfaceKHR &surface) {
@@ -510,7 +504,7 @@ auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// ------------------------------- DescriptorSet -------------------------------
 // -----------------------------------------------------------------------------
 void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
                          const DescSetPackPtr &desc_set_pack,
@@ -536,7 +530,7 @@ void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// -------------------------------- FrameBuffer --------------------------------
 // -----------------------------------------------------------------------------
 auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
                         const std::vector<ImagePackPtr> &imgs,
@@ -574,7 +568,7 @@ auto PrepareFrameBuffer(const RenderPassPackPtr &render_pass_pack,
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+// -------------------------------- ShaderModule -------------------------------
 // -----------------------------------------------------------------------------
 EShLanguage CvtShaderStage(const vk::ShaderStageFlagBits &stage) {
     switch (stage) {
