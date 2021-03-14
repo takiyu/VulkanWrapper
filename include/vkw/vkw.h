@@ -574,6 +574,12 @@ private:
 };
 
 // -----------------------------------------------------------------------------
+// ------------------------------ Pipeline Cache -------------------------------
+// -----------------------------------------------------------------------------
+using PipelineCachePtr = std::shared_ptr<vk::UniquePipelineCache>;
+PipelineCachePtr CreatePipelineCache(const vk::UniqueDevice& device);
+
+// -----------------------------------------------------------------------------
 // ----------------------------- Graphics Pipeline -----------------------------
 // -----------------------------------------------------------------------------
 struct VtxInputBindingInfo {
@@ -624,7 +630,8 @@ PipelinePackPtr CreateGraphicsPipeline(
         const std::vector<VtxInputAttribInfo>& vtx_inp_attrib_info,
         const PipelineInfo& pipeline_info,
         const std::vector<DescSetPackPtr>& desc_set_packs,
-        const RenderPassPackPtr& render_pass_pack, uint32_t subpass_idx = 0);
+        const RenderPassPackPtr& render_pass_pack, uint32_t subpass_idx = 0,
+        const PipelineCachePtr& pipeline_cache = nullptr);
 
 // -----------------------------------------------------------------------------
 // ----------------------------- Compute Pipeline ------------------------------
@@ -632,7 +639,8 @@ PipelinePackPtr CreateGraphicsPipeline(
 PipelinePackPtr CreateComputePipeline(
         const vk::UniqueDevice& device,
         const ShaderModulePackPtr& shader_module,
-        const std::vector<DescSetPackPtr>& desc_set_packs);
+        const std::vector<DescSetPackPtr>& desc_set_packs,
+        const PipelineCachePtr& pipeline_cache = nullptr);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- Command Buffer ------------------------------

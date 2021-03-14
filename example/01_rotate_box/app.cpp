@@ -207,12 +207,14 @@ void RunExampleApp01(const vkw::WindowPtr& window,
 
     vkw::PipelineInfo pipeline_info;
     pipeline_info.color_blend_infos.resize(1);
+    auto pipeline_cache = vkw::CreatePipelineCache(device);
     auto pipeline_pack = vkw::CreateGraphicsPipeline(
             device, {vert_shader_module_pack, frag_shader_module_pack},
             {{0, sizeof(Vertex), vk::VertexInputRate::eVertex}},
             {{0, 0, vk::Format::eR32G32B32A32Sfloat, 0},
              {1, 0, vk::Format::eR32G32B32A32Sfloat, 16}},
-            pipeline_info, {desc_set_pack}, render_pass_pack);
+            pipeline_info, {desc_set_pack}, render_pass_pack, 0,
+            pipeline_cache);
 
     const uint32_t n_cmd_bufs = 1;
     auto cmd_bufs_pack =

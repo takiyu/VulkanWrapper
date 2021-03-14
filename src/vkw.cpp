@@ -2154,6 +2154,16 @@ ShaderModulePackPtr GLSLCompiler::compileFromString(
 std::atomic<uint32_t> GLSLCompiler::s_n_compiler = {0};
 
 // -----------------------------------------------------------------------------
+// ------------------------------ Pipeline Cache -------------------------------
+// -----------------------------------------------------------------------------
+PipelineCachePtr CreatePipelineCache(const vk::UniqueDevice &device) {
+    // Create empty pipeline cache
+    auto pipeline_cache = device->createPipelineCacheUnique({{}, 0, nullptr});
+    return PipelineCachePtr(
+            new vk::UniquePipelineCache(std::move(pipeline_cache)));
+}
+
+// -----------------------------------------------------------------------------
 // ----------------------------- Graphics Pipeline -----------------------------
 // -----------------------------------------------------------------------------
 PipelinePackPtr CreateGraphicsPipeline(
@@ -2163,7 +2173,8 @@ PipelinePackPtr CreateGraphicsPipeline(
         const std::vector<VtxInputAttribInfo> &vtx_inp_attrib_info,
         const PipelineInfo &pipeline_info,
         const std::vector<DescSetPackPtr> &desc_set_packs,
-        const RenderPassPackPtr &render_pass_pack, uint32_t subpass_idx) {
+        const RenderPassPackPtr &render_pass_pack, uint32_t subpass_idx,
+        const PipelineCachePtr &pipeline_cache) {
     // Shader stage create infos
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stage_cis;
     shader_stage_cis.reserve(shader_modules.size());
@@ -2277,9 +2288,12 @@ PipelinePackPtr CreateGraphicsPipeline(
              static_cast<uint32_t>(desc_set_layouts.size()),
              desc_set_layouts.data()});
 
+    // Pipeline cache
+    auto pipeline_cache_raw = pipeline_cache ? pipeline_cache->get() : nullptr;
+
     // Create pipeline
     auto pipeline_ret = device->createGraphicsPipelineUnique(
-            nullptr,  // no pipeline cache
+            pipeline_cache_raw,
             {vk::PipelineCreateFlags(),
              static_cast<uint32_t>(shader_stage_cis.size()),
              shader_stage_cis.data(), &vtx_inp_state_ci, &inp_assembly_state_ci,
@@ -2301,7 +2315,8 @@ PipelinePackPtr CreateGraphicsPipeline(
 PipelinePackPtr CreateComputePipeline(
         const vk::UniqueDevice &device,
         const ShaderModulePackPtr &shader_module,
-        const std::vector<DescSetPackPtr> &desc_set_packs) {
+        const std::vector<DescSetPackPtr> &desc_set_packs,
+        const PipelineCachePtr &pipeline_cache) {
     // Repack descriptor set layout
     std::vector<vk::DescriptorSetLayout> desc_set_layouts;
     desc_set_layouts.reserve(desc_set_packs.size());
@@ -2316,9 +2331,12 @@ PipelinePackPtr CreateComputePipeline(
              static_cast<uint32_t>(desc_set_layouts.size()),
              desc_set_layouts.data()});
 
+    // Pipeline cache
+    auto pipeline_cache_raw = pipeline_cache ? pipeline_cache->get() : nullptr;
+
     // Create pipeline
     auto pipeline_ret = device->createComputePipelineUnique(
-            nullptr,  // no pipeline cache
+            pipeline_cache_raw,
             {vk::PipelineCreateFlags(),
              {vk::PipelineShaderStageCreateFlags(), shader_module->stage,
               shader_module->shader_module.get(), "main"},
