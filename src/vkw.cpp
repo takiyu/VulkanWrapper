@@ -72,7 +72,7 @@ T *DataSafety(std::vector<T> &vec) {
     }
 }
 
-static std::vector<std::string> Split(const std::string &str, char del = '\n') {
+std::vector<std::string> Split(const std::string &str, char del = '\n') {
     std::vector<std::string> result;
     std::string::size_type first_pos = 0, last_pos = 0;
     while (first_pos < str.size()) {
@@ -128,6 +128,44 @@ void DefaultPrintFps(float fps) {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+union Float32 {
+    uint32_t u;
+    float f;
+    struct Rep {
+        uint32_t coeff : 23;
+        uint32_t exp : 8;
+        uint32_t sign : 1;
+    } rep;
+};
+
+union Float16 {
+    uint16_t u;
+    struct Rep {
+        uint16_t coeff : 10;
+        uint16_t exp : 5;
+        uint16_t sign : 1;
+    } rep;
+};
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+#if defined(__ANDROID__)
+// Android version (ANativeWindow)
+void WindowDeleter(ANativeWindow *ptr) {
+    ANativeWindow_release(ptr);
+}
+
+#else
+// GLFW version (GLFWWindow)
+void WindowDeleter(GLFWwindow *ptr) {
+    glfwDestroyWindow(ptr);
+}
+#endif
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 std::string GetVendorName(uint32_t vendor_id) {
     const static std::unordered_map<uint32_t, std::string> VENDOR_TABLE = {
             {0x1002, "AMD"}, {0x1010, "ImgTec"},   {0x10DE, "NVidia"},
@@ -148,7 +186,7 @@ std::string GetVendorName(uint32_t vendor_id) {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static bool IsVkDebugUtilsAvailable() {
+bool IsVkDebugUtilsAvailable() {
     const std::string DEBUG_UTIL_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
     for (auto &&prop : vk::enumerateInstanceExtensionProperties()) {
         if (std::string(prop.extensionName.data()) == DEBUG_UTIL_NAME) {
@@ -158,7 +196,7 @@ static bool IsVkDebugUtilsAvailable() {
     return false;
 }
 
-static std::vector<char const *> GetEnabledLayers(bool debug_enable) {
+std::vector<char const *> GetEnabledLayers(bool debug_enable) {
     std::vector<char const *> names;
 
     if (debug_enable) {
@@ -192,8 +230,8 @@ static std::vector<char const *> GetEnabledLayers(bool debug_enable) {
     return ret_names;
 }
 
-static std::vector<char const *> GetEnabledExts(bool debug_enable,
-                                                bool surface_enable) {
+std::vector<char const *> GetEnabledExts(bool debug_enable,
+                                         bool surface_enable) {
     std::vector<char const *> enabled_exts;
 
     if (surface_enable) {
@@ -225,7 +263,7 @@ static std::vector<char const *> GetEnabledExts(bool debug_enable,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static VKAPI_ATTR VkBool32 DebugMessengerCallback(
+VKAPI_ATTR VkBool32 DebugMessengerCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT msg_severity,
         VkDebugUtilsMessageTypeFlagsEXT msg_types,
         VkDebugUtilsMessengerCallbackDataEXT const *callback, void *) {
@@ -283,7 +321,7 @@ static VKAPI_ATTR VkBool32 DebugMessengerCallback(
     return VK_TRUE;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
         VkDebugReportFlagsEXT msg_flags, VkDebugReportObjectTypeEXT obj_type,
         uint64_t src_object, size_t location, int32_t msg_code,
         const char *layer_prefix, const char *message, void *) {
@@ -308,37 +346,38 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
     return VK_TRUE;
 }
 
-static void RegisterDebugCallback(const vk::UniqueInstance &instance) {
-    // If available, use `debug utils`
-    if (IsVkDebugUtilsAvailable()) {
-        // Create debug messenger (only warning and error)
-        vk::UniqueDebugUtilsMessengerEXT debug_messenger =
-                instance->createDebugUtilsMessengerEXTUnique(
-                        {{},
-                         {vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                          vk::DebugUtilsMessageSeverityFlagBitsEXT::eError},
-                         {vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                          vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
-                          vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
-                         &DebugMessengerCallback});
-    } else {
-        // Create debug report (only warning and error)
-        vk::UniqueDebugReportCallbackEXT debug_report =
-                instance->createDebugReportCallbackEXTUnique(
-                        {{vk::DebugReportFlagBitsEXT::eWarning |
-                          vk::DebugReportFlagBitsEXT::eError |
-                          vk::DebugReportFlagBitsEXT::ePerformanceWarning},
-                         &DebugReportCallback});
-    }
+vk::UniqueDebugUtilsMessengerEXT RegisterDebugUtils(
+        const vk::UniqueInstance &instance) {
+    // Create debug messenger (only warning and error)
+    return instance->createDebugUtilsMessengerEXTUnique(
+            {{},
+             {vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+              vk::DebugUtilsMessageSeverityFlagBitsEXT::eError},
+             {vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+              vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+              vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation},
+             &DebugMessengerCallback});
+}
+
+vk::UniqueDebugReportCallbackEXT RegisterDebugReport(
+        const vk::UniqueInstance &instance) {
+    // Create debug report (only warning and error)
+    return instance->createDebugReportCallbackEXTUnique(
+            {{vk::DebugReportFlagBitsEXT::eWarning |
+              vk::DebugReportFlagBitsEXT::eError |
+              vk::DebugReportFlagBitsEXT::ePerformanceWarning},
+             &DebugReportCallback});
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static vk::UniqueImageView CreateImageViewImpl(
-        const vk::Image &img, const vk::Format &format,
-        const vk::ImageAspectFlags &aspects, const uint32_t miplevel_base,
-        const uint32_t miplevel_cnt, const vk::UniqueDevice &device) {
+vk::UniqueImageView CreateImageViewImpl(const vk::Image &img,
+                                        const vk::Format &format,
+                                        const vk::ImageAspectFlags &aspects,
+                                        const uint32_t miplevel_base,
+                                        const uint32_t miplevel_cnt,
+                                        const vk::UniqueDevice &device) {
     const vk::ComponentMapping comp_mapping(
             vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
             vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA);
@@ -350,13 +389,13 @@ static vk::UniqueImageView CreateImageViewImpl(
     return view;
 }
 
-static uint32_t GetActualMipLevel(const uint32_t &miplevel,
-                                  const ImagePackPtr &img_pack) {
+uint32_t GetActualMipLevel(const uint32_t &miplevel,
+                           const ImagePackPtr &img_pack) {
     return miplevel + img_pack->view_miplevel_base;
 }
 
-static vk::ImageSubresourceLayers GetImgSubresLayers(
-        const ImagePackPtr &img_pack, uint32_t miplevel) {
+vk::ImageSubresourceLayers GetImgSubresLayers(const ImagePackPtr &img_pack,
+                                              uint32_t miplevel) {
     const auto act_miplevel = GetActualMipLevel(miplevel, img_pack);
     return vk::ImageSubresourceLayers(img_pack->view_aspects, act_miplevel, 0,
                                       1);
@@ -365,10 +404,10 @@ static vk::ImageSubresourceLayers GetImgSubresLayers(
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
-                               const ImagePackPtr &img_pack,
-                               const vk::ImageLayout &old_img_layout,
-                               const vk::ImageLayout &new_img_layout) {
+void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
+                        const ImagePackPtr &img_pack,
+                        const vk::ImageLayout &old_img_layout,
+                        const vk::ImageLayout &new_img_layout) {
     // Decide source / destination stage and access mask
     using StageAccessMask = std::tuple<vk::PipelineStageFlags, vk::AccessFlags>;
     const static std::unordered_map<vk::ImageLayout, StageAccessMask> MAP = {
@@ -430,8 +469,8 @@ static void SetImageLayoutImpl(const vk::UniqueCommandBuffer &cmd_buf,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
-                                 const vk::UniqueSurfaceKHR &surface) {
+auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
+                          const vk::UniqueSurfaceKHR &surface) {
     // Get all capabilities
     const vk::SurfaceCapabilitiesKHR &surface_capas =
             physical_device.getSurfaceCapabilitiesKHR(surface.get());
@@ -477,12 +516,11 @@ static auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-static void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
-                                const DescSetPackPtr &desc_set_pack,
-                                const uint32_t binding_idx,
-                                const size_t n_infos,
-                                const vk::DescriptorBufferInfo *buf_info_p,
-                                const vk::DescriptorImageInfo *img_info_p) {
+void AddWriteDescSetImpl(WriteDescSetPackPtr &write_pack,
+                         const DescSetPackPtr &desc_set_pack,
+                         const uint32_t binding_idx, const size_t n_infos,
+                         const vk::DescriptorBufferInfo *buf_info_p,
+                         const vk::DescriptorImageInfo *img_info_p) {
     // Fetch form and check with DescSetInfo
     const DescSetInfo &desc_set_info =
             desc_set_pack->desc_set_info[binding_idx];
@@ -757,25 +795,6 @@ void PrintFps(std::function<void(float)> print_func, float show_interval_sec) {
 // -----------------------------------------------------------------------------
 // ---------------------------------- Float16 ----------------------------------
 // -----------------------------------------------------------------------------
-union Float32 {
-    uint32_t u;
-    float f;
-    struct Rep {
-        uint32_t coeff : 23;
-        uint32_t exp : 8;
-        uint32_t sign : 1;
-    } rep;
-};
-
-union Float16 {
-    uint16_t u;
-    struct Rep {
-        uint16_t coeff : 10;
-        uint16_t exp : 5;
-        uint16_t sign : 1;
-    } rep;
-};
-
 uint16_t CastFloat32To16(const float &f32_raw) {
     const Float32 &f32 = reinterpret_cast<const Float32 &>(f32_raw);
     Float16 ret = {0};
@@ -867,10 +886,6 @@ std::vector<float> CastFloat16To32(const std::vector<uint16_t> &src) {
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
 // Android version (ANativeWindow)
-static void WindowDeleter(ANativeWindow *ptr) {
-    ANativeWindow_release(ptr);
-}
-
 WindowPtr InitANativeWindow(JNIEnv *jenv, jobject jsurface) {
     ANativeWindow *ptr = ANativeWindow_fromSurface(jenv, jsurface);
     return WindowPtr(ptr, WindowDeleter);
@@ -878,10 +893,6 @@ WindowPtr InitANativeWindow(JNIEnv *jenv, jobject jsurface) {
 
 #else
 // GLFW version (GLFWWindow)
-static void WindowDeleter(GLFWwindow *ptr) {
-    glfwDestroyWindow(ptr);
-}
-
 WindowPtr InitGLFWWindow(const std::string &win_name, uint32_t win_w,
                          uint32_t win_h, int32_t glfw_api) {
     // Initialize GLFW
@@ -907,11 +918,11 @@ WindowPtr InitGLFWWindow(const std::string &win_name, uint32_t win_w,
 // -----------------------------------------------------------------------------
 // --------------------------------- Instance ----------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueInstance CreateInstance(const std::string &app_name,
-                                  uint32_t app_version,
-                                  const std::string &engine_name,
-                                  uint32_t engine_version, bool debug_enable,
-                                  bool surface_enable) {
+InstancePackPtr CreateInstance(const std::string &app_name,
+                               uint32_t app_version,
+                               const std::string &engine_name,
+                               uint32_t engine_version, bool debug_enable,
+                               bool surface_enable) {
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
@@ -942,24 +953,35 @@ vk::UniqueInstance CreateInstance(const std::string &app_name,
 #endif
 
     // Create debug messenger or debug report
+    vk::UniqueDebugUtilsMessengerEXT debug_utils_messenger;
+    vk::UniqueDebugReportCallbackEXT debug_report_callback;
     if (debug_enable) {
-        RegisterDebugCallback(instance);
+        // If available, use `debug utils`
+        if (IsVkDebugUtilsAvailable()) {
+            debug_utils_messenger = RegisterDebugUtils(instance);
+        } else {
+            debug_report_callback = RegisterDebugReport(instance);
+        }
     }
 
-    return instance;
+    // Pack
+    return InstancePackPtr(new InstancePack{std::move(instance),
+                                            std::move(debug_utils_messenger),
+                                            std::move(debug_report_callback)});
 }
 
 // -----------------------------------------------------------------------------
 // ------------------------------ PhysicalDevice -------------------------------
 // -----------------------------------------------------------------------------
 std::vector<vk::PhysicalDevice> GetPhysicalDevices(
-        const vk::UniqueInstance &instance) {
-    return instance->enumeratePhysicalDevices();
+        const InstancePackPtr &instance_pack) {
+    return instance_pack->instance->enumeratePhysicalDevices();
 }
 
-vk::PhysicalDevice GetFirstPhysicalDevice(const vk::UniqueInstance &instance) {
+vk::PhysicalDevice GetFirstPhysicalDevice(
+        const InstancePackPtr &instance_pack) {
     // Get physical devices
-    auto physical_devices = GetPhysicalDevices(instance);
+    auto physical_devices = GetPhysicalDevices(instance_pack);
     // Select the first one
     const size_t n_phy_devices = physical_devices.size();
     if (n_phy_devices == 0) {
@@ -991,28 +1013,29 @@ PropertiesPtr GetPhysicalProperties(const vk::PhysicalDevice &physical_device) {
 // -----------------------------------------------------------------------------
 #if defined(__ANDROID__)
 // Android version
-vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
+vk::UniqueSurfaceKHR CreateSurface(const InstancePackPtr &instance_pack,
                                    const WindowPtr &window) {
     // Create Android surface
-    return instance->createAndroidSurfaceKHRUnique(
+    return instance_pack->instance->createAndroidSurfaceKHRUnique(
             {vk::AndroidSurfaceCreateFlagsKHR(), window.get()});
 }
 
 #else
 // GLFW version
-vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance &instance,
+vk::UniqueSurfaceKHR CreateSurface(const InstancePackPtr &instance_pack,
                                    const WindowPtr &window) {
     // Create a window surface (GLFW)
     VkSurfaceKHR s_raw = nullptr;
-    VkResult err =
-            glfwCreateWindowSurface(*instance, window.get(), nullptr, &s_raw);
+    VkResult err = glfwCreateWindowSurface(*instance_pack->instance,
+                                           window.get(), nullptr, &s_raw);
     if (err) {
         throw std::runtime_error("Failed to create window surface");
     }
     // Wrap with smart handler
     using Deleter =
             vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
-    Deleter deleter(*instance, nullptr, VULKAN_HPP_DEFAULT_DISPATCHER);
+    Deleter deleter(*instance_pack->instance, nullptr,
+                    VULKAN_HPP_DEFAULT_DISPATCHER);
     return vk::UniqueSurfaceKHR(s_raw, deleter);
 }
 #endif

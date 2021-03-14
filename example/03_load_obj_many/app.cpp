@@ -195,7 +195,7 @@ private:
 
     // Basic components
     vkw::WindowPtr m_window;
-    vk::UniqueInstance m_instance;
+    vkw::InstancePackPtr m_instance_pack;
     vk::PhysicalDevice m_physical_device;
     vk::UniqueSurfaceKHR m_surface;
     vk::UniqueDevice m_device;
@@ -279,15 +279,15 @@ void VkApp::initBasicComps(const vkw::WindowPtr& window) {
     m_window = window;
 
     // Create instance
-    m_instance =
+    m_instance_pack =
             vkw::CreateInstance(APP_NAME, APP_VERSION, ENGINE_NAME,
                                 ENGINE_VERSION, DEBUG_ENABLE, DISPLAY_ENABLE);
 
     // Get a physical_device
-    m_physical_device = vkw::GetFirstPhysicalDevice(m_instance);
+    m_physical_device = vkw::GetFirstPhysicalDevice(m_instance_pack);
 
     // Create surface
-    m_surface = vkw::CreateSurface(m_instance, m_window);
+    m_surface = vkw::CreateSurface(m_instance_pack, m_window);
     m_surface_format = vkw::GetSurfaceFormat(m_physical_device, m_surface);
 
     // Select queue family

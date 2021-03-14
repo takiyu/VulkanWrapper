@@ -95,20 +95,26 @@ WindowPtr InitGLFWWindow(const std::string& win_name, uint32_t win_w = 512,
 // -----------------------------------------------------------------------------
 // --------------------------------- Instance ----------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueInstance CreateInstance(const std::string& app_name,
-                                  uint32_t app_version,
-                                  const std::string& engine_name,
-                                  uint32_t engine_version,
-                                  bool debug_enable = true,
-                                  bool surface_enable = true);
+struct InstancePack {
+    vk::UniqueInstance instance;
+    vk::UniqueDebugUtilsMessengerEXT debug_utils_messenger;
+    vk::UniqueDebugReportCallbackEXT debug_report_callback;
+};
+using InstancePackPtr = std::shared_ptr<InstancePack>;
+InstancePackPtr CreateInstance(const std::string& app_name,
+                               uint32_t app_version,
+                               const std::string& engine_name,
+                               uint32_t engine_version,
+                               bool debug_enable = true,
+                               bool surface_enable = true);
 
 // -----------------------------------------------------------------------------
 // ------------------------------ PhysicalDevice -------------------------------
 // -----------------------------------------------------------------------------
 std::vector<vk::PhysicalDevice> GetPhysicalDevices(
-        const vk::UniqueInstance& instance);
+        const InstancePackPtr& instance_pack);
 
-vk::PhysicalDevice GetFirstPhysicalDevice(const vk::UniqueInstance& instance);
+vk::PhysicalDevice GetFirstPhysicalDevice(const InstancePackPtr& instance_pack);
 
 using FeaturesPtr = std::shared_ptr<vk::PhysicalDeviceFeatures>;
 FeaturesPtr GetPhysicalFeatures(const vk::PhysicalDevice& physical_device);
@@ -119,7 +125,7 @@ PropertiesPtr GetPhysicalProperties(const vk::PhysicalDevice& physical_device);
 // -----------------------------------------------------------------------------
 // ---------------------------------- Surface ----------------------------------
 // -----------------------------------------------------------------------------
-vk::UniqueSurfaceKHR CreateSurface(const vk::UniqueInstance& instance,
+vk::UniqueSurfaceKHR CreateSurface(const InstancePackPtr& instance_pack,
                                    const WindowPtr& window);
 
 vk::Format GetSurfaceFormat(const vk::PhysicalDevice& physical_device,
