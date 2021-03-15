@@ -31,6 +31,7 @@ END_VKW_SUPPRESS_WARNING
 
 #include <atomic>
 #include <functional>
+#include <map>
 
 namespace vkw {
 
@@ -557,20 +558,27 @@ using ShaderModulePackPtr = std::shared_ptr<ShaderModulePack>;
 class GLSLCompiler {
 public:
     GLSLCompiler(bool enable_optim = true, bool enable_optim_size = true,
-                 bool enable_gen_debug = false);
+                 bool enable_gen_debug = false, bool enable_cache = true);
     ~GLSLCompiler();
+
     ShaderModulePackPtr compileFromString(
             const vk::UniqueDevice& device, const std::string& source,
             const vk::ShaderStageFlagBits& stage =
-                    vk::ShaderStageFlagBits::eVertex) const;
+                    vk::ShaderStageFlagBits::eVertex);
+    void clearCache();
 
     // Compile flags
     bool enable_optim;
     bool enable_optim_size;
     bool enable_gen_debug;
+    // Feature flags
+    bool enable_cache;
 
 private:
-    static std::atomic<uint32_t> s_n_compiler;
+    using CacheKey = std::tuple<std::string, vk::ShaderStageFlagBits>;
+    std::map<CacheKey, std::vector<uint32_t>> m_spv_data_cache;
+
+    static std::atomic<uint32_t> s_instance_cnt;
 };
 
 // -----------------------------------------------------------------------------

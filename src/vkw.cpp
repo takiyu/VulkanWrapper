@@ -2119,30 +2119,48 @@ std::vector<FrameBufferPackPtr> CreateFrameBuffers(
 // -------------------------------- ShaderModule -------------------------------
 // -----------------------------------------------------------------------------
 GLSLCompiler::GLSLCompiler(bool enable_optim_arg, bool enable_optim_size_arg,
-                           bool enable_gen_debug_arg) {
+                           bool enable_gen_debug_arg, bool enable_cache_arg) {
     // Global initialize
-    if (s_n_compiler++ == 0) {
+    if (s_instance_cnt++ == 0) {
         glslang::InitializeProcess();
     }
     // Set members
     enable_optim = enable_optim_arg;
     enable_optim_size = enable_optim_size_arg;
     enable_gen_debug = enable_gen_debug_arg;
+    enable_cache = enable_cache_arg;
 }
 
 GLSLCompiler::~GLSLCompiler() {
     // Global finalize
-    if (--s_n_compiler == 0) {
+    if (--s_instance_cnt == 0) {
         glslang::FinalizeProcess();
     }
 }
 
 ShaderModulePackPtr GLSLCompiler::compileFromString(
         const vk::UniqueDevice &device, const std::string &source,
-        const vk::ShaderStageFlagBits &stage) const {
-    // Compile GLSL to SPIRV
-    const std::vector<uint32_t> &spv_data = CompileGLSL(
-            stage, source, enable_optim, enable_optim_size, enable_gen_debug);
+        const vk::ShaderStageFlagBits &stage) {
+    // Obtain SPIRV binary
+    std::vector<uint32_t> spv_data;
+    if (enable_cache) {
+        // Lookup cache
+        auto it = m_spv_data_cache.find({source, stage});
+        if (it != m_spv_data_cache.end()) {
+            spv_data = it->second;  // Found
+        }
+    }
+    if (spv_data.empty()) {
+        // Compile GLSL
+        spv_data = CompileGLSL(stage, source, enable_optim, enable_optim_size,
+                               enable_gen_debug);
+
+        if (enable_cache) {
+            // Register to cache
+            m_spv_data_cache[{source, stage}] = spv_data;
+        }
+    }
+
     // Create shader module
     auto shader_module = device->createShaderModuleUnique(
             {vk::ShaderModuleCreateFlags(), spv_data.size() * sizeof(uint32_t),
@@ -2151,7 +2169,11 @@ ShaderModulePackPtr GLSLCompiler::compileFromString(
                                                     stage, spv_data.size()});
 }
 
-std::atomic<uint32_t> GLSLCompiler::s_n_compiler = {0};
+void GLSLCompiler::clearCache() {
+    m_spv_data_cache.clear();
+}
+
+std::atomic<uint32_t> GLSLCompiler::s_instance_cnt = {0};
 
 // -----------------------------------------------------------------------------
 // ------------------------------ Pipeline Cache -------------------------------
