@@ -155,7 +155,7 @@ set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/SPIRV-Tools)
 list(APPEND VKW_INCLUDE
             ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SPIRV-Tools/include)
-list(APPEND VKW_LIBRARY SPIRV-Tools-opt)
+list(APPEND VKW_LIBRARY SPIRV-Tools-opt)  # For "ENABLE_OPT=1" in GLSLang
 
 # GLSLang
 set(ENABLE_GLSLANG_BINARIES ON CACHE BOOL "")
@@ -166,6 +166,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang)
 list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
                         OGLCompiler)
+list(APPEND VKW_DEFINE -DENABLE_OPT=1)  # Defined internally
 
 # Validation Layer
 if (ANDROID)
