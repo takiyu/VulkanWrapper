@@ -313,7 +313,7 @@ VKAPI_ATTR VkBool32 DebugMessengerCallback(
     // Print error
     PrintErr(ss.str());
 
-    return VK_TRUE;
+    return VK_FALSE;  // Application should return false
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
@@ -336,7 +336,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
     // Print error
     PrintErr(ss.str());
 
-    return VK_TRUE;
+    return VK_FALSE;  // Application should return false
 }
 
 vk::UniqueDebugUtilsMessengerEXT RegisterDebugUtils(
