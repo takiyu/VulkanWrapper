@@ -39,12 +39,6 @@ project(vulkan_wrapper CXX C)
 
 set(CMAKE_CXX_STANDARD 14)  # C++ 14
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    set(LINK_TYPE STATIC)
-else()
-    set(LINK_TYPE SHARED)
-endif()
-
 # Print make commands for debug
 # set(CMAKE_VERBOSE_MAKEFILE 1)
 
@@ -99,6 +93,7 @@ function(setup_target target includes libs)
     target_include_directories(${target} PUBLIC ${includes})
     target_link_libraries(${target} ${libs})
     set_target_properties(${target} PROPERTIES COMPILE_FLAGS ${warning_options})
+    add_sanitizers(${target})
 endfunction(setup_target)
 
 # Utility function to setup a target simply (include, link)
@@ -106,6 +101,27 @@ function(setup_target_simple target includes libs)
     target_include_directories(${target} PUBLIC ${includes})
     target_link_libraries(${target} ${libs})
 endfunction(setup_target_simple)
+
+set(THIRD_PARTY_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
+
+# Utility function to setup third_party (fetch, subdirectory)
+function(setup_third_party url)
+    get_filename_component(target ${url} NAME)
+    set(path ${THIRD_PARTY_PATH}/${target})
+    include(FetchContent)
+    FetchContent_Declare(${target} GIT_REPOSITORY ${url} SOURCE_DIR ${path})
+    FetchContent_Populate(${target})
+    add_subdirectory(${path})
+endfunction(setup_third_party)
+
+# Utility function to setup third_party (fetch)
+function(setup_third_party_simple url)
+    get_filename_component(target ${url} NAME)
+    set(path ${THIRD_PARTY_PATH}/${target})
+    include(FetchContent)
+    FetchContent_Declare(${target} GIT_REPOSITORY ${url} SOURCE_DIR ${path})
+    FetchContent_Populate(${target})
+endfunction(setup_third_party_simple)
 
 # ------------------------------------------------------------------------------
 # --------------------------- Third Party Libraries ----------------------------
@@ -184,7 +200,7 @@ if (VKW_USE_INTERNAL_GLFW)
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
     set(GLFW_INSTALL OFF CACHE BOOL "")
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw)
+    setup_third_party("https://github.com/glfw/glfw")
     list(APPEND VKW_INCLUDE
                 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw/include)
     list(APPEND VKW_LIBRARY glfw)
@@ -192,15 +208,17 @@ endif()
 
 if (VKW_BUILD_EXAMPLES)
     # GLM
-    list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
+    setup_third_party_simple("https://github.com/g-truc/glm")
 
     # TinyObjLoader
+    setup_third_party_simple("https://github.com/syoyo/tinyobjloader")
     add_library(tinyobjloader
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyobjloader/tiny_obj_loader.cc
     )
     list(APPEND VKW_LIBRARY tinyobjloader)
 
     # STB
+    setup_third_party_simple("https://github.com/nothings/stb")
     add_library(stb
         ${CMAKE_CURRENT_SOURCE_DIR}/example/utils/stb_impl.cpp
     )
