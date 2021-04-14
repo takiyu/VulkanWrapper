@@ -564,7 +564,7 @@ public:
     ShaderModulePackPtr compileFromString(
             const vk::UniqueDevice& device, const std::string& source,
             const vk::ShaderStageFlagBits& stage =
-                    vk::ShaderStageFlagBits::eVertex);
+                    vk::ShaderStageFlagBits::eVertex) const;
     void clearCache();
 
     // Compile flags
@@ -576,7 +576,7 @@ public:
 
 private:
     using CacheKey = std::tuple<std::string, vk::ShaderStageFlagBits>;
-    std::map<CacheKey, std::vector<uint32_t>> m_spv_data_cache;
+    mutable std::map<CacheKey, std::vector<uint32_t>> m_spv_data_cache;
 
     static std::atomic<uint32_t> s_instance_cnt;
 };
