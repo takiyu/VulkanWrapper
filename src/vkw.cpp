@@ -2140,7 +2140,7 @@ GLSLCompiler::~GLSLCompiler() {
 
 ShaderModulePackPtr GLSLCompiler::compileFromString(
         const vk::UniqueDevice &device, const std::string &source,
-        const vk::ShaderStageFlagBits &stage) {
+        const vk::ShaderStageFlagBits &stage) const {
     // Obtain SPIRV binary
     std::vector<uint32_t> spv_data;
     if (enable_cache) {
