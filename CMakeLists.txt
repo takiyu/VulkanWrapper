@@ -209,6 +209,7 @@ endif()
 if (VKW_BUILD_EXAMPLES)
     # GLM
     setup_third_party_simple("https://github.com/g-truc/glm")
+    list(APPEND VKW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm)
 
     # TinyObjLoader
     setup_third_party_simple("https://github.com/syoyo/tinyobjloader")
