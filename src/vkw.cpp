@@ -986,9 +986,9 @@ vk::PhysicalDevice GetFirstPhysicalDevice(
     return physical_devices.front();
 }
 
-FeaturesPtr GetPhysicalFeatures(const vk::PhysicalDevice &physical_device) {
-    auto features = std::make_shared<vk::PhysicalDeviceFeatures>();
-    physical_device.getFeatures(features.get());
+Features2Ptr GetPhysicalFeatures2(const vk::PhysicalDevice &physical_device) {
+    auto features = std::make_shared<vk::PhysicalDeviceFeatures2>();
+    physical_device.getFeatures2(features.get());
     return features;
 }
 
@@ -1101,7 +1101,7 @@ uint32_t GetGraphicPresentQueueFamilyIdx(
 vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               const vk::PhysicalDevice &physical_device,
                               uint32_t n_queues, bool swapchain_support,
-                              const FeaturesPtr &features) {
+                              const Features2Ptr &features) {
     // Create queue create info
     std::vector<float> queue_priorites(n_queues, 0.f);
     vk::DeviceQueueCreateInfo device_queue_create_info = {
@@ -1116,9 +1116,16 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
     const uint32_t n_device_exts = static_cast<uint32_t>(device_exts.size());
 
     // Create a logical device
-    vk::UniqueDevice device = physical_device.createDeviceUnique(
-            {vk::DeviceCreateFlags(), 1, &device_queue_create_info, 0, nullptr,
-             n_device_exts, DataSafety(device_exts), features.get()});
+    vk::DeviceCreateInfo create_info = {vk::DeviceCreateFlags(),
+                                        1,
+                                        &device_queue_create_info,
+                                        0,
+                                        nullptr,
+                                        n_device_exts,
+                                        DataSafety(device_exts),
+                                        nullptr};
+    create_info.setPNext(features.get());  // Set features2 pointer
+    vk::UniqueDevice device = physical_device.createDeviceUnique(create_info);
 
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
     // Initialize dispatcher for device

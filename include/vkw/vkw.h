@@ -117,8 +117,8 @@ std::vector<vk::PhysicalDevice> GetPhysicalDevices(
 
 vk::PhysicalDevice GetFirstPhysicalDevice(const InstancePackPtr& instance_pack);
 
-using FeaturesPtr = std::shared_ptr<vk::PhysicalDeviceFeatures>;
-FeaturesPtr GetPhysicalFeatures(const vk::PhysicalDevice& physical_device);
+using Features2Ptr = std::shared_ptr<vk::PhysicalDeviceFeatures2>;
+Features2Ptr GetPhysicalFeatures2(const vk::PhysicalDevice& physical_device);
 
 using PropertiesPtr = std::shared_ptr<vk::PhysicalDeviceProperties>;
 PropertiesPtr GetPhysicalProperties(const vk::PhysicalDevice& physical_device);
@@ -160,7 +160,7 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               const vk::PhysicalDevice& physical_device,
                               uint32_t n_queues = 1,
                               bool swapchain_support = true,
-                              const FeaturesPtr& features = nullptr);
+                              const Features2Ptr& features = nullptr);
 
 // -----------------------------------------------------------------------------
 // ------------------------------- Asynchronous --------------------------------
