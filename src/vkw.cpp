@@ -1113,6 +1113,7 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
     if (swapchain_support) {
         device_exts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
+    device_exts.push_back("VK_EXT_shader_atomic_float");
     const uint32_t n_device_exts = static_cast<uint32_t>(device_exts.size());
 
     // Create a logical device
