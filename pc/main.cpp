@@ -15,6 +15,7 @@
 #include "../example/09_inverse_uv/app.h"
 #include "../example/10_glsl_optim/app.h"
 #include "../example/11_img_buf/app.h"
+#include "../example/12_comp_shader_atomic_float/app.h"
 #include "vkw/vkw.h"
 
 // -----------------------------------------------------------------------------
@@ -29,7 +30,7 @@ const std::vector<APP_FUNC_TYPE> APP_FUNCS = {
         RunExampleApp01, RunExampleApp02, RunExampleApp03,
         RunExampleApp04, RunExampleApp05, RunExampleApp06,
         RunExampleApp07, RunExampleApp08, RunExampleApp09,
-        RunExampleApp10, RunExampleApp11,
+        RunExampleApp10, RunExampleApp11, RunExampleApp12,
 };
 
 // Window
