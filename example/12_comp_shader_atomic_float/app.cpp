@@ -23,12 +23,8 @@ const std::string COMP_SOURCE = R"(
 #version 460
 #extension GL_EXT_shader_atomic_float : require
 layout (local_size_x = 1, local_size_y = 1) in;
-layout (binding = 0, rgba32f) uniform readonly image2D inp_img;
+layout (binding = 0, r32f) uniform readonly image2D inp_img;
 layout (binding = 1, r32f) uniform image2D out_img;
-
-vec4 invCol(in vec4 c) {
-    return c.bgra;
-}
 
 void main() {
     imageAtomicAdd(out_img, ivec2(0, 0), 0.1);
@@ -56,16 +52,22 @@ void RunExampleApp12(const vkw::WindowPtr& window,
     const uint32_t n_queues = 1;
 
     // Create instance
-    auto instance = vkw::CreateInstance("VKW Example 08", 1, "VKW", 0,
+    auto instance = vkw::CreateInstance("VKW Example 12", 1, "VKW", 0,
                                         debug_enable, display_enable);
     // Get a physical_device
     auto physical_device = vkw::GetFirstPhysicalDevice(instance);
+
+    // Set features
+    auto features = vkw::GetPhysicalFeatures2(physical_device);
+    vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT atomic_float_features;
+    atomic_float_features.shaderImageFloat32AtomicAdd = true;
+    features->setPNext(&atomic_float_features);
 
     // Select queue family
     uint32_t queue_family_idx = vkw::GetQueueFamilyIdxs(physical_device)[0];
     // Create device
     auto device = vkw::CreateDevice(queue_family_idx, physical_device, n_queues,
-                                    display_enable);
+                                    display_enable, features);
 
     // Get queues
     std::vector<vk::Queue> queues;
@@ -83,17 +85,14 @@ void RunExampleApp12(const vkw::WindowPtr& window,
     // -------------------------------------------------------------------------
     // Create original CPU data
     const uint32_t IMG_SIZE = 4;
-    std::vector<float> org_data(IMG_SIZE * IMG_SIZE * 4);
-    for (uint32_t i = 0; i < org_data.size() / 4; i++) {
-        org_data[i * 4 + 0] = 0.0f;
-        org_data[i * 4 + 1] = 0.3f;
-        org_data[i * 4 + 2] = 0.7f;
-        org_data[i * 4 + 3] = 1.0f;
+    std::vector<float> org_data(IMG_SIZE * IMG_SIZE);
+    for (uint32_t i = 0; i < org_data.size(); i++) {
+        org_data[i] = 0.0f;
     }
 
     // Create input image
     auto inp_img_pack = vkw::CreateImagePack(
-            physical_device, device, vk::Format::eR32G32B32A32Sfloat,
+            physical_device, device, vk::Format::eR32Sfloat,
             {IMG_SIZE, IMG_SIZE}, 1,
             vk::ImageUsageFlagBits::eStorage |
                     vk::ImageUsageFlagBits::eTransferDst,
@@ -102,7 +101,7 @@ void RunExampleApp12(const vkw::WindowPtr& window,
         // Create source buffer
         auto buf_src =
                 vkw::CreateBufferPack(physical_device, device,
-                                      IMG_SIZE * IMG_SIZE * 4 * sizeof(float),
+                                      IMG_SIZE * IMG_SIZE * sizeof(float),
                                       vk::BufferUsageFlagBits::eTransferSrc,
                                       vkw::HOST_VISIB_COHER_PROPS);
         // Send to source buffer
@@ -122,7 +121,7 @@ void RunExampleApp12(const vkw::WindowPtr& window,
 
     // Create output image
     auto out_img_pack = vkw::CreateImagePack(
-            physical_device, device, vk::Format::eR32G32B32A32Sfloat,
+            physical_device, device, vk::Format::eR32Sfloat,
             {IMG_SIZE, IMG_SIZE}, 1,
             vk::ImageUsageFlagBits::eStorage |
                     vk::ImageUsageFlagBits::eTransferSrc,
@@ -179,7 +178,7 @@ void RunExampleApp12(const vkw::WindowPtr& window,
     }
 
     // Read result image
-    std::vector<float> res_data(IMG_SIZE * IMG_SIZE * 4);
+    std::vector<float> res_data(IMG_SIZE * IMG_SIZE);
     {
         // Create destination buffer
         auto buf_dst = vkw::CreateBufferPack(
@@ -208,4 +207,7 @@ void RunExampleApp12(const vkw::WindowPtr& window,
     } else {
         std::cout << "Incorrect" << std::endl;
     }
+    // for (uint32_t i = 0; i < 16; i++) {
+    //     std::cout << res_data[i] << std::endl;
+    // }
 }
