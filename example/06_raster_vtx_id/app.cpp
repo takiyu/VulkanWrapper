@@ -145,8 +145,8 @@ void RunExampleApp06(const vkw::WindowPtr& window,
     auto physical_device = vkw::GetFirstPhysicalDevice(instance);
 
     // Set features
-    auto features = vkw::GetPhysicalFeatures(physical_device);
-    features->geometryShader = true;
+    auto features = vkw::GetPhysicalFeatures2(physical_device);
+    features->features.geometryShader = true;
 
     // Create surface
     auto surface = vkw::CreateSurface(instance, window);
