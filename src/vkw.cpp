@@ -196,18 +196,19 @@ bool IsVkDebugUtilsAvailable() {
     return false;
 }
 
-std::vector<char const *> GetEnabledLayers(bool debug_enable) {
-    std::vector<char const *> names;
+std::vector<char const *> GetEnabledLayers(
+        bool debug_enable, const std::vector<char const *> &layer_names_org) {
+    std::vector<char const *> layer_names = layer_names_org;
 
     if (debug_enable) {
 #if defined(__ANDROID__)
-        names.push_back("VK_LAYER_LUNARG_parameter_validation");
-        names.push_back("VK_LAYER_GOOGLE_unique_objects");
-        names.push_back("VK_LAYER_GOOGLE_threading");
-        names.push_back("VK_LAYER_LUNARG_object_tracker");
-        names.push_back("VK_LAYER_LUNARG_core_validation");
+        layer_names.push_back("VK_LAYER_LUNARG_parameter_validation");
+        layer_names.push_back("VK_LAYER_GOOGLE_unique_objects");
+        layer_names.push_back("VK_LAYER_GOOGLE_threading");
+        layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
+        layer_names.push_back("VK_LAYER_LUNARG_core_validation");
 #else
-        names.push_back("VK_LAYER_KHRONOS_validation");
+        layer_names.push_back("VK_LAYER_KHRONOS_validation");
 #endif
     }
 
@@ -218,33 +219,34 @@ std::vector<char const *> GetEnabledLayers(bool debug_enable) {
             valid_names.insert(std::string(prop.layerName.data()));
         }
     }
-    std::vector<char const *> ret_names;
-    for (auto &&name : names) {
-        if (valid_names.count(name)) {
-            ret_names.push_back(name);
+    std::vector<char const *> ret_layer_names;
+    for (auto &&layer_name : layer_names) {
+        if (valid_names.count(layer_name)) {
+            ret_layer_names.push_back(layer_name);
         } else {
-            PrintErr("Layer '" + std::string(name) + "' is invalid");
+            PrintErr("Layer '" + std::string(layer_name) + "' is invalid");
         }
     }
 
-    return ret_names;
+    return ret_layer_names;
 }
 
-std::vector<char const *> GetEnabledExts(bool debug_enable,
-                                         bool surface_enable) {
-    std::vector<char const *> enabled_exts;
+std::vector<char const *> GetEnabledExts(
+        bool debug_enable, bool surface_enable,
+        const std::vector<char const *> &ext_names_org) {
+    std::vector<char const *> ext_names = ext_names_org;
 
     if (surface_enable) {
 #if defined(__ANDROID__)
         // Add android surface extensions
-        enabled_exts.push_back("VK_KHR_surface");
-        enabled_exts.push_back("VK_KHR_android_surface");
+        ext_names.push_back("VK_KHR_surface");
+        ext_names.push_back("VK_KHR_android_surface");
 #else
         // Add extension names required by GLFW
         uint32_t n_glfw_ext = 0;
         const char **glfw_exts = glfwGetRequiredInstanceExtensions(&n_glfw_ext);
         for (uint32_t i = 0; i < n_glfw_ext; i++) {
-            enabled_exts.push_back(glfw_exts[i]);
+            ext_names.push_back(glfw_exts[i]);
         }
 #endif
     }
@@ -252,12 +254,12 @@ std::vector<char const *> GetEnabledExts(bool debug_enable,
     if (debug_enable) {
         // If available, use `debug utils`
         if (IsVkDebugUtilsAvailable()) {
-            enabled_exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            ext_names.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         } else {
-            enabled_exts.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+            ext_names.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
         }
     }
-    return enabled_exts;
+    return ext_names;
 }
 
 VKAPI_ATTR VkBool32 DebugMessengerCallback(
@@ -912,7 +914,9 @@ InstancePackPtr CreateInstance(const std::string &app_name,
                                uint32_t app_version,
                                const std::string &engine_name,
                                uint32_t engine_version, bool debug_enable,
-                               bool surface_enable) {
+                               bool surface_enable,
+                               const std::vector<char const *> &layer_names_org,
+                               const std::vector<char const *> &ext_names_org) {
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
     // Initialize dispatcher with `vkGetInstanceProcAddr`, to get the instance
     // independent function pointers
@@ -923,8 +927,9 @@ InstancePackPtr CreateInstance(const std::string &app_name,
 #endif
 
     // Decide Vulkan layer and extensions
-    const auto &enabled_layer = GetEnabledLayers(debug_enable);
-    const auto &enabled_exts = GetEnabledExts(debug_enable, surface_enable);
+    const auto &layer_names = GetEnabledLayers(debug_enable, layer_names_org);
+    const auto &ext_names =
+            GetEnabledExts(debug_enable, surface_enable, ext_names_org);
 
     // Create instance
     vk::ApplicationInfo app_info = {app_name.c_str(), app_version,
@@ -932,10 +937,8 @@ InstancePackPtr CreateInstance(const std::string &app_name,
                                     VK_API_VERSION_1_1};
     vk::UniqueInstance instance = vk::createInstanceUnique(
             {vk::InstanceCreateFlags(), &app_info,
-             static_cast<uint32_t>(enabled_layer.size()),
-             DataSafety(enabled_layer),
-             static_cast<uint32_t>(enabled_exts.size()),
-             DataSafety(enabled_exts)});
+             static_cast<uint32_t>(layer_names.size()), DataSafety(layer_names),
+             static_cast<uint32_t>(ext_names.size()), DataSafety(ext_names)});
 
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL == 1
     // Initialize dispatcher with Instance to get all the other function ptrs.
@@ -1101,7 +1104,8 @@ uint32_t GetGraphicPresentQueueFamilyIdx(
 vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               const vk::PhysicalDevice &physical_device,
                               uint32_t n_queues, bool swapchain_support,
-                              const Features2Ptr &features) {
+                              const Features2Ptr &features,
+                              const std::vector<const char *> &ext_names_org) {
     // Create queue create info
     std::vector<float> queue_priorites(n_queues, 0.f);
     vk::DeviceQueueCreateInfo device_queue_create_info = {
@@ -1109,12 +1113,11 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
             queue_priorites.data()};
 
     // Create device extension strings
-    std::vector<const char *> device_exts;
+    auto ext_names = ext_names_org;
     if (swapchain_support) {
-        device_exts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        ext_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
-    device_exts.push_back("VK_EXT_shader_atomic_float");
-    const uint32_t n_device_exts = static_cast<uint32_t>(device_exts.size());
+    const uint32_t n_ext_names = static_cast<uint32_t>(ext_names.size());
 
     // Create a logical device
     vk::DeviceCreateInfo create_info = {vk::DeviceCreateFlags(),
@@ -1122,8 +1125,8 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                                         &device_queue_create_info,
                                         0,
                                         nullptr,
-                                        n_device_exts,
-                                        DataSafety(device_exts),
+                                        n_ext_names,
+                                        DataSafety(ext_names),
                                         nullptr};
     create_info.setPNext(features.get());  // Set features2 pointer
     vk::UniqueDevice device = physical_device.createDeviceUnique(create_info);

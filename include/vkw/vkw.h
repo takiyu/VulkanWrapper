@@ -107,7 +107,9 @@ InstancePackPtr CreateInstance(const std::string& app_name,
                                const std::string& engine_name,
                                uint32_t engine_version,
                                bool debug_enable = true,
-                               bool surface_enable = true);
+                               bool surface_enable = true,
+                               const std::vector<char const*>& layer_names = {},
+                               const std::vector<char const*>& ext_names = {});
 
 // -----------------------------------------------------------------------------
 // ------------------------------ PhysicalDevice -------------------------------
@@ -160,7 +162,8 @@ vk::UniqueDevice CreateDevice(uint32_t queue_family_idx,
                               const vk::PhysicalDevice& physical_device,
                               uint32_t n_queues = 1,
                               bool swapchain_support = true,
-                              const Features2Ptr& features = nullptr);
+                              const Features2Ptr& features = nullptr,
+                              const std::vector<const char*>& ext_names = {});
 
 // -----------------------------------------------------------------------------
 // ------------------------------- Asynchronous --------------------------------
