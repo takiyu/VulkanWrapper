@@ -1,4 +1,8 @@
-cmake_minimum_required(VERSION 3.8.2)
+if (ANDROID)
+    cmake_minimum_required(VERSION 3.10)
+else()
+    cmake_minimum_required(VERSION 3.11)
+endif()
 
 # ------------------------------------------------------------------------------
 # -------------------------------- Check parent --------------------------------
