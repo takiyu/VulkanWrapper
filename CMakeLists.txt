@@ -25,7 +25,7 @@ set(VKW_EXTERNAL_INCLUDE "" CACHE STRING "External include paths.")
 set(VKW_EXTERNAL_LIBRARY "" CACHE STRING "External libraries.")
 
 # Handle flag dependency
-if (NOT VKW_LINK_DYNAMIC_VK OR MSVC)
+if (NOT VKW_LINK_DYNAMIC_VK OR MSVC OR MINGW)
     set(VKW_USE_VULKAN_LOADER OFF)  # No vulkan-loader for static Vulkan
 endif()
 if (ANDROID)
