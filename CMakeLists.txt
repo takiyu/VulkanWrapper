@@ -183,9 +183,9 @@ list(APPEND VKW_LIBRARY vkw)
 # ----------------------------- Pass to the parent -----------------------------
 # ------------------------------------------------------------------------------
 if (HAS_PARENT)
-    set(VKW_INCLUDE ${VKW_INCLUDE} PARENT_SCOPE)
-    set(VKW_LIBRARY ${VKW_LIBRARY} PARENT_SCOPE)
-    set(VKW_DEFINE ${VKW_DEFINE} PARENT_SCOPE)
+    set(VKW_INCLUDE ${VKW_INCLUDE} CACHE INTERNAL "")
+    set(VKW_LIBRARY ${VKW_LIBRARY} CACHE INTERNAL "")
+    set(VKW_DEFINE ${VKW_DEFINE} CACHE INTERNAL "")
 endif()
 
 # ------------------------------------------------------------------------------
