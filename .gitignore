@@ -7,7 +7,4 @@
 .ccls-cache
 
 build
-third_party/glfw
-third_party/glm
-third_party/stb
-third_party/tinyobjloader
+third_party/*
