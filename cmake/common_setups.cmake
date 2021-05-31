@@ -72,7 +72,7 @@ function(setup_target target includes libs is_own)
 endfunction(setup_target)
 
 # Utility function to setup third_party
-function(setup_third_party url tag is_subdir)
+function(setup_third_party url tag is_subdir third_party_dir)
     get_filename_component(target ${url} NAME)  # Generate name from URL
     message(">> FetchContent: [${target}](${tag})")
 
@@ -83,7 +83,7 @@ function(setup_third_party url tag is_subdir)
         set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
         FetchContent_Declare(${target}
                              GIT_REPOSITORY ${url}
-                             SOURCE_DIR ${VKW_THIRD_PARTY_PATH}/${target}
+                             SOURCE_DIR ${third_party_dir}/${target}
                              GIT_TAG ${tag})  # (define)
         if (${is_subdir})
             FetchContent_MakeAvailable(${target})  # (fetch, subdirectory)
