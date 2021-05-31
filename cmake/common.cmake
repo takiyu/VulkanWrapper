@@ -1,7 +1,12 @@
 # ------------------------------------------------------------------------------
 # --------------------------- CMake Common Settings ----------------------------
 # ------------------------------------------------------------------------------
-# 2021/05/31 Using FetchContent
+# Copyright (c) 2021 takiyu
+#  This software is released under the MIT License.
+#  http://opensource.org/licenses/mit-license.php
+#
+# History
+#   - 2021/05/31 Using FetchContent
 #
 
 # Print make commands for debug
