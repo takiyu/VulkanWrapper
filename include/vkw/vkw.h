@@ -32,6 +32,7 @@ END_VKW_SUPPRESS_WARNING
 #include <atomic>
 #include <functional>
 #include <map>
+#include <limits>
 
 namespace vkw {
 

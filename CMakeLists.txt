@@ -8,7 +8,7 @@ endif()
 # -------------------------------- Check parent --------------------------------
 # ------------------------------------------------------------------------------
 get_directory_property(HAS_PARENT PARENT_DIRECTORY)
-if(HAS_PARENT)
+if (HAS_PARENT)
     message(STATUS "Build VKW as subdirectory mode")
 else()
     message(STATUS "Build VKW as independent mode")
@@ -246,7 +246,7 @@ list(APPEND VKW_LIBRARY vkw)
 # ------------------------------------------------------------------------------
 # ----------------------------- Pass to the parent -----------------------------
 # ------------------------------------------------------------------------------
-if(HAS_PARENT)
+if (HAS_PARENT)
     set(VKW_INCLUDE ${VKW_INCLUDE} PARENT_SCOPE)
     set(VKW_LIBRARY ${VKW_LIBRARY} PARENT_SCOPE)
     set(VKW_DEFINE ${VKW_DEFINE} PARENT_SCOPE)

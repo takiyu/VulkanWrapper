@@ -74,6 +74,7 @@ void RunExampleApp10(const vkw::WindowPtr& window,
     vkw::GLSLCompiler glsl_compiler;
     glsl_compiler.enable_optim = true;
     glsl_compiler.enable_optim_size = true;
+    glsl_compiler.enable_cache = false;
     auto shader_1 = glsl_compiler.compileFromString(
             device, SOURCE1, vk::ShaderStageFlagBits::eVertex);
     auto shader_2 = glsl_compiler.compileFromString(
@@ -82,6 +83,7 @@ void RunExampleApp10(const vkw::WindowPtr& window,
     // Compile shaders (without optimization)
     glsl_compiler.enable_optim = false;
     glsl_compiler.enable_optim_size = false;
+    glsl_compiler.enable_cache = false;
     auto shader_1_raw = glsl_compiler.compileFromString(
             device, SOURCE1, vk::ShaderStageFlagBits::eVertex);
     auto shader_2_raw = glsl_compiler.compileFromString(

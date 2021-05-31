@@ -59,7 +59,8 @@ void RunExampleApp07(const vkw::WindowPtr& window,
     const uint32_t VIEW_MIPLEVEL_BASE = 2;
     const uint32_t VIEW_MIPLEVEL_CNT = 2;
     const uint32_t VIEW_MIPLEVEL = MIPLEVEL - VIEW_MIPLEVEL_BASE;
-    const uint32_t DATA_SIZE = std::pow(BASE_IMG_SIZE >> MIPLEVEL, 2) * 4;
+    const uint32_t DATA_SIZE =
+            static_cast<uint32_t>(std::pow(BASE_IMG_SIZE >> MIPLEVEL, 2)) * 4;
 
     // Create source buffer
     auto buf_src = vkw::CreateBufferPack(physical_device, device, DATA_SIZE,
