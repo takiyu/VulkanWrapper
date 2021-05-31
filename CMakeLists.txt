@@ -33,7 +33,7 @@ if (ANDROID)
     set(VKW_USE_INTERNAL_GLFW OFF)  # No GLFW for Android
 endif()
 if (NOT VKW_THIRD_PARTY_PATH)
-    set(VKW_THIRD_PARTY_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
+    set(VKW_THIRD_PARTY_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 endif()
 
 # External includes/libraries
