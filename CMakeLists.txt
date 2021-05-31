@@ -1,7 +1,11 @@
+message(STATUS "--------------------------------------------------------------")
+message(STATUS "----------------------------- VKW ----------------------------")
+message(STATUS "--------------------------------------------------------------")
 if (ANDROID)
-    cmake_minimum_required(VERSION 3.10)
+    cmake_minimum_required(VERSION 3.10)  # Android NDK's CMake is still old.
 else()
     cmake_minimum_required(VERSION 3.11)
+    include(FetchContent)
 endif()
 
 # ------------------------------------------------------------------------------
@@ -43,7 +47,7 @@ list(APPEND VKW_LIBRARY ${VKW_EXTERNAL_LIBRARY})
 # ------------------------------------------------------------------------------
 # ----------------------------------- Common -----------------------------------
 # ------------------------------------------------------------------------------
-project(vulkan_wrapper CXX C)
+project(vkw CXX C)
 
 set(CMAKE_CXX_STANDARD 14)  # C++ 14
 
@@ -65,7 +69,6 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizers)
 find_package(Sanitizers) # Address sanitizer (-DSANITIZE_ADDRESS=ON)
 # FetchContent
-include(FetchContent)
 set(FETCHCONTENT_QUIET TRUE)
 set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 
@@ -101,26 +104,34 @@ else()
     message("CMAKE_CXX_COMPILER_ID is ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
-# Utility function to setup a target (include, link, warning, sanitizer)
+# Utility function to setup a target
 function(setup_target target includes libs is_own)
+    # (include, link)
     target_include_directories(${target} PUBLIC ${includes})
     target_link_libraries(${target} ${libs})
     if (${is_own})
+        # (warning, sanitizer)
         set_target_properties(${target}
                               PROPERTIES COMPILE_FLAGS ${warning_options})
         add_sanitizers(${target})
     endif()
 endfunction(setup_target)
 
-# Utility function to setup third_party (fetch, subdirectory)
-function(setup_third_party url is_subdirectory)
-    get_filename_component(target ${url} NAME)
-    FetchContent_Declare(${target} GIT_REPOSITORY ${url}
-                                   SOURCE_DIR ${VKW_THIRD_PARTY_PATH}/${target})
-    if (${is_subdirectory})
-        FetchContent_MakeAvailable(${target})  # Fetch & subdirectory
+# Utility function to setup third_party
+function(setup_third_party url tag is_subdir)
+    if (ANDROID)
+         # Skip on Android
+    endif()
+    get_filename_component(target ${url} NAME)  # Generate name from URL
+    message(">> FetchContent: [${target}](${tag})")
+    FetchContent_Declare(${target}
+                         GIT_REPOSITORY ${url}
+                         SOURCE_DIR ${VKW_THIRD_PARTY_PATH}/${target}
+                         GIT_TAG ${tag})  # (define)
+    if (${is_subdir})
+        FetchContent_MakeAvailable(${target})  # (fetch, subdirectory)
     else()
-        FetchContent_Populate(${target})  # Fetch
+        FetchContent_Populate(${target})  # (fetch)
     endif()
 endfunction(setup_third_party)
 
@@ -132,14 +143,16 @@ list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH})
 if (VKW_LINK_DYNAMIC_VK)
     # Vulkan (Dynamic)
     message(STATUS "Build VKW as dynacmic-vk mode")
+    setup_third_party("https://github.com/KhronosGroup/Vulkan-Headers"
+                      "7fe877c90abf00bc71b3c68f49db4c9bb1010411" FALSE)
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
 
     if (VKW_USE_VULKAN_LOADER)
         # Vulkan-Loader
-        message(STATUS "With Vulkan-Loader")
-        setup_third_party("https://github.com/KhronosGroup/Vulkan-Loader" TRUE)
+        setup_third_party("https://github.com/KhronosGroup/Vulkan-Loader"
+                          "b83102e3d5b8929c09989e0b879fe6ac5077e013" TRUE)
         set(VulkanHeaders_INCLUDE_DIR
                 ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include
                 CACHE INTERNAL "" FORCE)
@@ -160,14 +173,16 @@ endif()
 # SPIRV-Headers
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "")
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE BOOL "")
-setup_third_party("https://github.com/KhronosGroup/SPIRV-Headers" TRUE)
+setup_third_party("https://github.com/KhronosGroup/SPIRV-Headers"
+                  "2e1bc6dcd4ff49ed996dc0174d1aec37c2e9ab59" TRUE)
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/SPIRV-Headers/include)
 
 # SPIRV-Tools
 set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE BOOL "")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "")
 # set(SPIRV_CHECK_CONTEXT ON CACHE BOOL "")
-setup_third_party("https://github.com/KhronosGroup/SPIRV-Tools" TRUE)
+setup_third_party("https://github.com/KhronosGroup/SPIRV-Tools"
+                  "ec1bc3e2e5678f2c72c0d3b196780a17df637d60" TRUE)
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/SPIRV-Tools/include)
 list(APPEND VKW_LIBRARY SPIRV-Tools-opt)  # For "ENABLE_OPT=1" in GLSLang
 
@@ -176,7 +191,8 @@ set(ENABLE_GLSLANG_BINARIES ON CACHE BOOL "")
 set(ENABLE_SPVREMAPPER OFF CACHE BOOL "")
 set(ENABLE_HLSL OFF CACHE BOOL "")
 set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "")
-setup_third_party("https://github.com/KhronosGroup/glslang.git" TRUE)
+setup_third_party("https://github.com/KhronosGroup/glslang.git"
+                  "6bdcb4be344d7903bd92fd464e496c3199b91484" TRUE)
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/glslang)
 list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
                         OGLCompiler)
@@ -193,30 +209,35 @@ endif()
 # GLFW
 if (VKW_USE_INTERNAL_GLFW)
     message(STATUS "With VKW Internal GLFW")
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
     set(GLFW_INSTALL OFF CACHE BOOL "")
-    setup_third_party("https://github.com/glfw/glfw" TRUE)
+    setup_third_party("https://github.com/glfw/glfw"
+                      "114776a24605418e6d719d2f30141e351e93c6e0" TRUE)
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/glfw/include)
     list(APPEND VKW_LIBRARY glfw)
 endif()
 
 if (VKW_BUILD_EXAMPLES)
+    message(STATUS "With VKW Examples")
+
     # GLM
-    setup_third_party("https://github.com/g-truc/glm" FALSE)
+    setup_third_party("https://github.com/g-truc/glm"
+                      "66062497b104ca7c297321bd0e970869b1e6ece5" FALSE)
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/glm)
 
     # TinyObjLoader
-    setup_third_party("https://github.com/syoyo/tinyobjloader" FALSE)
+    setup_third_party("https://github.com/syoyo/tinyobjloader"
+                      "0ed6c38f20c63b996fbb9fa949569b2acb213a3d" FALSE)
     add_library(tinyobjloader
         ${VKW_THIRD_PARTY_PATH}/tinyobjloader/tiny_obj_loader.cc
     )
     list(APPEND VKW_LIBRARY tinyobjloader)
 
     # STB
-    setup_third_party("https://github.com/nothings/stb" FALSE)
+    setup_third_party("https://github.com/nothings/stb"
+                      "c9064e317699d2e495f36ba4f9ac037e88ee371a" FALSE)
     add_library(stb
         ${CMAKE_CURRENT_SOURCE_DIR}/example/utils/stb_impl.cpp
     )
