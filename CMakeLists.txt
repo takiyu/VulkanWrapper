@@ -57,7 +57,7 @@ if (VKW_LINK_DYNAMIC_VK)
     # Vulkan (Dynamic)
     message(STATUS "Build VKW as dynacmic-vk mode")
     setup_third_party("https://github.com/KhronosGroup/Vulkan-Headers"
-                      "7fe877c90abf00bc71b3c68f49db4c9bb1010411" FALSE
+                      "7fe877c90abf00bc71b3c68f49db4c9bb1010411" TRUE
                       ${VKW_THIRD_PARTY_PATH})
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
@@ -68,12 +68,6 @@ if (VKW_LINK_DYNAMIC_VK)
         setup_third_party("https://github.com/KhronosGroup/Vulkan-Loader"
                           "b83102e3d5b8929c09989e0b879fe6ac5077e013" TRUE
                           ${VKW_THIRD_PARTY_PATH})
-        set(VulkanHeaders_INCLUDE_DIRS
-                ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include
-                CACHE INTERNAL "" FORCE)
-        set(VulkanRegistry_DIR
-                ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/registry
-                CACHE INTERNAL "" FORCE)
     endif()
 else()
     # Vulkan (Static)
