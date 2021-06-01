@@ -68,7 +68,7 @@ if (VKW_LINK_DYNAMIC_VK)
         setup_third_party("https://github.com/KhronosGroup/Vulkan-Loader"
                           "b83102e3d5b8929c09989e0b879fe6ac5077e013" TRUE
                           ${VKW_THIRD_PARTY_PATH})
-        set(VulkanHeaders_INCLUDE_DIR
+        set(VulkanHeaders_INCLUDE_DIRS
                 ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include
                 CACHE INTERNAL "" FORCE)
         set(VulkanRegistry_DIR
