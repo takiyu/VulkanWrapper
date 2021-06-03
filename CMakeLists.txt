@@ -96,6 +96,8 @@ setup_third_party("https://github.com/KhronosGroup/SPIRV-Tools"
                   ${VKW_THIRD_PARTY_PATH})
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/SPIRV-Tools/include)
 list(APPEND VKW_LIBRARY SPIRV-Tools-opt)  # For "ENABLE_OPT=1" in GLSLang
+# Overwrite for FetchContent variable
+set(spirv-tools_SOURCE_DIR ${VKW_THIRD_PARTY_PATH}/SPIRV-Tools)
 
 # GLSLang
 set(ENABLE_GLSLANG_BINARIES ON CACHE BOOL "")
