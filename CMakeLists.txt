@@ -25,7 +25,7 @@ set(VKW_EXTERNAL_LIBRARY "" CACHE STRING "External libraries.")
 set(VKW_THIRD_PARTY_PATH "" CACHE STRING "Third party directory path.")
 
 # Handle flag dependency
-if (NOT VKW_LINK_DYNAMIC_VK OR MSVC OR MINGW OR ANDROID)
+if (NOT VKW_LINK_DYNAMIC_VK OR WIN32 OR ANDROID)
     set(VKW_USE_VULKAN_LOADER OFF)  # No vulkan-loader for static Vulkan
 endif()
 if (ANDROID)
