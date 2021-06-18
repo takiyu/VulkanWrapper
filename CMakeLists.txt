@@ -19,6 +19,7 @@ endif()
 set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
 set(VKW_LINK_DYNAMIC_VK ON CACHE BOOL "Dynamic link for vulkan.")
 set(VKW_USE_VULKAN_LOADER ON CACHE BOOL "Use Vulkan-Loader when dynamic link.")
+set(VKW_USE_VULKAN_VALIDATION ON CACHE BOOL "Use Vulkan-ValidationLayers.")
 set(VKW_USE_INTERNAL_GLFW ON CACHE BOOL "Use Internal GLFW.")
 set(VKW_EXTERNAL_INCLUDE "" CACHE STRING "External include paths.")
 set(VKW_EXTERNAL_LIBRARY "" CACHE STRING "External libraries.")
@@ -57,8 +58,7 @@ if (VKW_LINK_DYNAMIC_VK)
     # Vulkan (Dynamic)
     message(STATUS "Build VKW as dynacmic-vk mode")
     setup_third_party("https://github.com/KhronosGroup/Vulkan-Headers"
-                      "7fe877c90abf00bc71b3c68f49db4c9bb1010411" TRUE
-                      ${VKW_THIRD_PARTY_PATH})
+                      "v1.2.181" TRUE ${VKW_THIRD_PARTY_PATH})
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
@@ -113,11 +113,18 @@ list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
 list(APPEND VKW_DEFINE -DENABLE_OPT=1)  # Defined internally
 
 # Validation Layer
-if (ANDROID)
-    # Copy library files. Link is not needed because VulkanHpp loads dynamically
-    set(VALILAYER_MID_PATH sources/third_party/vulkan/src/build-android/jniLibs)
-    file(COPY ${ANDROID_NDK}/${VALILAYER_MID_PATH}/${ANDROID_ABI}
-         DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/)
+if (VKW_USE_VULKAN_VALIDATION)
+    if (ANDROID)
+        # Copy library files. Link is not needed because VulkanHpp loads dynamically
+        set(VALILAYER_MID_PATH sources/third_party/vulkan/src/build-android/jniLibs)
+        file(COPY ${ANDROID_NDK}/${VALILAYER_MID_PATH}/${ANDROID_ABI}
+             DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/)
+    else()
+        # Build Validation Layer
+        set(USE_ROBIN_HOOD_HASHING OFF CACHE BOOL "")
+        setup_third_party("https://github.com/KhronosGroup/Vulkan-ValidationLayers"
+                          "v1.2.181" TRUE ${VKW_THIRD_PARTY_PATH})
+    endif()
 endif()
 
 # GLFW
