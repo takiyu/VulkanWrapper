@@ -58,8 +58,7 @@ if (VKW_LINK_DYNAMIC_VK)
     # Vulkan (Dynamic)
     message(STATUS "Build VKW as dynacmic-vk mode")
     setup_third_party("https://github.com/KhronosGroup/Vulkan-Headers"
-                      "7fe877c90abf00bc71b3c68f49db4c9bb1010411" TRUE
-                      ${VKW_THIRD_PARTY_PATH})
+                      "v1.2.181" TRUE ${VKW_THIRD_PARTY_PATH})
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
@@ -124,7 +123,7 @@ if (VKW_USE_VULKAN_VALIDATION)
         # Build Validation Layer
         set(USE_ROBIN_HOOD_HASHING OFF CACHE BOOL "")
         setup_third_party("https://github.com/KhronosGroup/Vulkan-ValidationLayers"
-                          "v1.2.179" TRUE ${VKW_THIRD_PARTY_PATH})
+                          "v1.2.181" TRUE ${VKW_THIRD_PARTY_PATH})
     endif()
 endif()
 
