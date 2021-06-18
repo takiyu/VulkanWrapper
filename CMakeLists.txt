@@ -19,6 +19,7 @@ endif()
 set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
 set(VKW_LINK_DYNAMIC_VK ON CACHE BOOL "Dynamic link for vulkan.")
 set(VKW_USE_VULKAN_LOADER ON CACHE BOOL "Use Vulkan-Loader when dynamic link.")
+set(VKW_USE_VULKAN_VALIDATION ON CACHE BOOL "Use Vulkan-ValidationLayers.")
 set(VKW_USE_INTERNAL_GLFW ON CACHE BOOL "Use Internal GLFW.")
 set(VKW_EXTERNAL_INCLUDE "" CACHE STRING "External include paths.")
 set(VKW_EXTERNAL_LIBRARY "" CACHE STRING "External libraries.")
@@ -113,11 +114,18 @@ list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
 list(APPEND VKW_DEFINE -DENABLE_OPT=1)  # Defined internally
 
 # Validation Layer
-if (ANDROID)
-    # Copy library files. Link is not needed because VulkanHpp loads dynamically
-    set(VALILAYER_MID_PATH sources/third_party/vulkan/src/build-android/jniLibs)
-    file(COPY ${ANDROID_NDK}/${VALILAYER_MID_PATH}/${ANDROID_ABI}
-         DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/)
+if (VKW_USE_VULKAN_VALIDATION)
+    if (ANDROID)
+        # Copy library files. Link is not needed because VulkanHpp loads dynamically
+        set(VALILAYER_MID_PATH sources/third_party/vulkan/src/build-android/jniLibs)
+        file(COPY ${ANDROID_NDK}/${VALILAYER_MID_PATH}/${ANDROID_ABI}
+             DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/)
+    else()
+        # Build Validation Layer
+        set(USE_ROBIN_HOOD_HASHING OFF CACHE BOOL "")
+        setup_third_party("https://github.com/KhronosGroup/Vulkan-ValidationLayers"
+                          "v1.2.179" TRUE ${VKW_THIRD_PARTY_PATH})
+    endif()
 endif()
 
 # GLFW
