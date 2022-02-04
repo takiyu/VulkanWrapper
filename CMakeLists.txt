@@ -19,7 +19,7 @@ endif()
 set(VKW_BUILD_EXAMPLES ON CACHE BOOL "Build examples")
 set(VKW_LINK_DYNAMIC_VK ON CACHE BOOL "Dynamic link for vulkan.")
 set(VKW_USE_VULKAN_LOADER ON CACHE BOOL "Use Vulkan-Loader when dynamic link.")
-set(VKW_USE_VULKAN_VALIDATION ON CACHE BOOL "Use Vulkan-ValidationLayers.")
+set(VKW_USE_VULKAN_VALIDATION OFF CACHE BOOL "Use Vulkan-ValidationLayers.")
 set(VKW_USE_INTERNAL_GLFW ON CACHE BOOL "Use Internal GLFW.")
 set(VKW_EXTERNAL_INCLUDE "" CACHE STRING "External include paths.")
 set(VKW_EXTERNAL_LIBRARY "" CACHE STRING "External libraries.")
@@ -213,7 +213,7 @@ if (VKW_BUILD_EXAMPLES)
 
     if (ANDROID)
         # ----------------------------------------------------------------------
-        # --------------------------------- PC ---------------------------------
+        # ------------------------------ Android -------------------------------
         # ----------------------------------------------------------------------
         find_library(log-lib log)
         find_library(android-lib android)
@@ -226,7 +226,7 @@ if (VKW_BUILD_EXAMPLES)
         setup_target(native-lib "${VKW_INCLUDE}" "${VKW_LIBRARY}" TRUE)
     else()
         # ----------------------------------------------------------------------
-        # ------------------------------ Android -------------------------------
+        # --------------------------------- PC ---------------------------------
         # ----------------------------------------------------------------------
         # PC example
         add_executable(main
