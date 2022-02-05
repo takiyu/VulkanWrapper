@@ -54,11 +54,23 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/common_setups.cmake)
 # ------------------------------------------------------------------------------
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH})
 
+# Version Tags
+set(VK_HEADER_TAG "v1.3.204")
+set(VK_LOADER_TAG "v1.3.204")
+set(SPIRV_HEADER_TAG "version-1.6")
+set(SPIRV_TOOLS_TAG "v2022.1")
+set(GLSLANG_TAG "11.8.0")
+set(VK_VALIDATION_TAG "v1.3.204")
+set(GLFW_TAG "3.3.6")
+set(GLM_TAG "66062497b104ca7c297321bd0e970869b1e6ece5")
+set(TINYOBJ_TAG "0ed6c38f20c63b996fbb9fa949569b2acb213a3d")
+set(STB_TAG "c9064e317699d2e495f36ba4f9ac037e88ee371a")
+
 if (VKW_LINK_DYNAMIC_VK)
     # Vulkan (Dynamic)
     message(STATUS "Build VKW as dynacmic-vk mode")
     setup_third_party("https://github.com/KhronosGroup/Vulkan-Headers"
-                      "v1.2.181" TRUE ${VKW_THIRD_PARTY_PATH})
+                      ${VK_HEADER_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
@@ -66,8 +78,7 @@ if (VKW_LINK_DYNAMIC_VK)
     if (VKW_USE_VULKAN_LOADER)
         # Vulkan-Loader
         setup_third_party("https://github.com/KhronosGroup/Vulkan-Loader"
-                          "b83102e3d5b8929c09989e0b879fe6ac5077e013" TRUE
-                          ${VKW_THIRD_PARTY_PATH})
+                          ${VK_LOADER_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
     endif()
 else()
     # Vulkan (Static)
@@ -83,8 +94,7 @@ endif()
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "")
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE BOOL "")
 setup_third_party("https://github.com/KhronosGroup/SPIRV-Headers"
-                  "2e1bc6dcd4ff49ed996dc0174d1aec37c2e9ab59" TRUE
-                  ${VKW_THIRD_PARTY_PATH})
+                  ${SPIRV_HEADER_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/SPIRV-Headers/include)
 
 # SPIRV-Tools
@@ -92,8 +102,7 @@ set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE BOOL "")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "")
 # set(SPIRV_CHECK_CONTEXT ON CACHE BOOL "")
 setup_third_party("https://github.com/KhronosGroup/SPIRV-Tools"
-                  "ec1bc3e2e5678f2c72c0d3b196780a17df637d60" TRUE
-                  ${VKW_THIRD_PARTY_PATH})
+                  ${SPIRV_TOOLS_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/SPIRV-Tools/include)
 list(APPEND VKW_LIBRARY SPIRV-Tools-opt)  # For "ENABLE_OPT=1" in GLSLang
 # Overwrite for FetchContent variable
@@ -105,8 +114,7 @@ set(ENABLE_SPVREMAPPER OFF CACHE BOOL "")
 set(ENABLE_HLSL OFF CACHE BOOL "")
 set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "")
 setup_third_party("https://github.com/KhronosGroup/glslang.git"
-                  "6bdcb4be344d7903bd92fd464e496c3199b91484" TRUE
-                  ${VKW_THIRD_PARTY_PATH})
+                  ${GLSLANG_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/glslang)
 list(APPEND VKW_LIBRARY glslang SPIRV glslang-default-resource-limits
                         OGLCompiler)
@@ -123,7 +131,7 @@ if (VKW_USE_VULKAN_VALIDATION)
         # Build Validation Layer
         set(USE_ROBIN_HOOD_HASHING OFF CACHE BOOL "")
         setup_third_party("https://github.com/KhronosGroup/Vulkan-ValidationLayers"
-                          "v1.2.181" TRUE ${VKW_THIRD_PARTY_PATH})
+                          ${VK_VALIDATION_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
     endif()
 endif()
 
@@ -135,8 +143,7 @@ if (VKW_USE_INTERNAL_GLFW)
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
     set(GLFW_INSTALL OFF CACHE BOOL "")
     setup_third_party("https://github.com/glfw/glfw"
-                      "114776a24605418e6d719d2f30141e351e93c6e0" TRUE
-                      ${VKW_THIRD_PARTY_PATH})
+                      ${GLFW_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/glfw/include)
     list(APPEND VKW_LIBRARY glfw)
 endif()
@@ -146,14 +153,12 @@ if (VKW_BUILD_EXAMPLES)
 
     # GLM
     setup_third_party("https://github.com/g-truc/glm"
-                      "66062497b104ca7c297321bd0e970869b1e6ece5" FALSE
-                      ${VKW_THIRD_PARTY_PATH})
+                      ${GLM_TAG} FALSE ${VKW_THIRD_PARTY_PATH})
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/glm)
 
     # TinyObjLoader
     setup_third_party("https://github.com/syoyo/tinyobjloader"
-                      "0ed6c38f20c63b996fbb9fa949569b2acb213a3d" FALSE
-                      ${VKW_THIRD_PARTY_PATH})
+                      ${TINYOBJ_TAG} FALSE ${VKW_THIRD_PARTY_PATH})
     add_library(tinyobjloader
         ${VKW_THIRD_PARTY_PATH}/tinyobjloader/tiny_obj_loader.cc
     )
@@ -161,8 +166,7 @@ if (VKW_BUILD_EXAMPLES)
 
     # STB
     setup_third_party("https://github.com/nothings/stb"
-                      "c9064e317699d2e495f36ba4f9ac037e88ee371a" FALSE
-                      ${VKW_THIRD_PARTY_PATH})
+                      ${STB_TAG} FALSE ${VKW_THIRD_PARTY_PATH})
     add_library(stb
         ${CMAKE_CURRENT_SOURCE_DIR}/example/utils/stb_impl.cpp
     )

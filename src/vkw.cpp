@@ -468,7 +468,7 @@ auto SelectSwapchainProps(const vk::PhysicalDevice &physical_device,
             physical_device.getSurfaceCapabilitiesKHR(surface.get());
 
     // Get the surface extent size
-    VkExtent2D swapchain_extent = surface_capas.currentExtent;
+    vk::Extent2D swapchain_extent = surface_capas.currentExtent;
     if (swapchain_extent.width == std::numeric_limits<uint32_t>::max()) {
         // If the surface size is undefined, setting screen size is requested.
         const uint32_t WIN_W = 256;
