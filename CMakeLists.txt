@@ -55,11 +55,11 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/common_setups.cmake)
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH})
 
 # Version Tags
-set(VK_HEADER_TAG "v1.3.204")
+set(VK_HEADERS_TAG "v1.3.204")
 set(VK_LOADER_TAG "v1.3.204")
-set(SPIRV_HEADER_TAG "version-1.6")
-set(SPIRV_TOOLS_TAG "v2022.1")
-set(GLSLANG_TAG "11.8.0")
+set(SPIRV_HEADERS_TAG "sdk-1.3.204")
+set(SPIRV_TOOLS_TAG "sdk-1.3.204")
+set(GLSLANG_TAG "sdk-1.3.204")
 set(VK_VALIDATION_TAG "v1.3.204")
 set(GLFW_TAG "3.3.6")
 set(GLM_TAG "66062497b104ca7c297321bd0e970869b1e6ece5")
@@ -70,7 +70,7 @@ if (VKW_LINK_DYNAMIC_VK)
     # Vulkan (Dynamic)
     message(STATUS "Build VKW as dynacmic-vk mode")
     setup_third_party("https://github.com/KhronosGroup/Vulkan-Headers"
-                      ${VK_HEADER_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
+                      ${VK_HEADERS_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
     list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/Vulkan-Headers/include)
     list(APPEND VKW_DEFINE -DVULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=1  # dlopen
                            -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)  # dispatch
@@ -94,7 +94,7 @@ endif()
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "")
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE BOOL "")
 setup_third_party("https://github.com/KhronosGroup/SPIRV-Headers"
-                  ${SPIRV_HEADER_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
+                  ${SPIRV_HEADERS_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
 list(APPEND VKW_INCLUDE ${VKW_THIRD_PARTY_PATH}/SPIRV-Headers/include)
 
 # SPIRV-Tools
@@ -130,6 +130,8 @@ if (VKW_USE_VULKAN_VALIDATION)
     else()
         # Build Validation Layer
         set(USE_ROBIN_HOOD_HASHING OFF CACHE BOOL "")
+        set(SPIRV_HEADERS_INCLUDE_DIR
+            "${VKW_THIRD_PARTY_PATH}/SPIRV-Headers/include" CACHE STRING "")
         setup_third_party("https://github.com/KhronosGroup/Vulkan-ValidationLayers"
                           ${VK_VALIDATION_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
     endif()
