@@ -30,11 +30,11 @@ Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(
     std::thread thread([&]() {
         // Run application
         try {
-            // RunExampleApp01(window, draw_hook);
+            RunExampleApp01(window, draw_hook);
             // RunExampleApp02(window, draw_hook);
             // RunExampleApp03(window, draw_hook);
             // RunExampleApp04(window, draw_hook);
-            RunExampleApp05(window, draw_hook);
+            // RunExampleApp05(window, draw_hook);
             // RunExampleApp06(window, draw_hook);
         } catch(const std::exception& e) {
             vkw::PrintInfo(e.what());

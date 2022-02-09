@@ -25,11 +25,17 @@ set(VKW_EXTERNAL_INCLUDE "" CACHE STRING "External include paths.")
 set(VKW_EXTERNAL_LIBRARY "" CACHE STRING "External libraries.")
 set(VKW_THIRD_PARTY_PATH "" CACHE STRING "Third party directory path.")
 
+# Detect Android
+if (ANDROID OR ANDROID_ABI OR ANDROID_TOOLCHAIN)
+    message(STATUS "Build for Android")
+    set(VKW_ANDROID TRUE)
+endif()
+
 # Handle flag dependency
-if (NOT VKW_LINK_DYNAMIC_VK OR WIN32 OR ANDROID)
+if (NOT VKW_LINK_DYNAMIC_VK OR WIN32 OR VKW_ANDROID)
     set(VKW_USE_VULKAN_LOADER OFF)  # No vulkan-loader for static Vulkan
 endif()
-if (ANDROID)
+if (VKW_ANDROID)
     set(VKW_USE_INTERNAL_GLFW OFF)  # No GLFW for Android
 endif()
 if (NOT VKW_THIRD_PARTY_PATH)
@@ -122,7 +128,7 @@ list(APPEND VKW_DEFINE -DENABLE_OPT=1)  # Defined internally
 
 # Validation Layer
 if (VKW_USE_VULKAN_VALIDATION)
-    if (ANDROID)
+    if (VKW_ANDROID)
         # Copy library files. Link is not needed because VulkanHpp loads dynamically
         set(VALILAYER_MID_PATH sources/third_party/vulkan/src/build-android/jniLibs)
         file(COPY ${ANDROID_NDK}/${VALILAYER_MID_PATH}/${ANDROID_ABI}
@@ -217,7 +223,7 @@ if (VKW_BUILD_EXAMPLES)
         ${CMAKE_CURRENT_SOURCE_DIR}/example/12_comp_shader_atomic_float/app.cpp
     )
 
-    if (ANDROID)
+    if (VKW_ANDROID)
         # ----------------------------------------------------------------------
         # ------------------------------ Android -------------------------------
         # ----------------------------------------------------------------------

@@ -2,7 +2,6 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 29
-    buildToolsVersion "29.0.2"
     defaultConfig {
         applicationId "com.imailab.vulkanwrapperexample"
         minSdkVersion 24
@@ -14,6 +13,9 @@ android {
             cmake {
                 cppFlags "-std=c++14"
             }
+        }
+        ndk {
+            abiFilters 'arm64-v8a'
         }
     }
     buildTypes {
