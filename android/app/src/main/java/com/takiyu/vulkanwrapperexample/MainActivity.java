@@ -1,4 +1,4 @@
-package com.imailab.vulkanwrapperexample;
+package com.takiyu.vulkanwrapperexample;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 

@@ -11,7 +11,7 @@
 vkw::WindowPtr window;
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_imailab_vulkanwrapperexample_MainActivity_nativeSetSurface(
+Java_com_takiyu_vulkanwrapperexample_MainActivity_nativeSetSurface(
         JNIEnv* jenv, jclass jclazz, jobject jsurface) {
 
     if (jsurface == 0) {

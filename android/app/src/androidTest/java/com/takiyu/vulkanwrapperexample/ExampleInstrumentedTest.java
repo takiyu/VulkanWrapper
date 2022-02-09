@@ -1,4 +1,4 @@
-package com.imailab.vulkanwrapperexample;
+package com.takiyu.vulkanwrapperexample;
 
 import android.content.Context;
 
