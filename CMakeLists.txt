@@ -128,19 +128,17 @@ list(APPEND VKW_DEFINE -DENABLE_OPT=1)  # Defined internally
 
 # Validation Layer
 if (VKW_USE_VULKAN_VALIDATION)
+    # Build Validation Layer
+    set(USE_ROBIN_HOOD_HASHING OFF CACHE BOOL "")
     if (VKW_ANDROID)
-        # Copy library files. Link is not needed because VulkanHpp loads dynamically
-        set(VALILAYER_MID_PATH sources/third_party/vulkan/src/build-android/jniLibs)
-        file(COPY ${ANDROID_NDK}/${VALILAYER_MID_PATH}/${ANDROID_ABI}
-             DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/)
-    else()
-        # Build Validation Layer
-        set(USE_ROBIN_HOOD_HASHING OFF CACHE BOOL "")
-        set(SPIRV_HEADERS_INCLUDE_DIR
-            "${VKW_THIRD_PARTY_PATH}/SPIRV-Headers/include" CACHE STRING "")
-        setup_third_party("https://github.com/KhronosGroup/Vulkan-ValidationLayers"
-                          ${VK_VALIDATION_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
+        set(BUILD_WSI_XCB_SUPPORT OFF CACHE BOOL "")
+        set(BUILD_WSI_XLIB_SUPPORT OFF CACHE BOOL "")
+        set(BUILD_WSI_WAYLAND_SUPPORT OFF CACHE BOOL "")
     endif()
+    set(SPIRV_HEADERS_INCLUDE_DIR
+        "${VKW_THIRD_PARTY_PATH}/SPIRV-Headers/include" CACHE STRING "")
+    setup_third_party("https://github.com/KhronosGroup/Vulkan-ValidationLayers"
+                      ${VK_VALIDATION_TAG} TRUE ${VKW_THIRD_PARTY_PATH})
 endif()
 
 # GLFW

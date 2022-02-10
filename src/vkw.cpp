@@ -201,15 +201,7 @@ std::vector<char const *> GetEnabledLayers(
     std::vector<char const *> layer_names = layer_names_org;
 
     if (debug_enable) {
-#if defined(__ANDROID__)
-        layer_names.push_back("VK_LAYER_LUNARG_parameter_validation");
-        layer_names.push_back("VK_LAYER_GOOGLE_unique_objects");
-        layer_names.push_back("VK_LAYER_GOOGLE_threading");
-        layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
-        layer_names.push_back("VK_LAYER_LUNARG_core_validation");
-#else
         layer_names.push_back("VK_LAYER_KHRONOS_validation");
-#endif
     }
 
     // Check layer name validities
