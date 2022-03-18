@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# --------------------------- CMake Common Settings ----------------------------
+# ------------------------ CMake Scalable Configurator -------------------------
 # ------------------------------------------------------------------------------
 # Copyright (c) 2021 takiyu
 #  This software is released under the MIT License.
@@ -16,9 +16,10 @@
 #   - 2021/06/09 Explicit git checkout
 #   - 2021/07/05 Restore FETCHCONTENT_... vairbales
 #   - 2021/09/16 Fix for android
+#   - 2022/03/18 Change project name
 #
-message(STATUS "common_setups.cmake v0.9")
-set(CSC_VERSION_LOCAL 9)
+message(STATUS "CMake Scalable Configurator v1.0")
+set(CSC_VERSION_LOCAL 10)
 
 # Check version
 if (DEFINED CSC_VERSION)
@@ -33,8 +34,8 @@ endif()
 
 # Update this script
 # file(DOWNLOAD
-#      "https://raw.githubusercontent.com/takiyu/common_setups.cmake/master/common_setups.cmake"
-#      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/common_setups.cmake SHOW_PROGRESS)
+#      "https://raw.githubusercontent.com/takiyu/cmake_scalable_configurator/master/cmake_scalable_conf.cmake"
+#      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_scalable_conf.cmake SHOW_PROGRESS)
 
 # Print make commands for debug
 # set(CMAKE_VERBOSE_MAKEFILE 1)
@@ -94,11 +95,11 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 # Utility function to setup a target
-function(setup_target target includes libs is_own)
+function(csc_setup_target target includes libs use_warning)
     # Include and Link
     target_include_directories(${target} PUBLIC ${includes})
     target_link_libraries(${target} ${libs})
-    if (${is_own})
+    if (${use_warning})
         # Warning and sanitizer
         set_target_properties(${target}
                               PROPERTIES COMPILE_FLAGS ${warning_options})
@@ -107,10 +108,10 @@ function(setup_target target includes libs is_own)
 endfunction()
 
 # Utility function to setup third_party (macro for no scope)
-macro(setup_third_party url tag is_subdir third_party_dir)
+macro(csc_clone_third_party url tag use_add_subdir third_party_dir)
     get_filename_component(target ${url} NAME_WE)  # Generate name from URL
-    string(TOLOWER ${target} target_lc)             # Lower name
-    message(">> FetchContent: [${target}](${tag})")
+    string(TOLOWER ${target} target_lc)            # Lower name
+    message(">> CSC FetchContent: [${target}](${tag})")
 
     # Version check
     if ("3.11" VERSION_LESS ${CMAKE_VERSION})
@@ -155,7 +156,7 @@ macro(setup_third_party url tag is_subdir third_party_dir)
             FetchContent_Populate(${target})
         endif()
         # Subdirectory
-        if (${is_subdir})
+        if (${use_add_subdir})
             # Note: The following two subdirectories are exactly same.
             # add_subdirectory(${${target_lc}_SOURCE_DIR}
             #                  ${${target_lc}_BINARY_DIR})
