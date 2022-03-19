@@ -17,25 +17,38 @@
 #   - 2021/07/05 Restore FETCHCONTENT_... vairbales
 #   - 2021/09/16 Fix for android
 #   - 2022/03/18 Change project name
+#   - 2022/03/19 Add auto version update
 #
-message(STATUS "CMake Scalable Configurator v1.0")
-set(CSC_VERSION_LOCAL 10)
+message(STATUS "CSC (CMake Scalable Configurator) v1.2")
+set(CSC_VERSION_LOCAL 12)
+
+# Utility function to update this CSC script
+function(csc_download_latest)
+    file(DOWNLOAD
+        "https://raw.githubusercontent.com/takiyu/cmake_scalable_configurator/master/cmake_scalable_conf.cmake"
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_scalable_conf.cmake
+        SHOW_PROGRESS)
+    message(FATAL_ERROR "CSC script is updated. Please run CMake again.")
+endfunction()
 
 # Check version
 if (DEFINED CSC_VERSION)
     # Check version
     if (NOT ${CSC_VERSION} EQUAL ${CSC_VERSION_LOCAL})
-        message(FATAL_ERROR "CSC_VERSION mismatch")
+        message(WARNING "CSC version mismatch")
+        if (${CSC_VERSION_LOCAL} LESS ${CSC_VERSION})
+            # Overwrite this script by the latest
+            message(STATUS "Update CSC script")
+            csc_download_latest()
+        else()
+            # Previous repositry have old CSC. Nothing to do here.
+            message(FATAL_ERROR "Remove cmake cache or update CSC.")
+        endif()
     endif()
 else()
     # Set version globally
     set(CSC_VERSION ${CSC_VERSION_LOCAL} CACHE INTERNAL "CSC_VERSION")
 endif()
-
-# Update this script
-# file(DOWNLOAD
-#      "https://raw.githubusercontent.com/takiyu/cmake_scalable_configurator/master/cmake_scalable_conf.cmake"
-#      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_scalable_conf.cmake SHOW_PROGRESS)
 
 # Print make commands for debug
 # set(CMAKE_VERBOSE_MAKEFILE 1)
