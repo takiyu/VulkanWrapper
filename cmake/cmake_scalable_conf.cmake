@@ -18,9 +18,10 @@
 #   - 2021/09/16 Fix for android
 #   - 2022/03/18 Change project name
 #   - 2022/03/19 Add auto version update
+#   - 2022/03/25 Fix bug of argument name
 #
-message(STATUS "CSC (CMake Scalable Configurator) v1.2")
-set(CSC_VERSION_LOCAL 12)
+message(STATUS "CSC (CMake Scalable Configurator) v1.3")
+set(CSC_VERSION_LOCAL 13)
 
 # Utility function to update this CSC script
 function(csc_download_latest)
@@ -185,7 +186,7 @@ macro(csc_clone_third_party url tag use_add_subdir third_party_dir)
         # No FetchContent
         message(STATUS "No FetchContent support (CMake 3.11 is required)")
         # Subdirectory
-        if (${is_subdir})
+        if (${use_add_subdir})
             add_subdirectory(${third_party_dir}/${target}
                              ${CMAKE_BINARY_DIR}/_deps/${target_lc}-build)
         endif()
